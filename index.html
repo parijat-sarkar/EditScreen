@@ -440,6 +440,18 @@
         <p class="subtitle">Universal base editing and CRISPR screen analysis tool</p>
         
         <div id="uploadSection">
+            <!-- Saved Session Configuration -->
+            <div style="display:flex; gap:10px; margin-bottom:16px; padding:12px 16px; background:#fefce8; border:1px solid #fde68a; border-radius:10px; align-items:center;">
+                <div style="flex:1; font-size:13px; color:#713f12;">
+                    <b>Saved session configuration:</b> import a previously exported <code>.editscreen.json</code> to auto-fill sheets, column mappings, stats, proteins, and controls. You will still upload the Excel file — only settings are saved, not data.
+                </div>
+                <button onclick="document.getElementById('importConfigInput').click()"
+                    style="padding:8px 14px; background:#ca8a04; color:white; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;">
+                    📥 Import Configuration
+                </button>
+                <input id="importConfigInput" type="file" accept=".json,.editscreen.json" style="display:none;" onchange="handleImportConfig(event)">
+            </div>
+            <div id="importBanner" class="hidden" style="margin-bottom:16px; padding:10px 14px; background:#ecfccb; border:1px solid #a3e635; border-radius:8px; font-size:13px; color:#365314;"></div>
             <!-- Screen type selector -->
             <div style="display:flex; gap:10px; margin-bottom:24px; padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;">
                 <button id="btnBEMode" onclick="setScreenType('be')"
@@ -497,8 +509,14 @@
         <div id="errorBox" class="error hidden"></div>
 
         <div id="appSection" class="hidden">
-            <div style="margin-bottom: 20px;">
+            <div style="margin-bottom: 20px; display:flex; gap:10px; align-items:center;">
                 <button class="reset-btn" onclick="resetApp()">↻ Upload New File</button>
+                <button onclick="exportConfig()"
+                    style="padding:10px 20px; background:#16a34a; color:white; border:none; border-radius:6px; font-size:14px; font-weight:600; cursor:pointer;"
+                    title="Download current sheet selection, column mapping, stats, proteins, and control guides as a reusable .editscreen.json file.">
+                    💾 Export Configuration
+                </button>
+                <span style="font-size:12px; color:#666;">Saves settings only — not the Excel data.</span>
             </div>
 
             <div class="controls">
@@ -985,7 +1003,11 @@
         <div style="background:#059669; color:white; padding:20px; border-radius:8px; margin-bottom:24px;">
             <h2 style="color:white; margin-bottom:6px;">EditScreen | Genome-Wide CRISPR Screen</h2>
             <div id="genomeScreenTitle" style="font-size:14px; opacity:0.9;"></div>
-            <button class="btn-secondary" onclick="backToGenomeStart()" style="margin-top:10px; background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.3);">← New Analysis</button>
+            <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+                <button class="btn-secondary" onclick="backToGenomeStart()" style="background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.3);">← New Analysis</button>
+                <button onclick="exportConfig()" style="padding:8px 16px; background:white; color:#065f46; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;" title="Download current sheet selection and column mapping as a reusable .editscreen.json file.">💾 Export Configuration</button>
+                <span style="font-size:12px; opacity:0.85;">Saves settings only — not the Excel data.</span>
+            </div>
         </div>
         <!-- Stats bar -->
         <div class="stats-bar" style="margin-bottom:20px;">
@@ -1082,7 +1104,11 @@
     <div id="genomeComparisonSection" class="hidden" style="max-width:1600px; margin:0 auto; background:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); padding:30px;">
         <div style="background:#7c3aed; color:white; padding:20px; border-radius:8px; margin-bottom:24px;">
             <h2 style="color:white; margin-bottom:6px;">EditScreen | Genome Comparison</h2>
-            <button class="btn-secondary" onclick="backToGenomeStart()" style="margin-top:10px; background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.3);">← New Analysis</button>
+            <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+                <button class="btn-secondary" onclick="backToGenomeStart()" style="background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.3);">← New Analysis</button>
+                <button onclick="exportConfig()" style="padding:8px 16px; background:white; color:#5b21b6; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;" title="Download current sheet selection and column mappings (Screen A + Screen B) as a reusable .editscreen.json file.">💾 Export Configuration</button>
+                <span style="font-size:12px; opacity:0.85;">Saves settings only — not the Excel data.</span>
+            </div>
         </div>
         <!-- Per-screen cutoff panels -->
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
@@ -1201,7 +1227,11 @@
     <div id="comparisonSection" class="hidden" style="max-width:1600px; margin:0 auto; background:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); padding:30px;">
             <div style="background: #2563eb; color: white; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
                 <h2 style="color: white; margin-bottom: 10px;">EditScreen | Multi-Screen Comparison</h2>
-                <button class="btn-secondary" onclick="backToSingleView()" style="margin-top: 10px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">← Back to Single View</button>
+                <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+                    <button class="btn-secondary" onclick="backToSingleView()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">← Back to Single View</button>
+                    <button onclick="exportConfig()" style="padding:8px 16px; background:white; color:#1d4ed8; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;" title="Download current sheet selections and column mappings (Screen A + Screen B) as a reusable .editscreen.json file.">💾 Export Configuration</button>
+                    <span style="font-size:12px; opacity:0.85;">Saves settings only — not the Excel data.</span>
+                </div>
             </div>
 
             <div class="controls">
@@ -1363,6 +1393,256 @@
         let detectedGenes = [];
         let allOriginalRowData = {}; // Store ALL original row data for hover tooltips
 
+        // ========== Session config save / import ==========
+        const EDITSCREEN_CONFIG_VERSION = 1;
+        window._pendingConfig = null;           // set after Import Config, cleared after upload flow consumes it
+        window._importMissingCols = [];         // columns referenced by config but not present in uploaded file
+
+        function exportConfig() {
+            const payload = {
+                editscreen: true,
+                version: EDITSCREEN_CONFIG_VERSION,
+                screenType: screenType,
+                analysisMode: (screenType === 'genome' ? genomeAnalysisMode : analysisMode),
+                timestamp: new Date().toISOString()
+            };
+
+            if (screenType === 'be') {
+                if (analysisMode === 'single') {
+                    payload.single = {
+                        screenName: screenConfigs.A.name || 'Screen A',
+                        selectedSheets: (selectedSheets || []).slice(),
+                        columnMapping: { ...(columnMapping || {}) },
+                        statistics: (statistics || []).map(s => ({ ...s })),
+                        proteins: JSON.parse(JSON.stringify(proteins || {}))
+                    };
+                } else {
+                    payload.comparison = {
+                        A: _snapshotScreen('A'),
+                        B: _snapshotScreen('B')
+                    };
+                }
+            } else if (screenType === 'genome') {
+                if (genomeAnalysisMode === 'single') {
+                    payload.single = {
+                        screenName: 'Genome Screen',
+                        selectedSheets: (selectedSheets || []).slice(),
+                        colMap: { ...(genomeColMap || {}) }
+                    };
+                } else {
+                    payload.comparison = {
+                        A: _snapshotGenomeScreen('A'),
+                        B: _snapshotGenomeScreen('B')
+                    };
+                }
+            } else {
+                showError('Unknown screen type — cannot export.');
+                return;
+            }
+
+            const stamp = new Date().toISOString().slice(0,10);
+            const label = (payload.analysisMode === 'comparison') ? 'compare' : 'single';
+            const typeTag = screenType === 'genome' ? 'genome' : 'be';
+            const fname = `editscreen_${typeTag}_${label}_${stamp}.editscreen.json`;
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = fname;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function _snapshotGenomeScreen(s) {
+            // selectedSheets for genome comparison are stored on screenConfigs[s] (shared with BE flow)
+            const sheets = (screenConfigs[s] && screenConfigs[s].selectedSheets) || [];
+            return {
+                name: (gcConfigs[s] && gcConfigs[s].name) || ('Screen ' + s),
+                selectedSheets: sheets.slice(),
+                colMap: { ...((gcConfigs[s] && gcConfigs[s].colMap) || {}) }
+            };
+        }
+
+        function _snapshotScreen(s) {
+            const sc = screenConfigs[s] || {};
+            return {
+                name: sc.name || ('Screen ' + s),
+                selectedSheets: (sc.selectedSheets || []).slice(),
+                columnMapping: { ...(sc.columnMapping || {}) },
+                statistics: (sc.statistics || []).map(x => ({ ...x })),
+                proteins: JSON.parse(JSON.stringify(sc.proteins || {}))
+            };
+        }
+
+        function handleImportConfig(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const cfg = JSON.parse(e.target.result);
+                    if (!cfg || !cfg.editscreen) {
+                        showError('Not a valid EditScreen configuration file.');
+                        return;
+                    }
+                    if (cfg.screenType !== 'be' && cfg.screenType !== 'genome') {
+                        showError('Unknown screen type in configuration: ' + cfg.screenType);
+                        return;
+                    }
+                    applyImportedConfig(cfg);
+                } catch (err) {
+                    showError('Could not parse configuration: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function applyImportedConfig(cfg) {
+            // Switch screen type if needed
+            if (cfg.screenType && cfg.screenType !== screenType && typeof setScreenType === 'function') {
+                setScreenType(cfg.screenType);
+            }
+            // Switch analysis mode (BE uses `analysisMode`; genome uses `genomeAnalysisMode`, which mirrors the radio)
+            if (cfg.analysisMode) {
+                const radio = document.querySelector('input[name="analysisMode"][value="' + cfg.analysisMode + '"]');
+                if (radio) radio.checked = true;
+                setAnalysisMode(cfg.analysisMode);
+                if (cfg.screenType === 'genome') {
+                    genomeAnalysisMode = cfg.analysisMode;
+                }
+            }
+            // Pre-fill screen names (works for both BE and genome since we read from the same inputs)
+            if (cfg.analysisMode === 'comparison' && cfg.comparison) {
+                const aIn = document.getElementById('screenANameInput');
+                const bIn = document.getElementById('screenBNameInput');
+                if (aIn && cfg.comparison.A && cfg.comparison.A.name) aIn.value = cfg.comparison.A.name;
+                if (bIn && cfg.comparison.B && cfg.comparison.B.name) bIn.value = cfg.comparison.B.name;
+                setAnalysisMode('comparison'); // re-sync labels
+                if (cfg.screenType === 'genome') {
+                    gcConfigs.A.name = cfg.comparison.A && cfg.comparison.A.name || 'Screen A';
+                    gcConfigs.B.name = cfg.comparison.B && cfg.comparison.B.name || 'Screen B';
+                }
+            }
+            window._pendingConfig = cfg;
+            const banner = document.getElementById('importBanner');
+            if (banner) {
+                banner.innerHTML = '✓ Configuration loaded (' + _summarizeConfig(cfg) + '). Now choose your Excel file — saved settings will be applied automatically wherever columns match.';
+                banner.classList.remove('hidden');
+            }
+        }
+
+        function _summarizeConfig(cfg) {
+            const tag = cfg.screenType === 'genome' ? 'Genome' : 'BE';
+            const parts = [tag, cfg.analysisMode || 'single'];
+            if (cfg.analysisMode === 'single' && cfg.single) {
+                parts.push((cfg.single.selectedSheets || []).length + ' sheet(s)');
+                if (cfg.screenType === 'be') {
+                    parts.push((cfg.single.statistics || []).length + ' stat block(s)');
+                    parts.push(Object.keys(cfg.single.proteins || {}).length + ' protein(s)');
+                } else {
+                    const cm = cfg.single.colMap || {};
+                    const mapped = Object.keys(cm).filter(k => cm[k] && typeof cm[k] === 'string').length;
+                    parts.push(mapped + ' column(s) mapped');
+                }
+            } else if (cfg.comparison) {
+                const a = cfg.comparison.A || {};
+                const b = cfg.comparison.B || {};
+                parts.push('A="' + (a.name||'A') + '"/' + (a.selectedSheets||[]).length + 'sh');
+                parts.push('B="' + (b.name||'B') + '"/' + (b.selectedSheets||[]).length + 'sh');
+            }
+            return parts.join(' · ');
+        }
+
+        // Apply a saved genome colMap object to the genome mapping modal dropdowns
+        function _applyGenomeColMapToDropdowns(colMap, presentCols) {
+            if (!colMap) return [];
+            const pairs = [
+                ['gColGene',    'gene'],
+                ['gColGuideID', 'guideID'],
+                ['gColZscore',  'zscore'],
+                ['gColFC',      'fc'],
+                ['gColPvalue',  'pvalue'],
+                ['gColFDR',     'fdr'],
+                ['gColHighInTx','highInTx']
+            ];
+            const presentSet = new Set(presentCols || []);
+            const missing = [];
+            pairs.forEach(function([elId, key]) {
+                const el = document.getElementById(elId);
+                if (!el) return;
+                const saved = colMap[key];
+                if (!saved) return;
+                if (presentSet.has(saved)) {
+                    el.value = saved;
+                } else {
+                    missing.push(saved + ' (' + key + ')');
+                    el.value = '';
+                }
+            });
+            // Non-column values: transforms and log flags
+            const fcTransformEl = document.getElementById('gColFCTransform');
+            if (fcTransformEl && colMap.fcTransform) fcTransformEl.value = colMap.fcTransform;
+            const pvalFmt = document.getElementById('gColPvalueFormat');
+            if (pvalFmt) pvalFmt.value = colMap.pvalueIsLog ? 'log10' : 'raw';
+            const fdrFmt = document.getElementById('gColFDRFormat');
+            if (fdrFmt) fdrFmt.value = colMap.fdrIsLog ? 'log10' : 'raw';
+            return missing;
+        }
+
+        // Inject a yellow "applied from imported config" banner at top of a modal
+        function _showImportAppliedBanner(modalId, missingCols) {
+            const modal = document.getElementById(modalId);
+            if (!modal) return;
+            const existing = modal.querySelector('.import-applied-banner');
+            if (existing) existing.remove();
+            const div = document.createElement('div');
+            div.className = 'import-applied-banner';
+            div.style.cssText = 'margin:-10px 0 16px 0; padding:10px 12px; background:#fefce8; border:1px solid #fde68a; border-radius:8px; font-size:13px; color:#713f12;';
+            let html = '✓ Settings pre-filled from imported config. Review and adjust below.';
+            if (missingCols && missingCols.length) {
+                html += '<br><b style="color:#b45309;">⚠ ' + missingCols.length + ' column(s) in your config were NOT found in this file: </b>' +
+                        '<code>' + missingCols.map(c => c.replace(/</g,'&lt;')).join('</code>, <code>') + '</code>. ' +
+                        'Re-map them or leave blank.';
+            }
+            div.innerHTML = html;
+            const content = modal.querySelector('.modal-content');
+            const firstChild = content ? content.querySelector('h2') : null;
+            if (firstChild && firstChild.nextSibling) {
+                firstChild.parentNode.insertBefore(div, firstChild.nextSibling);
+            } else if (content) {
+                content.insertBefore(div, content.firstChild);
+            }
+        }
+
+        // Check which columns referenced by mapping/statistics are missing from current columns
+        function _findMissingMappedColumns(cm, stats, presentCols) {
+            const set = new Set(presentCols || []);
+            const missing = [];
+            const add = (v) => { if (v && !set.has(v) && !missing.includes(v)) missing.push(v); };
+            if (cm) Object.values(cm).forEach(add);
+            if (stats) stats.forEach(s => { add(s.zscore); add(s.foldchange); add(s.pvalue); add(s.fdr); });
+            return missing;
+        }
+
+        // Apply saved column mapping to dropdowns that follow the colXxx naming convention
+        function _applyMappingToDropdowns(cm, presentCols) {
+            const pairs = [
+                ['colGuideID','guideID'], ['colGuideSeq','guideSeq'], ['colResidue','residue'],
+                ['colPredictedMutations','predictedMutations'], ['colMutationAll','mutationAll'],
+                ['colMutationSingle','mutationSingle'], ['colGeneName','geneName'],
+                ['colHighInTreatment','highInTreatment']
+            ];
+            const presentSet = new Set(presentCols || []);
+            pairs.forEach(([elId, key]) => {
+                const el = document.getElementById(elId);
+                if (!el || !cm) return;
+                const saved = cm[key];
+                if (saved && presentSet.has(saved)) {
+                    el.value = saved;
+                }
+            });
+        }
+
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1395,21 +1675,32 @@
 
             const sheetList = document.getElementById('sheetList');
             sheetList.innerHTML = '';
-            
+
+            const savedSheets = (window._pendingConfig && window._pendingConfig.analysisMode === 'single'
+                && window._pendingConfig.single && window._pendingConfig.single.selectedSheets) || [];
+
             workbook.SheetNames.forEach(name => {
                 const worksheet = workbook.Sheets[name];
                 const data = XLSX.utils.sheet_to_json(worksheet);
                 allSheetData[name] = data;
 
+                const preCheck = savedSheets.indexOf(name) !== -1;
+                if (preCheck) selectedSheets.push(name);
+
                 const item = document.createElement('div');
                 item.className = 'sheet-item';
                 item.innerHTML = `
-                    <input type="checkbox" id="sheet_${name}" onchange="toggleSheet('${name}')">
+                    <input type="checkbox" id="sheet_${name}" ${preCheck ? 'checked' : ''} onchange="toggleSheet('${name}')">
                     <label for="sheet_${name}">${name} (${data.length} rows)</label>
                 `;
                 sheetList.appendChild(item);
             });
-            
+
+            if (savedSheets.length) {
+                const missing = savedSheets.filter(s => workbook.SheetNames.indexOf(s) === -1);
+                _showImportAppliedBanner('sheetModal', missing.length ? missing.map(m => 'sheet: '+m) : null);
+            }
+
             showModal('sheetModal');
         }
 
@@ -1479,9 +1770,9 @@
         }
 
         function populateMappingModal() {
-            [['colGuideID', 'id'], ['colGuideSeq', 'guide'], ['colResidue', 'residue'], 
+            [['colGuideID', 'id'], ['colGuideSeq', 'guide'], ['colResidue', 'residue'],
              ['colPredictedMutations', 'mutation'], ['colMutationAll', 'category'],
-             ['colMutationSingle', 'single'], ['colGeneName', 'gene'], 
+             ['colMutationSingle', 'single'], ['colGeneName', 'gene'],
              ['colHighInTreatment', 'treatment']].forEach(([id, hint]) => {
                 const select = document.getElementById(id);
                 select.innerHTML = '<option value="">-- Leave blank --</option>';
@@ -1495,6 +1786,15 @@
                     select.appendChild(option);
                 });
             });
+
+            // If a config was imported, override auto-picked mappings with saved values and flag missing cols
+            const pending = window._pendingConfig;
+            if (pending && pending.analysisMode === 'single' && pending.single) {
+                const cm = pending.single.columnMapping || {};
+                _applyMappingToDropdowns(cm, currentColumns);
+                const missing = _findMissingMappedColumns(cm, pending.single.statistics, currentColumns);
+                _showImportAppliedBanner('mappingModal', missing);
+            }
         }
 
         function parseResidueFromMutation(mutationStr) {
@@ -1556,7 +1856,21 @@
                 return;
             }
 
-            statistics = [];
+            // Load statistics from imported config (single mode) if available, else reset
+            const pending = window._pendingConfig;
+            if (pending && pending.analysisMode === 'single' && pending.single && Array.isArray(pending.single.statistics)) {
+                // Filter out stats whose referenced columns are missing from this file
+                const presentSet = new Set(currentColumns || []);
+                statistics = pending.single.statistics.map(s => {
+                    const copy = { ...s };
+                    ['zscore','foldchange','pvalue','fdr'].forEach(k => {
+                        if (copy[k] && !presentSet.has(copy[k])) copy[k] = '';
+                    });
+                    return copy;
+                });
+            } else {
+                statistics = [];
+            }
             closeModal('mappingModal');
             populateStatisticsModal();
             showModal('statisticsModal');
@@ -1564,6 +1878,11 @@
 
         function populateStatisticsModal() {
             renderStatistics();
+            const pending = window._pendingConfig;
+            if (pending && pending.analysisMode === 'single' && pending.single && (pending.single.statistics||[]).length) {
+                const missing = _findMissingMappedColumns(null, pending.single.statistics, currentColumns);
+                _showImportAppliedBanner('statisticsModal', missing);
+            }
         }
 
         function renderStatistics() {
@@ -1721,7 +2040,13 @@
 
             if (detectedGenes.length === 0) detectedGenes = ['Protein'];
 
-            proteins = {};
+            // Pre-load proteins from imported config (single mode) if present
+            const pending = window._pendingConfig;
+            if (pending && pending.analysisMode === 'single' && pending.single && pending.single.proteins) {
+                proteins = JSON.parse(JSON.stringify(pending.single.proteins));
+            } else {
+                proteins = {};
+            }
 
             const dropdown = document.getElementById('geneSelectDropdown');
             dropdown.innerHTML = '<option value="">-- Select gene --</option>';
@@ -1733,6 +2058,12 @@
             });
 
             renderProteinConfigurations();
+
+            if (pending && pending.analysisMode === 'single' && pending.single && Object.keys(proteins).length) {
+                _showImportAppliedBanner('proteinModal', null);
+                // Clear the pending flag at the last step so downstream actions don't re-trigger
+                window._pendingConfig = null;
+            }
         }
 
         let currentGene = null;
@@ -3294,17 +3625,26 @@
 
             const sheetList = document.getElementById('sheetList');
             sheetList.innerHTML = '';
-            
+
+            const pending = window._pendingConfig;
+            const savedSheets = (pending && pending.analysisMode === 'comparison' && pending.comparison
+                && pending.comparison[screen] && pending.comparison[screen].selectedSheets) || [];
+
             workbook.SheetNames.forEach(name => {
                 const worksheet = workbook.Sheets[name];
                 const data = XLSX.utils.sheet_to_json(worksheet);
                 screenConfigs[screen].allSheetData[name] = data;
 
+                const preCheck = savedSheets.indexOf(name) !== -1;
+                if (preCheck) {
+                    screenConfigs[screen].selectedSheets.push(name);
+                }
+
                 const item = document.createElement('div');
                 item.className = 'sheet-item';
                 const screenLabel = screenConfigs[screen].name || `Screen ${screen}`;
                 item.innerHTML = `
-                    <input type="checkbox" id="sheet_${screen}_${name}" onchange="toggleSheetForScreen('${name}', '${screen}')">
+                    <input type="checkbox" id="sheet_${screen}_${name}" ${preCheck ? 'checked' : ''} onchange="toggleSheetForScreen('${name}', '${screen}')">
                     <label for="sheet_${screen}_${name}">${screenLabel}: ${name} (${data.length} rows)</label>
                 `;
                 sheetList.appendChild(item);
@@ -3313,6 +3653,11 @@
             const screenLabel = screenConfigs[screen].name || `Screen ${screen}`;
             const modal = document.getElementById('sheetModal');
             modal.querySelector('h2').textContent = `Select worksheets — ${screenLabel}`;
+
+            if (savedSheets.length) {
+                const missing = savedSheets.filter(s => workbook.SheetNames.indexOf(s) === -1);
+                _showImportAppliedBanner('sheetModal', missing.length ? missing.map(m => 'sheet: '+m) : null);
+            }
             showModal('sheetModal');
         }
 
@@ -3400,7 +3745,16 @@
                     el.appendChild(option);
                 });
             });
-            
+
+            // Apply saved column mapping for this screen if config was imported
+            const pending = window._pendingConfig;
+            if (pending && pending.analysisMode === 'comparison' && pending.comparison && pending.comparison[screen]) {
+                const cm = pending.comparison[screen].columnMapping || {};
+                _applyMappingToDropdowns(cm, screenConfigs[screen].currentColumns);
+                const missing = _findMissingMappedColumns(cm, pending.comparison[screen].statistics, screenConfigs[screen].currentColumns);
+                _showImportAppliedBanner('mappingModal', missing);
+            }
+
             showModal('mappingModal');
         }
 
@@ -3445,7 +3799,22 @@
             // Sync globals so renderStatistics() can populate column dropdowns
             currentColumns = screenConfigs[screen].currentColumns || [];
             columnMapping  = screenConfigs[screen].columnMapping  || {};
-            statistics     = []; // fresh slate for this screen
+
+            // Load saved stats from imported config (comparison mode), filtering out missing columns
+            const pending = window._pendingConfig;
+            if (pending && pending.analysisMode === 'comparison' && pending.comparison
+                && pending.comparison[screen] && Array.isArray(pending.comparison[screen].statistics)) {
+                const presentSet = new Set(currentColumns);
+                statistics = pending.comparison[screen].statistics.map(s => {
+                    const copy = { ...s };
+                    ['zscore','foldchange','pvalue','fdr'].forEach(k => {
+                        if (copy[k] && !presentSet.has(copy[k])) copy[k] = '';
+                    });
+                    return copy;
+                });
+            } else {
+                statistics = [];
+            }
 
             const modal = document.getElementById('statisticsModal');
             modal.querySelector('h2').textContent =
@@ -3454,6 +3823,13 @@
             document.getElementById('statisticsList').innerHTML = '';
             closeModal('mappingModal');
             showModal('statisticsModal');
+            renderStatistics();
+
+            if (pending && pending.analysisMode === 'comparison' && pending.comparison
+                && pending.comparison[screen] && (pending.comparison[screen].statistics||[]).length) {
+                const missing = _findMissingMappedColumns(null, pending.comparison[screen].statistics, currentColumns);
+                _showImportAppliedBanner('statisticsModal', missing);
+            }
         }
 
         function goToProteinConfigMultiScreen() {
@@ -3481,8 +3857,16 @@
             columnMapping  = screenConfigs[screen].columnMapping  || {};
             statistics     = screenConfigs[screen].statistics     || [];
             rawData        = screenConfigs[screen].rawData        || [];
-            proteins       = {}; // fresh slate per screen
-            renderProteinConfigurations(); // clear DOM so Screen A cards don't show for Screen B
+
+            // Pre-load proteins from imported config (comparison mode) if present
+            const pending = window._pendingConfig;
+            if (pending && pending.analysisMode === 'comparison' && pending.comparison
+                && pending.comparison[screen] && pending.comparison[screen].proteins) {
+                proteins = JSON.parse(JSON.stringify(pending.comparison[screen].proteins));
+            } else {
+                proteins = {};
+            }
+            renderProteinConfigurations(); // clear DOM / render pre-loaded proteins
 
             const modal = document.getElementById('proteinModal');
             modal.querySelector('h2').textContent =
@@ -3490,7 +3874,7 @@
 
             const geneSelect = document.getElementById('geneSelectDropdown');
             geneSelect.innerHTML = '<option value="">-- Select gene --</option>';
-            
+
             const genes = new Set();
             screenConfigs[screen].rawData.forEach(row => {
                 const gene = row[screenConfigs[screen].columnMapping.geneName];
@@ -3498,14 +3882,21 @@
                     genes.add(gene);
                 }
             });
-            
+
             genes.forEach(gene => {
                 const option = document.createElement('option');
                 option.value = gene;
                 option.textContent = gene;
                 geneSelect.appendChild(option);
             });
-            
+
+            if (pending && pending.analysisMode === 'comparison' && pending.comparison
+                && pending.comparison[screen] && Object.keys(proteins).length) {
+                _showImportAppliedBanner('proteinModal', null);
+                // Clear after Screen B finishes (last step)
+                if (screen === 'B') window._pendingConfig = null;
+            }
+
             showModal('proteinModal');
         }
 
@@ -3917,9 +4308,9 @@
                 marker: {
                     symbol: 'triangle-up',
                     size: 16,
-                    color: plotB.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
-                    opacity: 0.5,
-                    line: { color: '#1a1a1a', width: 0.5 }
+                    color: '#e74c3c',
+                    opacity: 0.7,
+                    line: { color: '#7f1d1d', width: 0.5 }
                 },
                 text: plotB.map(d => {
                     let t = `<b>${d.guideID || d.guide || ''}</b><br>${nameB}<br>Residue: ${d.residue}<br>Category: ${d.category}`;
@@ -4430,6 +4821,29 @@
                     }
                 }
             });
+
+            // Override auto-picks with imported configuration if one is pending
+            const pending = window._pendingConfig;
+            if (pending && pending.screenType === 'genome') {
+                let colMap = null;
+                if (pending.analysisMode === 'single' && pending.single) {
+                    colMap = pending.single.colMap;
+                } else if (pending.analysisMode === 'comparison' && pending.comparison
+                           && pending.comparison[gcActiveScreen]) {
+                    colMap = pending.comparison[gcActiveScreen].colMap;
+                }
+                if (colMap) {
+                    const missing = _applyGenomeColMapToDropdowns(colMap, cols);
+                    _showImportAppliedBanner('genomeMappingModal', missing);
+                    // Single mode has only this step — clear pending once applied.
+                    // Comparison mode: clear after Screen B's mapping is set up.
+                    if (pending.analysisMode === 'single') {
+                        window._pendingConfig = null;
+                    } else if (gcActiveScreen === 'B') {
+                        window._pendingConfig = null;
+                    }
+                }
+            }
         }
 
         // Aggregate guide-level rows to gene-level

@@ -2244,6 +2244,22 @@
             loadUI();
         }
 
+        // ─── p-value / FDR zero-flooring ─────────────────────────────────────
+        // When a stats engine (MAGeCK permutation floor, R underflow, etc.) outputs
+        // p=0 or FDR=0, -log10(0) = +Infinity breaks both filtering and plotting.
+        // Your strongest hits silently disappear from volcano plots and get rejected
+        // by any pcutoff because Math.pow(10,-0)=1. We fix this by substituting
+        // a dynamic floor = min(non-zero value in column) / 10, and tagging the
+        // item with a ceiling flag so plots can mark it distinctly.
+        function _computePvalFloor(rows, colName) {
+            let minNonzero = Infinity;
+            for (let i = 0; i < rows.length; i++) {
+                const v = parseFloat(rows[i][colName]);
+                if (!isNaN(v) && v > 0 && v < minNonzero) minNonzero = v;
+            }
+            return minNonzero === Infinity ? 1e-300 : minNonzero / 10;
+        }
+
         function processAllSheets() {
             const allProcessed = {};
 
@@ -2251,6 +2267,14 @@
                 const sheetRawData = allSheetData[sheetName];
                 const sheetProcessed = [];
                 const sheetControls = [];
+
+                // Per-stat, per-sheet floors for raw p-values / FDR (pre-loop scan)
+                const pvalFloor = {};
+                const fdrFloor  = {};
+                statistics.forEach((stat, idx) => {
+                    if (stat.pvalue && !stat.pvalIsLog) pvalFloor[idx] = _computePvalFloor(sheetRawData, stat.pvalue);
+                    if (stat.fdr    && !stat.fdrIsLog)  fdrFloor[idx]  = _computePvalFloor(sheetRawData, stat.fdr);
+                });
 
                 sheetRawData.forEach(row => {
                     const geneValue = columnMapping.geneName ? row[columnMapping.geneName] : null;
@@ -2302,17 +2326,33 @@
                         }
                         if (stat.pvalue) {
                             let pval = parseFloat(row[stat.pvalue]);
-                            if (!stat.pvalIsLog && pval > 0) {
-                                pval = -Math.log10(pval);
+                            let pCeiling = false;
+                            if (!stat.pvalIsLog) {
+                                if (!isNaN(pval) && pval <= 0) {
+                                    pval = pvalFloor[idx];
+                                    pCeiling = true;
+                                }
+                                pval = (pval > 0) ? -Math.log10(pval) : NaN;
+                            } else if (pval === Infinity) {
+                                pCeiling = true;
                             }
                             item[`logpvalue_${idx}`] = pval;
+                            item[`logpvalueCeiling_${idx}`] = pCeiling;
                         }
                         if (stat.fdr) {
                             let fdr = parseFloat(row[stat.fdr]);
-                            if (!stat.fdrIsLog && fdr > 0) {
-                                fdr = -Math.log10(fdr);
+                            let fdrCeiling = false;
+                            if (!stat.fdrIsLog) {
+                                if (!isNaN(fdr) && fdr <= 0) {
+                                    fdr = fdrFloor[idx];
+                                    fdrCeiling = true;
+                                }
+                                fdr = (fdr > 0) ? -Math.log10(fdr) : NaN;
+                            } else if (fdr === Infinity) {
+                                fdrCeiling = true;
                             }
                             item[`logfdr_${idx}`] = fdr;
+                            item[`logfdrCeiling_${idx}`] = fdrCeiling;
                         }
                     });
 
@@ -2871,30 +2911,60 @@
             const gf = getGlobalFont();
             const protein = proteins[selectedProtein];
 
+            // Flag ceiling points (raw p=0 / FDR=0 that we floored) when y-axis is log p/FDR
+            const yCeilingKey = (yMetric === 'logpvalue' || yMetric === 'logfdr')
+                ? (yMetric + 'Ceiling_' + statIdx) : null;
+            const isCeiling = d => yCeilingKey ? !!d[yCeilingKey] : false;
+            const normal  = data.filter(d => !isCeiling(d));
+            const ceiling = data.filter(d =>  isCeiling(d));
+
+            const makeHover = d => {
+                let t = '<b>' + (d.guideID || d.guide || 'Guide') + '</b><br>';
+                t += 'Residue: ' + (d.residue || 'N/A') + '<br>';
+                t += 'Category: ' + (d.category || '—') + '<br>';
+                t += xLabel + ': ' + (isNaN(d[xKey]) ? 'N/A' : d[xKey].toFixed(3)) + '<br>';
+                t += yLabel + ': ' + (isNaN(d[yKey]) ? 'N/A' : d[yKey].toFixed(3));
+                if (isCeiling(d)) t += '<br><b style="color:#b91c1c">⚑ at floor — true value below numerical precision</b>';
+                if (d.rawMutations) t += '<br><b>Predicted:</b> ' + d.rawMutations;
+                return t;
+            };
+
             const traces = [{
-                x: data.map(d => d[xKey]),
-                y: data.map(d => d[yKey]),
+                x: normal.map(d => d[xKey]),
+                y: normal.map(d => d[yKey]),
                 mode: 'markers',
                 type: 'scatter',
                 name: '',
                 showlegend: false,
                 marker: {
                     size: 8,
-                    color: data.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
+                    color: normal.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
                     opacity: 0.75,
                     line: { color: '#64748b', width: 0.5 }
                 },
-                text: data.map(function(d) {
-                    let t = '<b>' + (d.guideID || d.guide || 'Guide') + '</b><br>';
-                    t += 'Residue: ' + (d.residue || 'N/A') + '<br>';
-                    t += 'Category: ' + (d.category || '—') + '<br>';
-                    t += xLabel + ': ' + (isNaN(d[xKey]) ? 'N/A' : d[xKey].toFixed(3)) + '<br>';
-                    t += yLabel + ': ' + (isNaN(d[yKey]) ? 'N/A' : d[yKey].toFixed(3)) + '<br>';
-                    if (d.rawMutations) t += '<br><b>Predicted:</b> ' + d.rawMutations;
-                    return t;
-                }),
+                text: normal.map(makeHover),
                 hovertemplate: '%{text}<extra></extra>'
             }];
+
+            if (ceiling.length > 0) {
+                traces.push({
+                    x: ceiling.map(d => d[xKey]),
+                    y: ceiling.map(d => d[yKey]),
+                    mode: 'markers',
+                    type: 'scatter',
+                    name: '',
+                    showlegend: false,
+                    marker: {
+                        symbol: 'triangle-up',
+                        size: 14,
+                        color: ceiling.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
+                        opacity: 0.95,
+                        line: { color: '#000', width: 2 }
+                    },
+                    text: ceiling.map(makeHover),
+                    hovertemplate: '%{text}<extra></extra>'
+                });
+            }
 
             // Control guides trace (optional toggle)
             const showControls = document.getElementById('volcanoShowControls') && document.getElementById('volcanoShowControls').checked;
@@ -2947,6 +3017,17 @@
                     line:{ color:'#ef4444', width:1.5, dash:'dash' } });
             }
 
+            const annotations = [];
+            if (ceiling.length > 0) {
+                annotations.push({
+                    xref:'paper', yref:'paper', x:0, y:1.06, xanchor:'left', yanchor:'bottom',
+                    text: '▲ ' + ceiling.length + ' point' + (ceiling.length===1?'':'s') + ' at floor — raw '
+                        + (yMetric === 'logpvalue' ? 'p-value' : 'FDR') + ' was 0 (below numerical precision); '
+                        + 'plotted at min-nonzero/10',
+                    showarrow:false, font:{ size: gf.size - 1, color:'#7f1d1d', family: gf.family }
+                });
+            }
+
             const layout = {
                 title: { text: 'Volcano — ' + selectedProtein + ' | ' + data.length + ' guides', x: 0.5, xanchor:'center',
                     font: { size: gf.size + 1, family: gf.family } },
@@ -2960,8 +3041,9 @@
                 hovermode: 'closest',
                 plot_bgcolor: 'white', paper_bgcolor: 'white',
                 shapes: shapes.concat(cutoffLines),
+                annotations: annotations,
                 height: 600,
-                margin: { l: 80, r: 30, t: 70, b: 70 },
+                margin: { l: 80, r: 30, t: 90, b: 70 },
                 legend: { orientation:'v', x:1.01, y:1 }
             };
 
@@ -3944,6 +4026,14 @@
                     const sheetProcessed = [];
                     const sheetControls  = [];
 
+                    // Per-stat, per-sheet floors for raw p-values / FDR
+                    const pvalFloor = {};
+                    const fdrFloor  = {};
+                    stats.forEach((stat, idx) => {
+                        if (stat.pvalue && !stat.pvalIsLog) pvalFloor[idx] = _computePvalFloor(sheetData, stat.pvalue);
+                        if (stat.fdr    && !stat.fdrIsLog)  fdrFloor[idx]  = _computePvalFloor(sheetData, stat.fdr);
+                    });
+
                     sheetData.forEach(row => {
                         const geneValue = cm.geneName ? row[cm.geneName] : null;
                         const isControl = isControlGene(geneValue);
@@ -3989,13 +4079,33 @@
                             }
                             if (stat.pvalue) {
                                 let pval = parseFloat(row[stat.pvalue]);
-                                if (!stat.pvalIsLog && pval > 0) pval = -Math.log10(pval);
+                                let pCeiling = false;
+                                if (!stat.pvalIsLog) {
+                                    if (!isNaN(pval) && pval <= 0) {
+                                        pval = pvalFloor[idx];
+                                        pCeiling = true;
+                                    }
+                                    pval = (pval > 0) ? -Math.log10(pval) : NaN;
+                                } else if (pval === Infinity) {
+                                    pCeiling = true;
+                                }
                                 item[`logpvalue_${idx}`] = pval;
+                                item[`logpvalueCeiling_${idx}`] = pCeiling;
                             }
                             if (stat.fdr) {
                                 let fdr = parseFloat(row[stat.fdr]);
-                                if (!stat.fdrIsLog && fdr > 0) fdr = -Math.log10(fdr);
+                                let fdrCeiling = false;
+                                if (!stat.fdrIsLog) {
+                                    if (!isNaN(fdr) && fdr <= 0) {
+                                        fdr = fdrFloor[idx];
+                                        fdrCeiling = true;
+                                    }
+                                    fdr = (fdr > 0) ? -Math.log10(fdr) : NaN;
+                                } else if (fdr === Infinity) {
+                                    fdrCeiling = true;
+                                }
                                 item[`logfdr_${idx}`] = fdr;
+                                item[`logfdrCeiling_${idx}`] = fdrCeiling;
                             }
                         });
 
@@ -4280,6 +4390,15 @@
                 }
             }
 
+            // Ceiling detection (only when y-axis is log p-value / log FDR)
+            const isLogMetric = (metric === 'logpvalue' || metric === 'logfdr');
+            const ceilKeyA = isLogMetric ? (metric + 'Ceiling_' + statIdxA) : null;
+            const ceilKeyB = isLogMetric ? (metric + 'Ceiling_' + statIdxB) : null;
+            const ceilA = d => ceilKeyA ? !!d[ceilKeyA] : false;
+            const ceilB = d => ceilKeyB ? !!d[ceilKeyB] : false;
+            const nCeilA = plotA.filter(ceilA).length;
+            const nCeilB = plotB.filter(ceilB).length;
+
             const traceA = {
                 x: plotA.map(d => d.residue),
                 y: plotA.map(d => d[metricKeyA]),
@@ -4287,13 +4406,17 @@
                 name: nameA,
                 marker: {
                     symbol: 'circle',
-                    size: 16,
+                    size: plotA.map(d => ceilA(d) ? 22 : 16),
                     color: plotA.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
                     opacity: 0.75,
-                    line: { color: '#1a1a1a', width: 0.5 }
+                    line: {
+                        color: plotA.map(d => ceilA(d) ? '#000' : '#1a1a1a'),
+                        width: plotA.map(d => ceilA(d) ? 2.5 : 0.5)
+                    }
                 },
                 text: plotA.map(d => {
                     let t = `<b>${d.guideID || d.guide || ''}</b><br>${nameA}<br>Residue: ${d.residue}<br>Category: ${d.category}`;
+                    if (ceilA(d)) t += `<br><b style="color:#b91c1c">⚑ at floor — true ${metric === 'logpvalue' ? 'p-value' : 'FDR'} below numerical precision</b>`;
                     if (d.rawMutations) t += `<br><b>Predicted Mutations:</b><br>${d.rawMutations}`;
                     return t;
                 }),
@@ -4307,13 +4430,17 @@
                 name: nameB,
                 marker: {
                     symbol: 'triangle-up',
-                    size: 16,
+                    size: plotB.map(d => ceilB(d) ? 22 : 16),
                     color: '#e74c3c',
                     opacity: 0.7,
-                    line: { color: '#7f1d1d', width: 0.5 }
+                    line: {
+                        color: plotB.map(d => ceilB(d) ? '#000' : '#7f1d1d'),
+                        width: plotB.map(d => ceilB(d) ? 2.5 : 0.5)
+                    }
                 },
                 text: plotB.map(d => {
                     let t = `<b>${d.guideID || d.guide || ''}</b><br>${nameB}<br>Residue: ${d.residue}<br>Category: ${d.category}`;
+                    if (ceilB(d)) t += `<br><b style="color:#b91c1c">⚑ at floor — true ${metric === 'logpvalue' ? 'p-value' : 'FDR'} below numerical precision</b>`;
                     if (d.rawMutations) t += `<br><b>Predicted Mutations:</b><br>${d.rawMutations}`;
                     return t;
                 }),
@@ -4338,6 +4465,18 @@
             const proteinLength = protein ? protein.length : null;
             const xRange = proteinLength ? [0, proteinLength + Math.ceil(proteinLength * 0.02)] : undefined;
 
+            const annotations = [];
+            if (isLogMetric && (nCeilA + nCeilB) > 0) {
+                const parts = [];
+                if (nCeilA > 0) parts.push(`${nameA}: ${nCeilA}`);
+                if (nCeilB > 0) parts.push(`${nameB}: ${nCeilB}`);
+                annotations.push({
+                    xref:'paper', yref:'paper', x:0, y:1.05, xanchor:'left', yanchor:'bottom',
+                    text: `⚑ At-floor (raw ${metric === 'logpvalue' ? 'p-value' : 'FDR'} = 0, plotted at min-nonzero/10) — ` + parts.join(', '),
+                    showarrow:false, font:{ size: 12, color:'#7f1d1d' }
+                });
+            }
+
             const layout = {
                 title: { text: `Overlay: ${displayName}`, font: { size: 17 } },
                 xaxis: {
@@ -4360,8 +4499,9 @@
                 plot_bgcolor: 'white',
                 paper_bgcolor: 'white',
                 shapes: shapes,
+                annotations: annotations,
                 height: 600,
-                margin: { l: 80, r: 30, t: 70, b: 70 }
+                margin: { l: 80, r: 30, t: 90, b: 70 }
             };
 
             Plotly.newPlot('overlayPlot', [traceA, traceB], layout, { responsive: true });
@@ -4480,23 +4620,34 @@
             const metricKeyA = `${metric}_${statIdxA}`;
             const metricKeyB = `${metric}_${statIdxB}`;
 
+            // Ceiling detection (when metric is log p-value or log FDR on either axis)
+            const isLogMetric = (metric === 'logpvalue' || metric === 'logfdr');
+            const ceilKeyA = isLogMetric ? (metric + 'Ceiling_' + statIdxA) : null;
+            const ceilKeyB = isLogMetric ? (metric + 'Ceiling_' + statIdxB) : null;
+            const isCeil = g => (ceilKeyA && g.A[ceilKeyA]) || (ceilKeyB && g.B[ceilKeyB]);
+            const nCeil = common.filter(isCeil).length;
+
             const trace = {
                 x: common.map(g => g.A[metricKeyA]),
                 y: common.map(g => g.B[metricKeyB]),
                 mode: 'markers',
                 type: 'scatter',
                 marker: {
-                    symbol: 'diamond',
-                    size: 16,
+                    symbol: common.map(g => isCeil(g) ? 'star' : 'diamond'),
+                    size: common.map(g => isCeil(g) ? 20 : 16),
                     color: '#6d28d9',
-                    opacity: 0.65,
-                    line: { color: '#4c1d95', width: 0.8 }
+                    opacity: 0.75,
+                    line: {
+                        color: common.map(g => isCeil(g) ? '#000' : '#4c1d95'),
+                        width: common.map(g => isCeil(g) ? 2 : 0.8)
+                    }
                 },
                 text: common.map(g => {
                     let t = `<b>${g.A.guideID || g.A.guide || ''}</b><br>`;
-                    t += `${nameA}: ${(g.A[metricKeyA] ?? 0).toFixed(3)}<br>`;
-                    t += `${nameB}: ${(g.B[metricKeyB] ?? 0).toFixed(3)}<br>`;
+                    t += `${nameA}: ${(g.A[metricKeyA] ?? 0).toFixed(3)}${ceilKeyA && g.A[ceilKeyA] ? ' ⚑' : ''}<br>`;
+                    t += `${nameB}: ${(g.B[metricKeyB] ?? 0).toFixed(3)}${ceilKeyB && g.B[ceilKeyB] ? ' ⚑' : ''}<br>`;
                     t += `Category: ${g.A.category}`;
+                    if (isCeil(g)) t += `<br><b style="color:#b91c1c">⚑ at floor in ${(ceilKeyA && g.A[ceilKeyA]) ? nameA : ''}${(ceilKeyA && g.A[ceilKeyA] && ceilKeyB && g.B[ceilKeyB]) ? ' & ' : ''}${(ceilKeyB && g.B[ceilKeyB]) ? nameB : ''}</b>`;
                     if (g.A.rawMutations) t += `<br><b>Predicted Mutations:</b><br>${g.A.rawMutations}`;
                     return t;
                 }),
@@ -4510,6 +4661,15 @@
             const allVals = [...xs, ...ys];
             const minVal = allVals.length ? Math.min(...allVals) : 0;
             const maxVal = allVals.length ? Math.max(...allVals) : 1;
+
+            const annotations = [];
+            if (isLogMetric && nCeil > 0) {
+                annotations.push({
+                    xref:'paper', yref:'paper', x:0, y:1.05, xanchor:'left', yanchor:'bottom',
+                    text: `★ ${nCeil} point${nCeil===1?'':'s'} at floor (raw ${metric === 'logpvalue' ? 'p-value' : 'FDR'} = 0 in one or both screens, plotted at min-nonzero/10)`,
+                    showarrow:false, font:{ size: 12, color:'#7f1d1d' }
+                });
+            }
 
             const layout = {
                 title: { text: `Correlation: ${nameA} vs ${nameB} (r = ${r.toFixed(3)})`, font: { size: 15 } },
@@ -4529,7 +4689,8 @@
                 plot_bgcolor: 'white',
                 paper_bgcolor: 'white',
                 height: 500,
-                margin: { l: 80, r: 30, t: 70, b: 70 },
+                margin: { l: 80, r: 30, t: 90, b: 70 },
+                annotations: annotations,
                 shapes: [{
                     type: 'line',
                     x0: minVal, y0: minVal, x1: maxVal, y1: maxVal,
@@ -4848,6 +5009,12 @@
 
         // Aggregate guide-level rows to gene-level
         function aggregateGuidesToGenes(rows, colMap) {
+            // Pre-scan: compute per-column floors for raw p-value and FDR
+            // so that raw zeros don't collapse to logp=0 (worst) instead of
+            // logp=Infinity (best). Floor = min(non-zero) / 10 in the column.
+            const pFloor   = (colMap.pvalue && !colMap.pvalueIsLog) ? _computePvalFloor(rows, colMap.pvalue) : null;
+            const fdrFloor = (colMap.fdr    && !colMap.fdrIsLog)    ? _computePvalFloor(rows, colMap.fdr)    : null;
+
             const geneMap = {};
             rows.forEach(function(row) {
                 const gene = (colMap.gene ? row[colMap.gene] : null) || 'Unknown';
@@ -4856,34 +5023,57 @@
                 let fcRaw = parseFloat(colMap.fc ? row[colMap.fc] : NaN);
                 if (!isNaN(fcRaw) && colMap.fcTransform === 'log2') fcRaw = Math.log2(fcRaw > 0 ? fcRaw : NaN);
                 else if (!isNaN(fcRaw) && colMap.fcTransform === 'log10') fcRaw = Math.log10(fcRaw > 0 ? fcRaw : NaN);
-                const pRaw  = parseFloat(colMap.pvalue ? row[colMap.pvalue] : NaN);
-                const fdrRaw= parseFloat(colMap.fdr ? row[colMap.fdr] : NaN);
+                let pRaw  = parseFloat(colMap.pvalue ? row[colMap.pvalue] : NaN);
+                let fdrRaw= parseFloat(colMap.fdr ? row[colMap.fdr] : NaN);
                 const hit   = colMap.highInTx ? String(row[colMap.highInTx] || '').toLowerCase() : '';
 
-                // Convert p-value to -log10 internally
-                const pLog  = colMap.pvalue  ? (colMap.pvalueIsLog ? pRaw  : (pRaw > 0 ? -Math.log10(pRaw)  : 0)) : NaN;
-                const fdrLog= colMap.fdr     ? (colMap.fdrIsLog    ? fdrRaw: (fdrRaw > 0 ? -Math.log10(fdrRaw) : 0)) : NaN;
+                // Floor zero → min-nonzero/10, tag ceiling
+                let pCeil = false, fdrCeil = false;
+                if (colMap.pvalue && !colMap.pvalueIsLog && !isNaN(pRaw) && pRaw <= 0) {
+                    pRaw = pFloor; pCeil = true;
+                } else if (colMap.pvalue && colMap.pvalueIsLog && pRaw === Infinity) {
+                    pCeil = true;
+                }
+                if (colMap.fdr && !colMap.fdrIsLog && !isNaN(fdrRaw) && fdrRaw <= 0) {
+                    fdrRaw = fdrFloor; fdrCeil = true;
+                } else if (colMap.fdr && colMap.fdrIsLog && fdrRaw === Infinity) {
+                    fdrCeil = true;
+                }
 
-                if (!geneMap[gene]) geneMap[gene] = { gene, guides: [], zs: [], fcs: [], ps: [], fdrs: [], hitGuides: 0 };
+                // Convert p-value to -log10 internally
+                const pLog  = colMap.pvalue  ? (colMap.pvalueIsLog ? pRaw  : (pRaw > 0 ? -Math.log10(pRaw)  : NaN)) : NaN;
+                const fdrLog= colMap.fdr     ? (colMap.fdrIsLog    ? fdrRaw: (fdrRaw > 0 ? -Math.log10(fdrRaw) : NaN)) : NaN;
+
+                if (!geneMap[gene]) geneMap[gene] = { gene, guides: [], zs: [], fcs: [], ps: [], psCeil: [], fdrs: [], fdrsCeil: [], hitGuides: 0 };
                 const g = geneMap[gene];
                 g.guides.push(guideID || gene);
                 if (!isNaN(zRaw))   g.zs.push(zRaw);
                 if (!isNaN(fcRaw))  g.fcs.push(fcRaw);
-                if (!isNaN(pLog))   g.ps.push(pLog);
-                if (!isNaN(fdrLog)) g.fdrs.push(fdrLog);
+                if (!isNaN(pLog))   { g.ps.push(pLog);    g.psCeil.push(pCeil); }
+                if (!isNaN(fdrLog)) { g.fdrs.push(fdrLog); g.fdrsCeil.push(fdrCeil); }
                 if (hit === 'true') g.hitGuides++;
             });
             function mean(arr) { return arr.length ? arr.reduce(function(a,b){return a+b;},0)/arr.length : NaN; }
-            function best(arr) { return arr.length ? Math.max.apply(null, arr) : NaN; } // best = highest -log10
+            // Return best value AND whether the contributing guide was at ceiling
+            function bestWithCeil(arr, ceilArr) {
+                if (!arr.length) return { value: NaN, ceiling: false };
+                let bi = 0;
+                for (let i = 1; i < arr.length; i++) if (arr[i] > arr[bi]) bi = i;
+                return { value: arr[bi], ceiling: !!ceilArr[bi] };
+            }
             return Object.values(geneMap).map(function(g) {
+                const pBest   = bestWithCeil(g.ps,   g.psCeil);
+                const fdrBest = bestWithCeil(g.fdrs, g.fdrsCeil);
                 return {
                     gene:       g.gene,
                     numGuides:  g.guides.length,
                     hitGuides:  g.hitGuides,
                     zscore:     mean(g.zs),
                     foldchange: mean(g.fcs),
-                    logpvalue:  best(g.ps),
-                    logfdr:     best(g.fdrs)
+                    logpvalue:  pBest.value,
+                    logfdr:     fdrBest.value,
+                    logpvalueCeiling: pBest.ceiling,
+                    logfdrCeiling:    fdrBest.ceiling
                 };
             });
         }
@@ -5010,21 +5200,27 @@
             const _ltRaw = document.getElementById('gLabelTop')?.value;
             const labelTop = (_ltRaw === '' || _ltRaw === undefined || _ltRaw === null) ? 10 : Math.max(0, parseInt(_ltRaw) || 0);
 
+            // Ceiling detection (raw p=0 / FDR=0 floored at min-nonzero/10 during aggregation)
+            const yCeilKey = (yMetric === 'logpvalue' || yMetric === 'logfdr') ? (yMetric + 'Ceiling') : null;
+            const isCeil = g => yCeilKey ? !!g[yCeilKey] : false;
+
             // Sort hits by y-value descending to get top N labels
             const hitsSorted = hitGenes.filter(g => !isNaN(g[yMetric])).sort((a,b) => (b[yMetric]||0)-(a[yMetric]||0));
             const labelSet = new Set(hitsSorted.slice(0, labelTop).map(g => g.gene));
 
             const bgGenes = allGenes.filter(g => !hitSet.has(g.gene));
             const hitGenesArr = allGenes.filter(g => hitSet.has(g.gene));
+            const hitNormal  = hitGenesArr.filter(g => !isCeil(g));
+            const hitCeiling = hitGenesArr.filter(g =>  isCeil(g));
 
-            function makeTrace(data, name, color, size, opacity, showLabels) {
+            function makeTrace(data, name, color, size, opacity, showLabels, symbol, lineColor, lineWidth) {
                 return {
                     x: data.map(g => g[xMetric]),
                     y: data.map(g => g[yMetric]),
                     mode: 'markers',
                     type: 'scattergl',
                     name: name,
-                    marker: { size, color, opacity, line: { color: '#64748b', width: 0.3 } },
+                    marker: { size, color, opacity, symbol: symbol || 'circle', line: { color: lineColor || '#64748b', width: lineWidth != null ? lineWidth : 0.3 } },
                     text: showLabels ? data.map(g => labelSet.has(g.gene) ? g.gene : '') : undefined,
                     textposition: 'top center',
                     textfont: { size: 10, family: gf.family },
@@ -5032,7 +5228,8 @@
                         isNaN(g.zscore)?'N/A':g.zscore.toFixed(3),
                         isNaN(g.foldchange)?'N/A':g.foldchange.toFixed(3),
                         isNaN(g.logpvalue)?'N/A':g.logpvalue.toFixed(3),
-                        isNaN(g.logfdr)?'N/A':g.logfdr.toFixed(3)]),
+                        isNaN(g.logfdr)?'N/A':g.logfdr.toFixed(3),
+                        isCeil(g) ? '⚑ at floor (raw '+(yMetric==='logpvalue'?'p':'FDR')+' = 0)' : '']),
                     hovertemplate: '<b>%{customdata[0]}</b><br>'
                         + getGenomeMetricLabel(xMetric) + ': %{x:.3f}<br>'
                         + getGenomeMetricLabel(yMetric) + ': %{y:.3f}<br>'
@@ -5040,14 +5237,16 @@
                         + '−log10(P): %{customdata[5]}<br>'
                         + '−log10(FDR): %{customdata[6]}'
                         + (genomeGeneData.some(g => !isNaN(g.zscore)) ? '<br>IGTIOB: %{customdata[3]}' : '')
+                        + '%{customdata[7]}'
                         + '<extra></extra>'
                 };
             }
 
             const traces = [
-                makeTrace(bgGenes, 'Non-hit genes', '#d1d5db', 7, 0.6, false),
-                makeTrace(hitGenesArr, 'Hit genes', '#ef4444', 9, 0.85, true)
+                makeTrace(bgGenes,   'Non-hit genes', '#d1d5db', 7,  0.6,  false)
             ];
+            if (hitNormal.length)  traces.push(makeTrace(hitNormal,  'Hit genes',        '#ef4444', 9,  0.85, true));
+            if (hitCeiling.length) traces.push(makeTrace(hitCeiling, 'Hit genes (⚑ at floor)', '#ef4444', 14, 0.95, true, 'triangle-up', '#000', 2));
 
             // Arrow annotations for top hits
             const annotations = hitsSorted.slice(0, Math.min(labelTop, hitsSorted.length))
@@ -5056,7 +5255,7 @@
                     return {
                         x: g[xMetric], y: g[yMetric],
                         xref: 'x', yref: 'y',
-                        text: '<b>' + g.gene + '</b>',
+                        text: '<b>' + g.gene + '</b>' + (isCeil(g) ? ' ⚑' : ''),
                         showarrow: true,
                         arrowhead: 2, arrowsize: 0.8, arrowwidth: 1, arrowcolor: '#555',
                         ax: (i % 2 === 0 ? 30 : -30), ay: -30,
@@ -5065,6 +5264,15 @@
                         bordercolor: '#ccc', borderwidth: 1, borderpad: 2
                     };
                 });
+
+            if (yCeilKey && hitCeiling.length > 0) {
+                annotations.push({
+                    xref:'paper', yref:'paper', x:0, y:1.06, xanchor:'left', yanchor:'bottom',
+                    text: '▲ ' + hitCeiling.length + ' gene' + (hitCeiling.length===1?'':'s') + ' at floor — raw '
+                        + (yMetric === 'logpvalue' ? 'p-value' : 'FDR') + ' was 0 for the top guide (below numerical precision); plotted at min-nonzero/10',
+                    showarrow:false, font:{ size: gf.size - 1, color:'#7f1d1d', family: gf.family }
+                });
+            }
 
             Plotly.newPlot('genomeVolcanoPlot', traces, {
                 title: { text: 'Genome-Wide Volcano — ' + allGenes.length + ' genes (' + hitGenesArr.length + ' hits)',
@@ -5076,7 +5284,7 @@
                     tickfont:{size:gf.size,family:gf.family},
                     showline:true,mirror:true,ticks:'outside',ticklen:5,linewidth:1.5,linecolor:'#333',automargin:true},
                 hovermode:'closest', plot_bgcolor:'white', paper_bgcolor:'white',
-                height:600, margin:{l:80,r:30,t:70,b:70},
+                height:600, margin:{l:80,r:30,t:90,b:70},
                 legend:{orientation:'h',x:0,y:-0.12},
                 annotations: annotations
             }, {responsive:true});
@@ -5328,17 +5536,23 @@
             const yLabel = getGenomeMetricLabel(yMetric);
             const gf = { family: document.getElementById('gcFontFamily')?.value||'Arial', size: parseInt(document.getElementById('gcFontSize')?.value||13) };
 
+            // Ceiling detection when y-axis is log p-value / log FDR
+            const yCeilKey = (yMetric === 'logpvalue' || yMetric === 'logfdr') ? (yMetric + 'Ceiling') : null;
+            const isCeil = g => yCeilKey ? !!g[yCeilKey] : false;
+
             function grp(gene) {
                 const a = passSetA.has(gene), b = passSetB.has(gene);
                 return a && b ? 'common' : a ? 'a' : b ? 'b' : 'none';
             }
             function makeHover(g, screen) {
-                return '<b>' + g.gene + '</b> (' + screen + ')<br>'
+                let t = '<b>' + g.gene + '</b> (' + screen + ')<br>'
                     + xLabel + ': ' + (isNaN(g[xMetric]) ? 'N/A' : (+g[xMetric]).toFixed(3)) + '<br>'
                     + yLabel + ': ' + (isNaN(g[yMetric]) ? 'N/A' : (+g[yMetric]).toFixed(3)) + '<br>'
                     + 'FC: ' + (isNaN(g.foldchange)?'N/A':(+g.foldchange).toFixed(3)) + '  '
                     + '−log10P: ' + (isNaN(g.logpvalue)?'N/A':(+g.logpvalue).toFixed(3)) + '<br>'
                     + '−log10FDR: ' + (isNaN(g.logfdr)?'N/A':(+g.logfdr).toFixed(3));
+                if (isCeil(g)) t += '<br><b style="color:#b91c1c">⚑ at floor — raw ' + (yMetric==='logpvalue'?'p':'FDR') + ' = 0 for top guide</b>';
+                return t;
             }
 
             const buckets = { A: { none:[], a:[], common:[] }, B: { none:[], b:[], common:[] } };
@@ -5346,10 +5560,19 @@
             genesB.forEach(function(g) { const k = grp(g.gene); buckets.B[k] = buckets.B[k] || []; buckets.B[k].push(g); });
 
             function trace(genes, name, color, symbol, screen, showLegend) {
+                const isBg = color === '#d1d5db';
                 return { x: genes.map(g=>g[xMetric]), y: genes.map(g=>g[yMetric]),
                     mode:'markers', type:'scattergl', name:name, showlegend:showLegend,
-                    marker:{symbol:symbol, size: symbol==='circle'?7:9, color:color, opacity: color==='#d1d5db'?0.4:0.85,
-                        line:{color: color==='#d1d5db'?'#9ca3af':'#333', width:0.4}},
+                    marker:{
+                        symbol:symbol,
+                        size: genes.map(g => isCeil(g) ? (symbol==='circle'?14:16) : (symbol==='circle'?7:9)),
+                        color:color,
+                        opacity: isBg ? 0.4 : 0.85,
+                        line:{
+                            color: genes.map(g => isCeil(g) ? '#000' : (isBg ? '#9ca3af' : '#333')),
+                            width: genes.map(g => isCeil(g) ? 2 : 0.4)
+                        }
+                    },
                     text: genes.map(g=>makeHover(g, screen)), hovertemplate:'%{text}<extra></extra>' };
             }
 
@@ -5361,6 +5584,23 @@
             if ((buckets.A.common||[]).length) traces.push(trace(buckets.A.common, 'Common — '+nameA, '#7c3aed', 'circle', nameA, true));
             if ((buckets.B.common||[]).length) traces.push(trace(buckets.B.common, 'Common — '+nameB, '#7c3aed', 'triangle-up', nameB, true));
 
+            // Annotation footnote for ceiling counts
+            const annotations = [];
+            if (yCeilKey) {
+                const nA = genesA.filter(isCeil).length;
+                const nB = genesB.filter(isCeil).length;
+                if (nA + nB > 0) {
+                    const parts = [];
+                    if (nA > 0) parts.push(`${nameA}: ${nA}`);
+                    if (nB > 0) parts.push(`${nameB}: ${nB}`);
+                    annotations.push({
+                        xref:'paper', yref:'paper', x:0, y:1.05, xanchor:'left', yanchor:'bottom',
+                        text: `⚑ At-floor genes (raw ${yMetric==='logpvalue'?'p-value':'FDR'} = 0 for top guide, plotted at min-nonzero/10) — ` + parts.join(', '),
+                        showarrow:false, font:{ size: gf.size-1, color:'#7f1d1d', family: gf.family }
+                    });
+                }
+            }
+
             Plotly.newPlot('gcOverlayPlot', traces, {
                 title:{text:'Overlay: '+nameA+' (●) vs '+nameB+' (▲)',x:0.5,xanchor:'center',font:{size:gf.size+2,family:gf.family}},
                 xaxis:{title:{text:xLabel,font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},
@@ -5368,7 +5608,8 @@
                 yaxis:{title:{text:yLabel,font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},
                     showline:true,mirror:true,ticks:'outside',ticklen:5,linewidth:1.5,linecolor:'#333',automargin:true},
                 hovermode:'closest',plot_bgcolor:'white',paper_bgcolor:'white',
-                height:580,margin:{l:80,r:30,t:70,b:70},legend:{orientation:'v',x:1.01,y:1}
+                height:580,margin:{l:80,r:30,t:90,b:70},legend:{orientation:'v',x:1.01,y:1},
+                annotations: annotations
             },{responsive:true});
         }
 

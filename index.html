@@ -2552,6 +2552,16 @@
             const metricLabel = getMetricLabel(metric);
             const metricKey = `${metric}_${statIdx}`;
 
+            // Ceiling flag: only meaningful when metric is log p-value / log FDR
+            const ceilKey = (metric === 'logpvalue' || metric === 'logfdr')
+                ? (metric + 'Ceiling_' + statIdx) : null;
+            const isCeil = d => ceilKey ? !!d[ceilKey] : false;
+
+            // Per-point marker style (outline only — no size bump)
+            const symbols = data.map(d => isCeil(d) ? 'triangle-up' : 'circle');
+            const lineWidths = data.map(d => isCeil(d) ? 2 : 0.5);
+            const lineColors = data.map(d => isCeil(d) ? '#000' : '#64748b');
+
             const traces = [{
                 x: data.map(d => d.residue),
                 y: data.map(d => d[metricKey]),
@@ -2560,23 +2570,27 @@
                 name: 'Guides',
                 marker: {
                     size: 9,
+                    symbol: symbols,
                     color: data.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
                     opacity: 0.7,
-                    line: { color: '#64748b', width: 0.5 }
+                    line: { color: lineColors, width: lineWidths }
                 },
                 text: data.map(d => {
                     let text = `<b>${d.guideID || d.guide || 'Guide'}</b><br>`;
                     text += `Residue: ${d.residue || 'N/A'}<br>`;
-                    
+
                     const sameResidue = data.filter(g => g.residue === d.residue && !isNaN(g.residue)).length;
                     if (sameResidue > 1) {
                         text += `Other guides at this residue: ${sameResidue - 1}<br>`;
                     }
-                    
+
                     text += `Category: ${d.category}<br>`;
                     text += `Z-score: ${d[`zscore_${statIdx}`].toFixed(2)}<br>`;
                     if (d.guide) {
                         text += `Sequence: ${d.guide}<br>`;
+                    }
+                    if (isCeil(d)) {
+                        text += `<b style="color:#b91c1c">⚑ at floor — true value below numerical precision</b><br>`;
                     }
                     // ADD RAW MUTATIONS
                     if (d.rawMutations) {
@@ -2646,6 +2660,18 @@
                 height: 600,
                 margin: { l: 80, r: 30, t: 70, b: 70 }
             };
+
+            const ceilCount = ceilKey ? data.filter(isCeil).length : 0;
+            if (ceilCount > 0) {
+                layout.annotations = [{
+                    xref:'paper', yref:'paper', x:0, y:1.04, xanchor:'left', yanchor:'bottom',
+                    text: '▲ ' + ceilCount + ' point' + (ceilCount===1?'':'s') + ' at floor — raw '
+                        + (metric === 'logpvalue' ? 'p-value' : 'FDR') + ' was 0 (below numerical precision); '
+                        + 'plotted at min-nonzero/10',
+                    showarrow:false,
+                    font:{ size: getGlobalFont().size - 1, color:'#7f1d1d', family: getGlobalFont().family }
+                }];
+            }
 
             Plotly.newPlot('plotContainer', traces, layout, { responsive: true }).then(() => {
                 window.dispatchEvent(new Event('resize'));
@@ -2956,7 +2982,7 @@
                     showlegend: false,
                     marker: {
                         symbol: 'triangle-up',
-                        size: 14,
+                        size: 8,
                         color: ceiling.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
                         opacity: 0.95,
                         line: { color: '#000', width: 2 }
@@ -3577,6 +3603,8 @@
             row['Log-FoldChange']   = d.foldchange_0 != null ? d.foldchange_0 : '';
             row['log(P-value)']     = d.logpvalue_0 != null ? d.logpvalue_0 : '';
             row['logFDR']           = d.logfdr_0 != null ? d.logfdr_0 : '';
+            row['Notes']            = (d.logpvalueCeiling_0 || d.logfdrCeiling_0)
+                ? 'true FDR below numerical precision and this is a floor' : '';
             return row;
         }
 
@@ -4406,7 +4434,7 @@
                 name: nameA,
                 marker: {
                     symbol: 'circle',
-                    size: plotA.map(d => ceilA(d) ? 22 : 16),
+                    size: 16,
                     color: plotA.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
                     opacity: 0.75,
                     line: {
@@ -4430,7 +4458,7 @@
                 name: nameB,
                 marker: {
                     symbol: 'triangle-up',
-                    size: plotB.map(d => ceilB(d) ? 22 : 16),
+                    size: 16,
                     color: '#e74c3c',
                     opacity: 0.7,
                     line: {
@@ -4634,7 +4662,7 @@
                 type: 'scatter',
                 marker: {
                     symbol: common.map(g => isCeil(g) ? 'star' : 'diamond'),
-                    size: common.map(g => isCeil(g) ? 20 : 16),
+                    size: 16,
                     color: '#6d28d9',
                     opacity: 0.75,
                     line: {
@@ -4835,7 +4863,12 @@
                     [`${nameA}_pvalue`]:      logToP(dA?.[`logpvalue_${statIdxA}`]),
                     [`${nameB}_pvalue`]:      logToP(dB?.[`logpvalue_${statIdxB}`]),
                     [`${nameA}_fdr`]:         logToP(dA?.[`logfdr_${statIdxA}`]),
-                    [`${nameB}_fdr`]:         logToP(dB?.[`logfdr_${statIdxB}`])
+                    [`${nameB}_fdr`]:         logToP(dB?.[`logfdr_${statIdxB}`]),
+                    Notes: (
+                        (dA?.[`logpvalueCeiling_${statIdxA}`] || dA?.[`logfdrCeiling_${statIdxA}`] ||
+                         dB?.[`logpvalueCeiling_${statIdxB}`] || dB?.[`logfdrCeiling_${statIdxB}`])
+                        ? 'true FDR below numerical precision and this is a floor' : ''
+                    )
                 });
             });
 
@@ -5246,7 +5279,7 @@
                 makeTrace(bgGenes,   'Non-hit genes', '#d1d5db', 7,  0.6,  false)
             ];
             if (hitNormal.length)  traces.push(makeTrace(hitNormal,  'Hit genes',        '#ef4444', 9,  0.85, true));
-            if (hitCeiling.length) traces.push(makeTrace(hitCeiling, 'Hit genes (⚑ at floor)', '#ef4444', 14, 0.95, true, 'triangle-up', '#000', 2));
+            if (hitCeiling.length) traces.push(makeTrace(hitCeiling, 'Hit genes (⚑ at floor)', '#ef4444', 9, 0.95, true, 'triangle-up', '#000', 2));
 
             // Arrow annotations for top hits
             const annotations = hitsSorted.slice(0, Math.min(labelTop, hitsSorted.length))
@@ -5346,6 +5379,8 @@
                 if (g.foldchange != null && !isNaN(g.foldchange)) row['Fold Change'] = g.foldchange;
                 if (g.logpvalue != null && !isNaN(g.logpvalue)) row['−log10(P-value)'] = g.logpvalue;
                 if (g.logfdr != null && !isNaN(g.logfdr)) row['−log10(FDR)'] = g.logfdr;
+                row['Notes'] = (g.logpvalueCeiling || g.logfdrCeiling)
+                    ? 'true FDR below numerical precision and this is a floor' : '';
                 return row;
             });
             const ws = XLSX.utils.json_to_sheet(rows);
@@ -5508,11 +5543,13 @@
             const rows=allGenes.map(function(g){
                 const a=mapA.get(g)||{}, b=mapB.get(g)||{};
                 const inA=passA.has(g), inB=passB.has(g);
+                const anyCeil = a.logpvalueCeiling || a.logfdrCeiling || b.logpvalueCeiling || b.logfdrCeiling;
                 return { 'Gene':g, 'Group':inA&&inB?'Common':inA?nameA+' only':inB?nameB+' only':'Non-hit',
                     ['Passed '+nameA]:inA?'Yes':'No', ['Passed '+nameB]:inB?'Yes':'No',
                     [nameA+' Z-score']:a.zscore??'', [nameB+' Z-score']:b.zscore??'',
                     [nameA+' log2FC']:a.foldchange??'', [nameB+' log2FC']:b.foldchange??'',
-                    [nameA+' −log10P']:a.logpvalue??'', [nameB+' −log10P']:b.logpvalue??''
+                    [nameA+' −log10P']:a.logpvalue??'', [nameB+' −log10P']:b.logpvalue??'',
+                    'Notes': anyCeil ? 'true FDR below numerical precision and this is a floor' : ''
                 };
             }).filter(r=>r.Group!=='Non-hit');
             const ws=XLSX.utils.json_to_sheet(rows);
@@ -5565,7 +5602,7 @@
                     mode:'markers', type:'scattergl', name:name, showlegend:showLegend,
                     marker:{
                         symbol:symbol,
-                        size: genes.map(g => isCeil(g) ? (symbol==='circle'?14:16) : (symbol==='circle'?7:9)),
+                        size: (symbol==='circle' ? 7 : 9),
                         color:color,
                         opacity: isBg ? 0.4 : 0.85,
                         line:{

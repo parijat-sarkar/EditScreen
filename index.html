@@ -73,8 +73,26 @@
             max-width: 900px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             margin: 20px auto;
+            /* Universal scroll fix: the modal-content itself scrolls, capped at 90vh.
+               Combined with the .modal wrapper's own overflow:auto, this guarantees that
+               every page of every modal — no matter how tall — is reachable without
+               having to zoom out. The h2 header and .modal-buttons footer can still
+               render in normal flow at top/bottom of the scroll body. */
+            max-height: 90vh;
+            overflow-y: auto;
         }
-        .modal h2 { margin-bottom: 20px; font-size: 20px; }
+        /* Sticky header — applies only to h2 that is a DIRECT child of .modal-content,
+           so modals with their own custom layout (e.g. structureModal) are unaffected. */
+        .modal-content > h2 {
+            margin: -30px -30px 20px -30px;     /* extend across modal padding */
+            padding: 22px 30px 14px 30px;
+            font-size: 20px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            position: sticky;
+            top: -30px;                         /* counters modal-content's 30px top padding */
+            z-index: 5;
+        }
         .mapping-group {
             margin-bottom: 20px;
             padding-bottom: 20px;
@@ -218,6 +236,18 @@
             gap: 12px;
             margin-top: 30px;
             justify-content: flex-end;
+        }
+        /* Sticky footer — only when modal-buttons is a DIRECT child of .modal-content,
+           so action buttons remain reachable without scrolling on tall modals.
+           Custom-layout modals (like structureModal) are unaffected. */
+        .modal-content > .modal-buttons {
+            margin: 30px -30px -30px -30px;
+            padding: 16px 30px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            position: sticky;
+            bottom: -30px;
+            z-index: 5;
         }
         .btn-primary, .btn-secondary {
             padding: 10px 20px;
@@ -412,15 +442,70 @@
             z-index: 10000;
             max-width: 400px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            pointer-events: none;
+            pointer-events: none;       /* hover-only, never receives mouse — content is capped */
             border: 1px solid #444;
-            max-height: 300px;
-            overflow-y: auto;
+            max-height: 240px;          /* cap so no scroll is needed; full data lives in pin panel */
+            overflow: hidden;
             line-height: 1.5;
         }
         .tooltip-popup.active {
             display: block;
         }
+        .tooltip-popup .more-hint {
+            color: #93c5fd;
+            font-size: 11px;
+            margin-top: 6px;
+            font-style: italic;
+        }
+        /* Pinned detail panel — opens on click, scrolls freely, has close button */
+        .pin-panel {
+            display: none;
+            flex-direction: column;
+            position: fixed;
+            background: #ffffff;
+            color: #111;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+            z-index: 10001;
+            width: 420px;
+            max-width: 90vw;
+            max-height: 70vh;
+            overflow: hidden;
+        }
+        .pin-panel.active { display: flex; }
+        .pin-panel-header {
+            position: sticky;
+            top: 0;
+            background: #f9fafb;
+            padding: 10px 14px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 13px;
+            color: #1f2937;
+            flex-shrink: 0;
+        }
+        .pin-panel-header button {
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            line-height: 1;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .pin-panel-header button:hover { color: #111; }
+        .pin-panel-body {
+            padding: 12px 14px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #1f2937;
+        }
+        .pin-panel-body strong { color: #111; }
         .reset-btn {
             padding: 10px 20px;
             background: #e74c3c;
@@ -676,6 +761,10 @@
             </div>
             <div id="domainLegend" style="display:none; margin:6px 0 10px 0; padding:8px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; flex-wrap:wrap; gap:8px; font-size:12px;"></div>
             <!-- Heatmap scale controls (hidden until heatmap is shown) -->
+            <!-- Marker style panel (scatter / lollipop views) -->
+            <!-- Populated by renderMarkerStyleBar() at startup. The previous template-literal
+                 syntax (${...}.map(...)) doesn't evaluate inside static HTML, so this is built in JS. -->
+            <div id="markerStyleBar" style="display:none; align-items:center; gap:12px; padding:10px 16px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:8px; flex-wrap:wrap;"></div>
             <div id="heatmapScaleBar" style="display:none; align-items:center; gap:16px; padding:10px 16px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:10px; flex-wrap:wrap;">
               <span style="font-size:12px; font-weight:600; color:#374151;">Color scale:</span>
               <div style="display:flex; align-items:center; gap:6px;">
@@ -850,14 +939,30 @@
     </div>
 
     <div id="tooltipPopup" class="tooltip-popup"></div>
+    <div id="pinPanel" class="pin-panel">
+        <div class="pin-panel-header">
+            <span id="pinPanelTitle">Details</span>
+            <button onclick="closePinPanel()" title="Close (Esc)">×</button>
+        </div>
+        <div class="pin-panel-body" id="pinPanelBody"></div>
+    </div>
 
     <!-- Structure Viewer Modal -->
     <div id="structureModal" class="modal">
-      <div class="modal-content" style="max-width:1080px; width:96vw; padding:26px;">
-        <h2 style="margin-bottom:6px;">View Hits on 3D Structure</h2>
-        <p style="font-size:12px; color:#6b7280; margin-bottom:18px;">
-          Residues passing your cutoffs are highlighted on the PDB structure. If your screen residue numbers differ from PDB numbering, adjust the offset (PDB residue = screen residue + offset).
-        </p>
+      <div class="modal-content" style="max-width:1080px; width:96vw; padding:0; max-height:92vh; display:flex; flex-direction:column; overflow:hidden;">
+        <!-- Sticky header — close button always visible no matter how far user scrolls -->
+        <div style="position:sticky; top:0; z-index:5; background:white; padding:18px 26px 12px 26px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+          <div>
+            <h2 style="margin-bottom:4px;">View Hits on 3D Structure</h2>
+            <p style="font-size:12px; color:#6b7280; margin:0;">
+              Residues passing your cutoffs are highlighted on the PDB structure. If your screen residue numbers differ from PDB numbering, adjust the offset.
+            </p>
+          </div>
+          <button onclick="closeModal('structureModal')" class="btn-secondary" style="padding:8px 14px; font-size:13px; flex-shrink:0;">✕ Close</button>
+        </div>
+
+        <!-- Scrollable body -->
+        <div style="overflow-y:auto; padding:18px 26px 26px 26px; flex:1 1 auto; min-height:0;">
 
         <!-- Controls row -->
         <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px;">
@@ -886,7 +991,6 @@
               style="width:80px; padding:7px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;" oninput="applyStructureColoring()">
           </div>
           <button onclick="loadPDBStructure()" class="btn-primary" style="padding:8px 20px; font-size:13px;">Load from RCSB</button>
-          <button onclick="closeModal('structureModal')" class="btn-secondary" style="padding:8px 14px; font-size:13px; margin-left:auto;">✕ Close</button>
         </div>
 
         <!-- Alignment info / error -->
@@ -919,8 +1023,8 @@
             </div>
             <div style="display:flex; align-items:center; gap:6px;">
               <span style="font-size:12px; font-weight:600; color:#374151;">BG opacity:</span>
-              <input type="range" id="pdbBgOpacity" min="0" max="1" step="0.05" value="0.15" style="width:90px;" oninput="setPdbBgOpacity(this.value)">
-              <span id="pdbBgOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.15</span>
+              <input type="range" id="pdbBgOpacity" min="0" max="1" step="0.05" value="1.0" style="width:90px;" oninput="setPdbBgOpacity(this.value)">
+              <span id="pdbBgOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">1.0</span>
             </div>
           </div>
         </div>
@@ -936,6 +1040,7 @@
           </div>
           <div id="pdbLegend" style="min-width:170px; font-size:12px; padding-top:4px;"></div>
         </div>
+        </div><!-- /scrollable body -->
       </div>
     </div>
 
@@ -1801,10 +1906,110 @@
             }
         }
 
+        // 3-letter to 1-letter amino acid map (covers all 20 + stop)
+        const AA3to1 = {
+            ALA:'A', ARG:'R', ASN:'N', ASP:'D', CYS:'C',
+            GLN:'Q', GLU:'E', GLY:'G', HIS:'H', ILE:'I',
+            LEU:'L', LYS:'K', MET:'M', PHE:'F', PRO:'P',
+            SER:'S', THR:'T', TRP:'W', TYR:'Y', VAL:'V',
+            TER:'*', STOP:'*', SEC:'U', PYL:'O'
+        };
+        const AA1set = new Set(['A','R','N','D','C','Q','E','G','H','I','L','K','M','F','P','S','T','W','Y','V','*','X']);
+
+        function _classifyMut(fromAA, toAA, raw) {
+            // raw here is the SPECIFIC mutation token (e.g. "S45F" or "Exon3"),
+            // not the whole parent string. Earlier we passed the full string here,
+            // which mis-tagged every mutation in a guide that *also* contained an Exon hit.
+            if (raw && /^(?:Splice[_\s])?Exon\s*\d+/i.test(raw)) return 'Splice-site';
+            if (toAA === '*' || toAA === 'X') return 'Nonsense';
+            if (fromAA && toAA && fromAA === toAA) return 'Silent';
+            if (fromAA && toAA) return 'Missense';
+            return 'Unknown';
+        }
+
+        // Parse ALL mutations out of a predicted-mutations string.
+        // Handles: Ser123Ala, p.Ser123Phe, S123F, S123*, S123X, S123S (silent),
+        //          mixed delimiters (; , | / whitespace), and Splice_ExonN.
+        // Returns: [{residue:Number|null, fromAA:'S', toAA:'F', type:'Missense', raw:'...'}]
+        function parseAllMutations(mutationStr) {
+            if (!mutationStr) return [];
+            const s = String(mutationStr).trim();
+            if (!s) return [];
+
+            const out = [];
+            const seen = new Set();
+
+            // Pattern 1: 3-letter — optionally prefixed with p. — e.g. p.Ser123Ala, Ser123Ala, Ser123Ter
+            const re3 = /(?:p\.)?([A-Z][a-z]{2})(\d+)([A-Z][a-z]{2}|Ter|TER|\*)/g;
+            let m;
+            while ((m = re3.exec(s)) !== null) {
+                const from3 = m[1].toUpperCase();
+                const to3raw = m[3];
+                const to3 = to3raw === '*' ? '*' : to3raw.toUpperCase();
+                const fromAA = AA3to1[from3];
+                const toAA = to3 === '*' ? '*' : AA3to1[to3];
+                if (!fromAA || !toAA) continue; // not a real AA triplet, skip
+                const residue = parseInt(m[2], 10);
+                const key = `${fromAA}${residue}${toAA}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push({
+                    residue,
+                    fromAA,
+                    toAA,
+                    type: _classifyMut(fromAA, toAA, m[0]),
+                    raw: m[0]
+                });
+            }
+
+            // Pattern 2: 1-letter — e.g. S123F, S123*, S123X
+            // Require non-letter boundary on each side so we don't double-match inside "Ser123Ala".
+            const re1 = /(?:^|[^A-Za-z])([ARNDCQEGHILKMFPSTWYV])(\d+)([ARNDCQEGHILKMFPSTWYV*X])(?![A-Za-z])/g;
+            while ((m = re1.exec(s)) !== null) {
+                const fromAA = m[1].toUpperCase();
+                const toAA = m[3].toUpperCase();
+                if (!AA1set.has(fromAA) || !AA1set.has(toAA)) continue;
+                const residue = parseInt(m[2], 10);
+                const key = `${fromAA}${residue}${toAA}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const tok = `${fromAA}${residue}${toAA}`;
+                out.push({
+                    residue,
+                    fromAA,
+                    toAA,
+                    type: _classifyMut(fromAA, toAA, tok),
+                    raw: tok
+                });
+            }
+
+            // Pattern 3: Splice — e.g. Splice_Exon3, Exon5_donor. No protein residue.
+            const reExon = /Exon\s*(\d+)/gi;
+            while ((m = reExon.exec(s)) !== null) {
+                const exonNum = parseInt(m[1], 10);
+                const key = `splice_exon${exonNum}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push({
+                    residue: null,
+                    fromAA: null,
+                    toAA: null,
+                    type: 'Splice-site',
+                    raw: m[0],
+                    exon: exonNum
+                });
+            }
+
+            return out;
+        }
+
+        // Backward-compat: legacy callers (scatter, lollipop) still need a single residue per guide.
         function parseResidueFromMutation(mutationStr) {
             if (!mutationStr) return null;
-            const match = String(mutationStr).match(/(\d+)/);
-            return match ? parseInt(match[1]) : null;
+            const all = parseAllMutations(mutationStr);
+            // Prefer first AA-level mutation (has a residue); fall back to null for splice-only.
+            const withResidue = all.find(x => x.residue != null);
+            return withResidue ? withResidue.residue : null;
         }
 
         function extractMutationCategory(categoryStr) {
@@ -2305,6 +2510,11 @@
                         category = extractMutationCategory(row[columnMapping.mutationAll]);
                     }
 
+                    // Parse out EVERY individual mutation in this guide's predicted-mutations string.
+                    // Used by the heatmap so every residue actually edited by this guide gets coverage.
+                    // Scatter/lollipop continue to use the single `residue` field (one-dot-per-guide).
+                    const mutations = parseAllMutations(rawMutations);
+
                     const item = {
                         ...row,
                         guideID: columnMapping.guideID ? row[columnMapping.guideID] : `Guide_${Math.random()}`,
@@ -2312,6 +2522,7 @@
                         residue: residue,
                         category: category,
                         rawMutations: rawMutations,
+                        mutations: mutations,
                         isControl: isControl,
                         highInTreatment: columnMapping.highInTreatment ? row[columnMapping.highInTreatment] : null,
                         gene: geneValue
@@ -2553,6 +2764,10 @@
         }
 
         function plotScatter(data, statIdx, metric, selectedProtein) {
+            // Show marker style panel when scatter is active
+            const msBar = document.getElementById('markerStyleBar');
+            if (msBar) msBar.style.display = 'flex';
+
             const metricLabel = getMetricLabel(metric);
             const metricKey = `${metric}_${statIdx}`;
 
@@ -2561,8 +2776,9 @@
                 ? (metric + 'Ceiling_' + statIdx) : null;
             const isCeil = d => ceilKey ? !!d[ceilKey] : false;
 
-            // Per-point marker style (outline only — no size bump)
-            const symbols = data.map(d => isCeil(d) ? 'triangle-up' : 'circle');
+            // Per-point marker style — respects user shape/color pickers
+            const ms = getMarkerStyle();
+            const symbols = data.map(d => isCeil(d) ? 'triangle-up' : (ms.shapes[d.category] || 'circle'));
             const lineWidths = data.map(d => isCeil(d) ? 2 : 0.5);
             const lineColors = data.map(d => isCeil(d) ? '#000' : '#64748b');
 
@@ -2573,9 +2789,10 @@
                 type: 'scatter',
                 name: 'Guides',
                 marker: {
-                    size: 9,
+                    // Per-point size driven by category (user-configurable in marker style bar)
+                    size: data.map(d => ms.sizes[d.category] || 9),
                     symbol: symbols,
-                    color: data.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
+                    color: data.map(d => ms.colors[d.category] || CATEGORY_COLORS[d.category] || '#95a5a6'),
                     opacity: 0.7,
                     line: { color: lineColors, width: lineWidths }
                 },
@@ -2589,7 +2806,19 @@
                     }
 
                     text += `Category: ${d.category}<br>`;
-                    text += `Z-score: ${d[`zscore_${statIdx}`].toFixed(2)}<br>`;
+                    // Show every stat the user actually mapped — one line each.
+                    // NaN/undefined means the column wasn't mapped, so skip it.
+                    const _stats = [
+                        { key: 'zscore',     label: 'Z-score' },
+                        { key: 'foldchange', label: 'Fold Change (log2)' },
+                        { key: 'logpvalue',  label: '-log10(P-value)' },
+                        { key: 'logfdr',     label: '-log10(FDR)' }
+                    ];
+                    _stats.forEach(s => {
+                        const v = d[`${s.key}_${statIdx}`];
+                        if (v == null || (typeof v === 'number' && isNaN(v))) return;
+                        text += `${s.label}: ${(typeof v === 'number') ? v.toFixed(3) : v}<br>`;
+                    });
                     if (d.guide) {
                         text += `Sequence: ${d.guide}<br>`;
                     }
@@ -2665,17 +2894,8 @@
                 margin: { l: 80, r: 30, t: 70, b: 70 }
             };
 
-            const ceilCount = ceilKey ? data.filter(isCeil).length : 0;
-            if (ceilCount > 0) {
-                layout.annotations = [{
-                    xref:'paper', yref:'paper', x:0, y:1.04, xanchor:'left', yanchor:'bottom',
-                    text: '▲ ' + ceilCount + ' point' + (ceilCount===1?'':'s') + ' at floor — raw '
-                        + (metric === 'logpvalue' ? 'p-value' : 'FDR') + ' was 0 (below numerical precision); '
-                        + 'plotted at min-nonzero/10',
-                    showarrow:false,
-                    font:{ size: getGlobalFont().size - 1, color:'#7f1d1d', family: getGlobalFont().family }
-                }];
-            }
+            // Floor warning annotation removed per UX feedback — triangle markers + per-point
+            // hover text ("at floor — true value below numerical precision") still convey the info.
 
             Plotly.newPlot('plotContainer', traces, layout, { responsive: true }).then(() => {
                 window.dispatchEvent(new Event('resize'));
@@ -2683,17 +2903,24 @@
         }
 
         function plotLollipop(data, statIdx, metric, selectedProtein) {
+            // Show marker style panel when lollipop is active
+            const msBar = document.getElementById('markerStyleBar');
+            if (msBar) msBar.style.display = 'flex';
+
             const metricLabel = getMetricLabel(metric);
             const metricKey = `${metric}_${statIdx}`;
-            
+
             const residueStats = {};
 
             data.forEach(d => {
                 if (!residueStats[d.residue]) {
-                    residueStats[d.residue] = { count: 0, guides: [], categories: [] };
+                    // guideRefs holds full guide objects so the pin panel can show each guide's edits.
+                    // guides[] (string ids) is kept for back-compat with hover/template code.
+                    residueStats[d.residue] = { count: 0, guides: [], guideRefs: [], categories: [] };
                 }
                 residueStats[d.residue].count++;
                 residueStats[d.residue].guides.push(d.guideID || d.guide || 'Guide');
+                residueStats[d.residue].guideRefs.push(d);
                 residueStats[d.residue].categories.push(d.category || 'Unknown');
             });
 
@@ -2713,7 +2940,8 @@
                 });
             });
 
-            // Add lollipop heads (circles) with category colors
+            // Add lollipop heads (circles) with user-configurable category colors/shapes
+            const lms = getMarkerStyle();
             traces.push({
                 x: residues,
                 y: residues.map(r => residueStats[r].count),
@@ -2722,12 +2950,19 @@
                 name: 'Residues',
                 marker: {
                     size: residues.map(r => (5 + Math.log(residueStats[r].count + 1) * 2) * 1.5),
+                    symbol: residues.map(r => {
+                        const cats = residueStats[r].categories;
+                        const counts = {};
+                        cats.forEach(c => counts[c] = (counts[c] || 0) + 1);
+                        const mostCommon = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                        return lms.shapes[mostCommon] || 'circle';
+                    }),
                     color: residues.map(r => {
                         const cats = residueStats[r].categories;
                         const counts = {};
                         cats.forEach(c => counts[c] = (counts[c] || 0) + 1);
                         const mostCommon = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-                        return CATEGORY_COLORS[mostCommon] || '#95a5a6';
+                        return lms.colors[mostCommon] || CATEGORY_COLORS[mostCommon] || '#95a5a6';
                     }),
                     opacity: 0.7,
                     line: { color: '#64748b', width: 1 }
@@ -2735,10 +2970,13 @@
                 text: residues.map(r => {
                     let text = `<b>Residue ${r}</b><br>`;
                     text += `Guides: ${residueStats[r].count}<br>`;
-                    text += `Examples: ${residueStats[r].guides.slice(0, 2).join(', ')}`;
+                    // Keep hover concise — full list is in the click-to-pin panel
+                    text += `Top: ${residueStats[r].guides.slice(0, 2).join(', ')}<br>`;
+                    text += `<i>Click for full list ▸</i>`;
                     return text;
                 }),
-                hovertemplate: '%{text}<extra></extra>'
+                hovertemplate: '%{text}<extra></extra>',
+                customdata: residues  // residue number per point — used by click handler below
             });
 
             const protein = proteins[selectedProtein];
@@ -2790,8 +3028,45 @@
                 margin: { l: 80, r: 30, t: 70, b: 70 }
             };
 
-            Plotly.newPlot('plotContainer', traces, layout, { responsive: true }).then(() => {
+            Plotly.newPlot('plotContainer', traces, layout, { responsive: true }).then((gd) => {
                 window.dispatchEvent(new Event('resize'));
+                // Click-to-pin: show ALL guides at the clicked residue in the pin panel
+                gd.removeAllListeners && gd.removeAllListeners('plotly_click');
+                gd.on('plotly_click', function(ev) {
+                    if (!ev || !ev.points || !ev.points.length) return;
+                    const pt = ev.points[0];
+                    if (pt.customdata == null) return;       // click was on a stick, not a head
+                    const r = pt.customdata;
+                    const stats = residueStats[r];
+                    if (!stats) return;
+                    let html = `<div><strong>Residue ${r}</strong></div>`;
+                    html += `<div style="margin-top:4px;">Total guides: <strong>${stats.count}</strong></div>`;
+                    // Category breakdown
+                    const catCounts = {};
+                    stats.categories.forEach(c => { catCounts[c] = (catCounts[c] || 0) + 1; });
+                    if (Object.keys(catCounts).length) {
+                        html += '<div style="margin-top:8px;"><strong>By category</strong></div>';
+                        html += '<ul style="margin:4px 0 0 18px; padding:0;">';
+                        Object.entries(catCounts).forEach(([c, n]) => {
+                            html += `<li>${c}: ${n}</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    // ALL guides with their user-provided edits — no slicing
+                    html += `<div style="margin-top:10px;"><strong>All guides (${stats.guideRefs.length})</strong></div>`;
+                    html += '<ul style="margin:4px 0 0 18px; padding:0;">';
+                    stats.guideRefs.forEach(g => {
+                        const gid = g.guideID || g.guide || 'Guide';
+                        const edits = g.rawMutations && String(g.rawMutations).trim();
+                        const editsHtml = edits
+                            ? ` — <span style="color:#374151;">${String(edits).trim()}</span>`
+                            : '';
+                        html += `<li><span style="color:#6b7280;">${gid}</span>${editsHtml}</li>`;
+                    });
+                    html += '</ul>';
+                    document.getElementById('pinPanel').dataset.justOpened = '1';
+                    openPinPanel(ev.event, `Residue ${r}`, html);
+                });
             });
         }
         function plotControlGuides(data, statIdx, metric, fullSize) {
@@ -2900,6 +3175,143 @@
                 family: (document.getElementById('globalFontFamily') || {}).value || 'Arial',
                 size: parseInt((document.getElementById('globalFontSize') || {}).value || 13)
             };
+        }
+
+        // ─── Marker style helpers ────────────────────────────────────────────────
+        function getMarkerStyle() {
+            const cats = ['Missense', 'Nonsense', 'Silent', 'Splice-site'];
+            const shapes = {}, colors = {}, sizes = {};
+            cats.forEach(cat => {
+                const key = cat.replace('-', '_');
+                const shapeEl = document.getElementById('markerShape_' + key);
+                const colorEl = document.getElementById('markerColor_' + key);
+                const sizeEl  = document.getElementById('markerSize_'  + key);
+                shapes[cat] = shapeEl ? shapeEl.value : 'circle';
+                colors[cat] = colorEl ? colorEl.value : ({'Missense':'#2563eb','Nonsense':'#e74c3c','Silent':'#27ae60','Splice-site':'#9b59b6'}[cat]);
+                let s = sizeEl ? parseInt(sizeEl.value, 10) : 9;
+                if (isNaN(s) || s < 4) s = 4;
+                if (s > 20) s = 20;
+                sizes[cat] = s;
+            });
+            return { shapes, colors, sizes };
+        }
+
+        // Build the marker-style panel in JS. The HTML version with ${...}.map(...) doesn't
+        // evaluate (template literals only work in JS), so it rendered as raw text.
+        function renderMarkerStyleBar() {
+            const bar = document.getElementById('markerStyleBar');
+            if (!bar) return;
+            const cats = ['Missense','Nonsense','Silent','Splice-site'];
+            const defaults = {'Missense':'#2563eb','Nonsense':'#e74c3c','Silent':'#27ae60','Splice-site':'#9b59b6'};
+            const shapeOptions = [
+                ['circle','●  Circle'],
+                ['square','■  Square'],
+                ['diamond','◆  Diamond'],
+                ['triangle-up','▲  Triangle'],
+                ['cross','✚  Cross'],
+                ['x','✕  X']
+            ];
+
+            // Build with DOM APIs so we don't fight innerHTML escaping
+            bar.innerHTML = '';
+
+            const title = document.createElement('span');
+            title.style.cssText = 'font-size:12px; font-weight:600; color:#374151;';
+            title.textContent = 'Marker style per mutation:';
+            bar.appendChild(title);
+
+            const shapeLabel = document.createElement('span');
+            shapeLabel.style.cssText = 'font-size:11px; color:#6b7280;';
+            shapeLabel.textContent = 'Shape →';
+            bar.appendChild(shapeLabel);
+
+            cats.forEach(cat => {
+                const key = cat.replace('-','_');
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'display:flex; align-items:center; gap:4px;';
+
+                const lbl = document.createElement('span');
+                lbl.style.cssText = `font-size:11px; font-weight:600; color:${defaults[cat]};`;
+                lbl.textContent = cat;
+                wrap.appendChild(lbl);
+
+                const sel = document.createElement('select');
+                sel.id = 'markerShape_' + key;
+                sel.style.cssText = 'font-size:11px; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px;';
+                shapeOptions.forEach(([v, t]) => {
+                    const opt = document.createElement('option');
+                    opt.value = v;
+                    opt.textContent = t;
+                    sel.appendChild(opt);
+                });
+                sel.addEventListener('change', () => updatePlot());
+                wrap.appendChild(sel);
+
+                bar.appendChild(wrap);
+            });
+
+            const colorLabel = document.createElement('span');
+            colorLabel.style.cssText = 'font-size:11px; color:#6b7280; margin-left:8px;';
+            colorLabel.textContent = 'Color →';
+            bar.appendChild(colorLabel);
+
+            cats.forEach(cat => {
+                const key = cat.replace('-','_');
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'display:flex; align-items:center; gap:4px;';
+
+                const lbl = document.createElement('span');
+                lbl.style.cssText = 'font-size:11px; font-weight:600; color:#374151;';
+                lbl.textContent = cat;
+                wrap.appendChild(lbl);
+
+                const inp = document.createElement('input');
+                inp.type = 'color';
+                inp.id = 'markerColor_' + key;
+                inp.value = defaults[cat];
+                inp.style.cssText = 'width:28px; height:22px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;';
+                inp.addEventListener('change', () => updatePlot());
+                wrap.appendChild(inp);
+
+                bar.appendChild(wrap);
+            });
+
+            // ── Size group (numeric, 4–20) ──
+            const sizeLabel = document.createElement('span');
+            sizeLabel.style.cssText = 'font-size:11px; color:#6b7280; margin-left:8px;';
+            sizeLabel.textContent = 'Size →';
+            bar.appendChild(sizeLabel);
+
+            cats.forEach(cat => {
+                const key = cat.replace('-','_');
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'display:flex; align-items:center; gap:4px;';
+
+                const lbl = document.createElement('span');
+                lbl.style.cssText = 'font-size:11px; font-weight:600; color:#374151;';
+                lbl.textContent = cat;
+                wrap.appendChild(lbl);
+
+                const inp = document.createElement('input');
+                inp.type = 'number';
+                inp.id = 'markerSize_' + key;
+                inp.value = '9';
+                inp.min = '4';
+                inp.max = '20';
+                inp.step = '1';
+                inp.style.cssText = 'width:48px; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;';
+                inp.addEventListener('change', () => updatePlot());
+                wrap.appendChild(inp);
+
+                bar.appendChild(wrap);
+            });
+        }
+
+        // Render the panel as soon as the DOM is parsed.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', renderMarkerStyleBar);
+        } else {
+            renderMarkerStyleBar();
         }
 
         // ─── SVG Download helper ─────────────────────────────────────────────────
@@ -3047,16 +3459,9 @@
                     line:{ color:'#ef4444', width:1.5, dash:'dash' } });
             }
 
+            // Floor warning annotation removed per UX feedback — triangle markers + per-point
+            // hover ("at floor — true value below numerical precision") already convey this.
             const annotations = [];
-            if (ceiling.length > 0) {
-                annotations.push({
-                    xref:'paper', yref:'paper', x:0, y:1.06, xanchor:'left', yanchor:'bottom',
-                    text: '▲ ' + ceiling.length + ' point' + (ceiling.length===1?'':'s') + ' at floor — raw '
-                        + (yMetric === 'logpvalue' ? 'p-value' : 'FDR') + ' was 0 (below numerical precision); '
-                        + 'plotted at min-nonzero/10',
-                    showarrow:false, font:{ size: gf.size - 1, color:'#7f1d1d', family: gf.family }
-                });
-            }
 
             const layout = {
                 title: { text: 'Volcano — ' + selectedProtein + ' | ' + data.length + ' guides', x: 0.5, xanchor:'center',
@@ -3217,6 +3622,7 @@
             document.getElementById('plotContainer').classList.add('hidden');
             document.getElementById('heatmapContainer').classList.add('hidden');
             document.getElementById('heatmapScaleBar').style.display = 'none';
+            document.getElementById('markerStyleBar').style.display = 'none';
             document.getElementById('controlsPlot').classList.add('hidden');
             const tableContainer = document.getElementById('hitTableContainer');
             if (tableContainer) tableContainer.style.display = 'none';
@@ -3239,6 +3645,9 @@
                 renderHitTable(filteredData);
             } else {
                 document.getElementById('plotContainer').classList.remove('hidden');
+                if (view === 'scatter' || view === 'lollipop') {
+                    document.getElementById('markerStyleBar').style.display = 'flex';
+                }
                 updatePlot();
             }
         }
@@ -3271,6 +3680,49 @@
             const tooltip = document.getElementById('tooltipPopup');
             tooltip.classList.remove('active');
         }
+
+        // ─── Pinned detail panel (click-to-open, scrollable) ─────────────────
+        function openPinPanel(event, title, htmlContent) {
+            const panel = document.getElementById('pinPanel');
+            const titleEl = document.getElementById('pinPanelTitle');
+            const body = document.getElementById('pinPanelBody');
+            titleEl.textContent = title || 'Details';
+            body.innerHTML = htmlContent;
+            // Hide any hover tooltip first so we don't double-up
+            hideTooltip();
+            panel.classList.add('active');
+            // Position near click but keep within viewport
+            const x = (event && event.clientX != null) ? event.clientX + 14 : 80;
+            const y = (event && event.clientY != null) ? event.clientY + 14 : 80;
+            panel.style.left = x + 'px';
+            panel.style.top  = y + 'px';
+            requestAnimationFrame(() => {
+                const r = panel.getBoundingClientRect();
+                if (r.right > window.innerWidth - 10) {
+                    panel.style.left = Math.max(10, window.innerWidth - r.width - 10) + 'px';
+                }
+                if (r.bottom > window.innerHeight - 10) {
+                    panel.style.top = Math.max(10, window.innerHeight - r.height - 10) + 'px';
+                }
+            });
+        }
+        function closePinPanel() {
+            document.getElementById('pinPanel').classList.remove('active');
+        }
+        // Close pin panel on Esc, or click outside
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closePinPanel(); });
+        document.addEventListener('mousedown', e => {
+            const panel = document.getElementById('pinPanel');
+            if (!panel.classList.contains('active')) return;
+            if (panel.contains(e.target)) return;
+            // Only close if click wasn't on a heatmap cell or lollipop point that just opened it
+            // We give a tiny grace period so the same click doesn't open + close
+            if (panel.dataset.justOpened === '1') {
+                panel.dataset.justOpened = '0';
+                return;
+            }
+            closePinPanel();
+        });
 
         document.addEventListener('mousemove', function(e) {
             const tooltip = document.getElementById('tooltipPopup');
@@ -3324,24 +3776,106 @@
             const container = document.getElementById('heatmapContainer');
             container.innerHTML = '';
 
+            // ──────────────────────────────────────────────────────────────────
+            // Heatmap data model: per-MUTATION, not per-guide.
+            // A guide that produces S45F + G46G + A47V contributes coverage
+            // to all three residues. The mutation-type filter is applied per
+            // mutation, so a "Silent" filter picks up the silent edit at G46G
+            // even when the guide is otherwise labeled Missense.
+            // ──────────────────────────────────────────────────────────────────
+            const mutationType = document.getElementById('mutationSelect')?.value || 'all';
+
+            // Build the per-mutation expanded set from the GENE+STAT-filtered guides
+            // (skip the per-guide category filter that filteredData already applied —
+            //  we re-apply it at the mutation level below).
+            // We piggyback on filteredData when "All" is selected (cheap & equivalent),
+            // and rebuild from rawData with a relaxed filter when a specific
+            // category is selected, so we don't lose mixed-category guides.
+            let heatmapGuides;
+            if (mutationType === 'all') {
+                heatmapGuides = filteredData;
+            } else {
+                // Re-run the same gene + stat filters as updatePlot, minus the category filter.
+                const zcutoff   = parseFloat(document.getElementById('zcutoffSelect').value);
+                const fccutoff  = parseFloat(document.getElementById('fccutoffSelect').value);
+                const pcutoff   = parseFloat(document.getElementById('pcutoffSelect').value);
+                const fdrcutoff = parseFloat(document.getElementById('fdrcutoffSelect').value);
+                const highInTreatmentFilter = document.getElementById('highInTreatmentSelect').value;
+
+                heatmapGuides = rawData.filter(d => {
+                    if (columnMapping.geneName && d.gene !== selectedProtein) return false;
+
+                    if (zcutoff > 0) {
+                        const z = d[`zscore_${statIdx}`];
+                        if (!applyDirectionalCutoff(z, zcutoff, document.getElementById('zcutoffDir')?.value || '>=')) return false;
+                    }
+                    if (fccutoff > 0) {
+                        const fc = d[`foldchange_${statIdx}`];
+                        if (!applyDirectionalCutoff(fc, fccutoff, document.getElementById('fccutoffDir')?.value || '>=')) return false;
+                    }
+                    if (pcutoff > 0 && pcutoff < 1) {
+                        const pval = d[`logpvalue_${statIdx}`];
+                        const pvalActual = Math.pow(10, -pval);
+                        const pDir = document.getElementById('pcutoffDir')?.value || '<';
+                        if (pDir === '<') { if (isNaN(pvalActual) || pvalActual > pcutoff) return false; }
+                        else { if (isNaN(pvalActual) || pvalActual < pcutoff) return false; }
+                    }
+                    if (fdrcutoff > 0 && fdrcutoff < 1) {
+                        const fdr = d[`logfdr_${statIdx}`];
+                        const fdrActual = Math.pow(10, -fdr);
+                        const fdrDir = document.getElementById('fdrcutoffDir')?.value || '<';
+                        if (fdrDir === '<') { if (isNaN(fdrActual) || fdrActual > fdrcutoff) return false; }
+                        else { if (isNaN(fdrActual) || fdrActual < fdrcutoff) return false; }
+                    }
+                    if (highInTreatmentFilter && columnMapping.highInTreatment) {
+                        const hit = String(d.highInTreatment).toLowerCase();
+                        if (highInTreatmentFilter === 'true' && hit !== 'true') return false;
+                        if (highInTreatmentFilter === 'false' && hit !== 'false') return false;
+                    }
+                    return true;
+                });
+            }
+
+            // residueStats[pos] = { values:[...metric vals from each contributing mutation],
+            //                        mutations:[...raw mutation tokens], guides:[...guide refs] }
             const residueStats = {};
-            filteredData.forEach(d => {
-                const residue = Math.floor(d.residue);
-                if (residue > 0 && residue <= sequence.length) {
-                    if (!residueStats[residue]) {
-                        residueStats[residue] = { values: [], allMutations: [] };
-                    }
-                    residueStats[residue].values.push(d[metricKey]);
-                    
-                    if (columnMapping.predictedMutations && d[columnMapping.predictedMutations]) {
-                        residueStats[residue].allMutations.push(d[columnMapping.predictedMutations]);
-                    }
+            heatmapGuides.forEach(d => {
+                const muts = Array.isArray(d.mutations) ? d.mutations : [];
+                if (muts.length === 0) {
+                    // Fallback: parse on the fly if not pre-computed (defensive)
+                    const fallback = parseAllMutations(d.rawMutations);
+                    fallback.forEach(mut => _accumulate(mut, d));
+                    return;
                 }
+                muts.forEach(mut => _accumulate(mut, d));
             });
 
+            function _accumulate(mut, guide) {
+                if (mut.residue == null) return;            // splice-only, no protein position
+                if (mutationType !== 'all' && mut.type !== mutationType) return;
+                const residue = Math.floor(mut.residue);
+                if (residue <= 0 || residue > sequence.length) return;
+                const v = guide[metricKey];
+                if (v === undefined || v === null || isNaN(v)) return;
+                if (!residueStats[residue]) {
+                    residueStats[residue] = { values: [], mutations: [], guides: [] };
+                }
+                residueStats[residue].values.push(v);
+                residueStats[residue].mutations.push(mut.raw);
+                residueStats[residue].guides.push(guide);
+            }
+
+            // Aggregation: keep max-abs (per your call). High-pos and high-neg co-occurring
+            // at the same residue is rare; max-abs is the most informative single number.
             const residueMaxValue = {};
             Object.keys(residueStats).forEach(residue => {
-                residueMaxValue[residue] = Math.max(...residueStats[residue].values);
+                const vals = residueStats[residue].values;
+                if (vals.length === 0) return;
+                let pick = vals[0];
+                for (let i = 1; i < vals.length; i++) {
+                    if (Math.abs(vals[i]) > Math.abs(pick)) pick = vals[i];
+                }
+                residueMaxValue[residue] = pick;
             });
 
             const allValues = Object.values(residueMaxValue);
@@ -3435,41 +3969,129 @@
                     for (let i = 0; i < chunk.length; i++) {
                         const pos = start + i + 1;
                         const cell = document.createElement('div');
-                        const value = residueMaxValue[pos] || 0;
+                        const hasData = residueMaxValue.hasOwnProperty(pos);
+                        const value = hasData ? residueMaxValue[pos] : null;
 
                         cell.className = 'heatmap-cell';
-                        cell.dataset.rawValue = value;
-                        cell.style.background = getGradientColorForMetric(value, scaleMin, scaleMax, window.gradientScheme);
-                        
-                        let hoverContent = `<strong>Position ${pos} (${chunk[i]})</strong><br>`;
-                        hoverContent += `${metricLabel}: ${value.toFixed(2)}<br>`;
-                        
-                        // Show ALL mutations found at this residue
-                        if (residueStats[pos] && residueStats[pos].allMutations.length > 0) {
-                            const uniqueMutations = [...new Set(residueStats[pos].allMutations)];
-                            hoverContent += `<br><strong>All Mutations (${uniqueMutations.length}):</strong><br>`;
-                            uniqueMutations.forEach(mut => {
-                                hoverContent += `• ${String(mut).trim()}<br>`;
-                            });
+                        cell.style.cursor = hasData ? 'pointer' : 'default';
+                        if (hasData) {
+                            cell.dataset.rawValue = value;
+                            cell.style.background = getGradientColorForMetric(value, scaleMin, scaleMax, window.gradientScheme);
+                        } else {
+                            cell.dataset.rawValue = '';
+                            cell.style.background = '#d1d5db'; // gray — no targeting guides
                         }
-                        
-                        // Show guides hitting this residue
-                        const guidesAtResidue = filteredData.filter(d => Math.floor(d.residue) === pos);
-                        if (guidesAtResidue.length > 0) {
-                            hoverContent += `<br><strong>Guides at Pos ${pos}:</strong><br>`;
-                            guidesAtResidue.slice(0, 5).forEach(guide => {
-                                hoverContent += `• ${guide.guideID || guide.guide || 'Guide'} (Z=${guide[`zscore_${statIdx}`].toFixed(2)})<br>`;
+
+                        // Detect silent-only residues — color is driven entirely by silent mutations,
+                        // which means the score is really the parent guide's effect (likely from a
+                        // nearby missense) rather than the silent edit itself.
+                        let isSilentOnly = false;
+                        if (hasData && residueStats[pos]) {
+                            const types = new Set();
+                            residueStats[pos].mutations.forEach(raw => {
+                                // Re-classify the token to know its type without re-parsing the whole string
+                                if (/^(?:Splice[_\s])?Exon\s*\d+/i.test(raw)) types.add('Splice-site');
+                                else {
+                                    // Last char is to-AA; check for nonsense or silent
+                                    const m3 = /^(?:p\.)?[A-Z][a-z]{2}\d+([A-Z][a-z]{2}|Ter|TER|\*)$/.exec(raw);
+                                    const m1 = /^([ARNDCQEGHILKMFPSTWYV])(\d+)([ARNDCQEGHILKMFPSTWYV*X])$/.exec(raw);
+                                    let from, to;
+                                    if (m3) {
+                                        const fr = raw.match(/^(?:p\.)?([A-Z][a-z]{2})/)[1].toUpperCase();
+                                        const trRaw = m3[1];
+                                        const tr = trRaw === '*' ? '*' : trRaw.toUpperCase();
+                                        from = AA3to1[fr]; to = tr === '*' ? '*' : AA3to1[tr];
+                                    } else if (m1) {
+                                        from = m1[1]; to = m1[3];
+                                    }
+                                    if (to === '*' || to === 'X') types.add('Nonsense');
+                                    else if (from && to && from === to) types.add('Silent');
+                                    else if (from && to) types.add('Missense');
+                                }
                             });
-                            if (guidesAtResidue.length > 5) {
-                                hoverContent += `<br>...+${guidesAtResidue.length - 5} more<br>`;
+                            isSilentOnly = types.size === 1 && types.has('Silent');
+                        }
+
+                        // ── Short hover summary (capped, no scroll) ──
+                        const aaLetter = chunk[i];
+                        let hoverContent = `<strong>Position ${pos} (${aaLetter})</strong><br>`;
+                        hoverContent += hasData ? `${metricLabel}: ${value.toFixed(2)}<br>` : `No targeting guides<br>`;
+
+                        if (residueStats[pos]) {
+                            const uniqueMutations = [...new Set(residueStats[pos].mutations)];
+                            const seenIds = new Set();
+                            residueStats[pos].guides.forEach(g => {
+                                seenIds.add(g.guideID || g.guide || '_');
+                            });
+                            const nGuides = seenIds.size;
+                            if (uniqueMutations.length > 0) {
+                                hoverContent += `<br>Mutations: ${uniqueMutations.slice(0, 4).join(', ')}`;
+                                if (uniqueMutations.length > 4) hoverContent += `, …+${uniqueMutations.length - 4}`;
+                                hoverContent += '<br>';
                             }
+                            hoverContent += `Guides: ${nGuides}<br>`;
                         }
-                        
+                        if (isSilentOnly) {
+                            hoverContent += `<br><span style="color:#fbbf24;">⚠ Score may reflect a guide's effect from a nearby missense edit.</span><br>`;
+                        }
+                        if (hasData) {
+                            hoverContent += `<div class="more-hint">Click for full details ▸</div>`;
+                        }
+
+                        // ── Full pin-panel content (uncapped, scrollable) ──
+                        const buildPinContent = () => {
+                            let html = `<div><strong>Position ${pos}</strong> (${aaLetter})</div>`;
+                            html += hasData
+                                ? `<div style="margin-top:4px;">${metricLabel}: <strong>${value.toFixed(3)}</strong></div>`
+                                : `<div style="margin-top:4px;">No targeting guides</div>`;
+                            if (isSilentOnly) {
+                                html += `<div style="margin-top:8px; padding:8px 10px; background:#fef3c7; border:1px solid #fcd34d; border-radius:6px; color:#92400e; font-size:11px;">⚠ Score may reflect a guide's effect from a nearby missense edit.</div>`;
+                            }
+                            if (residueStats[pos] && residueStats[pos].mutations.length > 0) {
+                                const uniqueMutations = [...new Set(residueStats[pos].mutations)];
+                                html += `<div style="margin-top:10px;"><strong>Mutations at this residue (${uniqueMutations.length})</strong></div>`;
+                                html += '<ul style="margin:4px 0 0 18px; padding:0;">';
+                                uniqueMutations.forEach(mut => { html += `<li>${String(mut).trim()}</li>`; });
+                                html += '</ul>';
+                            }
+                            if (residueStats[pos] && residueStats[pos].guides.length > 0) {
+                                const seenIds = new Set();
+                                const uniqueGuides = [];
+                                residueStats[pos].guides.forEach(g => {
+                                    const id = g.guideID || g.guide || JSON.stringify(g).slice(0, 30);
+                                    if (!seenIds.has(id)) { seenIds.add(id); uniqueGuides.push(g); }
+                                });
+                                html += `<div style="margin-top:10px;"><strong>Guides editing this residue (${uniqueGuides.length})</strong></div>`;
+                                html += '<ul style="margin:4px 0 0 18px; padding:0;">';
+                                uniqueGuides.forEach(guide => {
+                                    const z = guide[`zscore_${statIdx}`];
+                                    const zStr = (z != null && !isNaN(z)) ? z.toFixed(2) : 'N/A';
+                                    const gid = guide.guideID || guide.guide || 'Guide';
+                                    // Show the full predicted-mutations string for this guide so the user can see
+                                    // every edit it makes (not only the one at the current residue).
+                                    const edits = guide.rawMutations && String(guide.rawMutations).trim();
+                                    const editsHtml = edits
+                                        ? ` — <span style="color:#374151;">${String(edits).trim()}</span>`
+                                        : '';
+                                    html += `<li>${gid} <span style="color:#6b7280;">(Z=${zStr})</span>${editsHtml}</li>`;
+                                });
+                                html += '</ul>';
+                            }
+                            return html;
+                        };
+
                         cell.addEventListener('mouseenter', function(e) {
                             showTooltip(e, hoverContent);
                         });
                         cell.addEventListener('mouseleave', hideTooltip);
-                        
+                        if (hasData) {
+                            cell.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                document.getElementById('pinPanel').dataset.justOpened = '1';
+                                openPinPanel(e, `Pos ${pos} (${aaLetter})`, buildPinContent());
+                            });
+                        }
+
                         cellGrid.appendChild(cell);
                     }
                     rowDiv.appendChild(cellGrid);
@@ -4089,6 +4711,9 @@
                             category = extractMutationCategory(row[cm.mutationAll]);
                         }
 
+                        // Per-mutation expansion: heatmap consumes this so every edited residue is counted
+                        const mutations = parseAllMutations(rawMutations);
+
                         const item = {
                             ...row,
                             guideID:          cm.guideID  ? row[cm.guideID]  : `Guide_${Math.random()}`,
@@ -4096,6 +4721,7 @@
                             residue,
                             category,
                             rawMutations,
+                            mutations,
                             gene:             geneValue,
                             isControl,
                             highInTreatment:  cm.highInTreatment ? row[cm.highInTreatment] : null
@@ -5971,14 +6597,24 @@
             const isGood = parseFloat(identity) >= 80;
             const isWarn = parseFloat(identity) >= 50 && parseFloat(identity) < 80;
 
-            // Build compact alignment display (60 chars per line)
+            // Build compact alignment display (60 chars per line).
+            // CRITICAL: every printed line must have the SAME column structure so the
+            // mid-line `|`/`.` markers land directly under their residues. We use a
+            // CSS grid (`1ch` per column) instead of relying on space-padded prose,
+            // which previously drifted by 2 chars and made the alignment look broken.
             const WRAP = 60;
-            let alnHtml = '<div style="font-family:monospace; font-size:11px; line-height:1.8; background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:10px; margin-top:8px; overflow-x:auto; white-space:pre;">';
+            // Label column = 6 chars ("User  "/"Match "/"PDB   "), then 5-char start position,
+            // then 2 spaces, then the WRAP-char sequence, then 2 spaces, then the end label (≤7).
+            const PREFIX = 6 + 5 + 2;        // chars before sequence column begins
+            const SUFFIX_GAP = 2;            // chars between sequence and end label
+            const TOTAL_COLS = PREFIX + WRAP + SUFFIX_GAP + 7;
+
+            let alnHtml = '<div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11px; line-height:1.6; background:#fff; border:1px solid #e5e7eb; border-radius:4px; padding:10px; margin-top:8px; overflow-x:auto;">';
+            // One CSS grid per chunk so each character occupies exactly 1ch.
             let userPosTrack = 0, pdbIdxTrack = 0;
             for (let k = 0; k < alignA.length; k += WRAP) {
                 const chunkA = alignA.slice(k, k + WRAP);
                 const chunkB = alignB.slice(k, k + WRAP);
-                // Count real positions before this chunk
                 const uStart = userPosTrack + 1;
                 const pdbStart = pdbIdxTrack < resiList.length ? resiList[pdbIdxTrack] : '?';
                 let mid = '';
@@ -5989,7 +6625,6 @@
                         mid += ' ';
                     }
                 }
-                // Track positions
                 for (let c = 0; c < chunkA.length; c++) {
                     if (alignA[k+c] !== '-') userPosTrack++;
                     if (alignB[k+c] !== '-') pdbIdxTrack++;
@@ -5997,9 +6632,49 @@
                 const uEnd = userPosTrack;
                 const pdbEnd = pdbIdxTrack > 0 && pdbIdxTrack <= resiList.length ? resiList[pdbIdxTrack-1] : '?';
 
-                alnHtml += 'User  ' + String(uStart).padStart(5) + '  ' + chunkA + '  ' + uEnd + '\n';
-                alnHtml += '           ' + mid + '\n';
-                alnHtml += 'PDB   ' + String(pdbStart).padStart(5) + '  ' + chunkB + '  ' + pdbEnd + '\n\n';
+                // Each row is a CSS grid: label(6ch) + start(5ch) + gap(2ch) + chunk(WRAPch) + gap(2ch) + end(7ch).
+                // Using grid-template-columns guarantees the chunkA / mid / chunkB chars line up,
+                // independent of any white-space oddities.
+                const rowStyle = `display:grid; grid-template-columns: 6ch 5ch 2ch repeat(${WRAP}, 1ch) 2ch 7ch; white-space:pre;`;
+                const seqCells = (chunk, color) => {
+                    let s = '';
+                    for (let c = 0; c < WRAP; c++) {
+                        const ch = chunk[c] != null ? chunk[c] : ' ';
+                        s += `<span style="text-align:center;${color?`color:${color};`:''}">${ch}</span>`;
+                    }
+                    return s;
+                };
+                const midCells = (m) => {
+                    let s = '';
+                    for (let c = 0; c < WRAP; c++) {
+                        const ch = m[c] != null ? m[c] : ' ';
+                        const col = ch === '|' ? '#16a34a' : ch === '.' ? '#dc2626' : '#9ca3af';
+                        s += `<span style="text-align:center; color:${col};">${ch}</span>`;
+                    }
+                    return s;
+                };
+
+                alnHtml += `<div style="${rowStyle}">`
+                       +  `<span>User</span>`
+                       +  `<span style="text-align:right; color:#6b7280;">${uStart}</span>`
+                       +  `<span></span>`
+                       +  seqCells(chunkA)
+                       +  `<span></span>`
+                       +  `<span style="color:#6b7280;">${uEnd}</span>`
+                       +  `</div>`;
+                alnHtml += `<div style="${rowStyle}">`
+                       +  `<span></span><span></span><span></span>`
+                       +  midCells(mid)
+                       +  `<span></span><span></span>`
+                       +  `</div>`;
+                alnHtml += `<div style="${rowStyle}; margin-bottom:6px;">`
+                       +  `<span>PDB</span>`
+                       +  `<span style="text-align:right; color:#6b7280;">${pdbStart}</span>`
+                       +  `<span></span>`
+                       +  seqCells(chunkB)
+                       +  `<span></span>`
+                       +  `<span style="color:#6b7280;">${pdbEnd}</span>`
+                       +  `</div>`;
             }
             alnHtml += '</div>';
 
@@ -6097,7 +6772,10 @@
             if (pdbViewer) { try { pdbViewer.clear(); } catch(e) {} }
             pdbViewer = $3Dmol.createViewer(container, { backgroundColor: 'white', antialias: true });
             pdbViewer.addModel(text, format);
-            pdbViewer.setStyle({}, { cartoon: { color: '#cccccc', opacity: 0.85 } });
+            // Default to fully solid cartoon. The "BG opacity" slider can dim background
+            // residues later so highlighted hits stand out — but starting transparent
+            // makes the structure look invisible on first load.
+            pdbViewer.setStyle({}, { cartoon: { color: '#cccccc', opacity: 1.0 } });
             pdbViewer.zoomTo();
             pdbViewer.render();
 
@@ -6224,7 +6902,7 @@
             if (!chainId) return;
             const fallbackOffset = parseInt(document.getElementById('pdbResidueOffset').value) || 0;
             // Reset entire model to gray
-            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity') ? document.getElementById('pdbBgOpacity').value : 0.15);
+            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity') ? document.getElementById('pdbBgOpacity').value : 1.0);
             pdbViewer.setStyle({}, { cartoon: { color: '#cccccc', opacity: bgOpacity } });
             if (structureViewerMode === 'single') {
                 colorSingleScreenOnStructure(chainId, fallbackOffset);
@@ -6255,7 +6933,7 @@
                     btn.style.borderColor = (s === style) ? '#2563eb' : '#d1d5db';
                 }
             });
-            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity')?.value || 0.15);
+            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity')?.value || 1.0);
             pdbViewer.setStyle({}, { [style]: { color: 'lightgray', opacity: bgOpacity } });
             applyStructureColoring();
         }
@@ -6294,7 +6972,7 @@
             const vmin = vals.length ? Math.min.apply(null, vals) : 0;
             const vmax = vals.length ? Math.max.apply(null, vals) : 1;
 
-            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity')?.value || 0.15);
+            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity')?.value || 1.0);
             const repStyle = pdbCurrentStyle || 'cartoon';
             pdbViewer.setStyle({}, { [repStyle]: { color: '#cccccc', opacity: bgOpacity } });
 
@@ -6399,7 +7077,7 @@
             const nameA = screenConfigs.A.name || 'Screen A';
             const nameB = screenConfigs.B.name || 'Screen B';
 
-            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity')?.value || 0.15);
+            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity')?.value || 1.0);
             const repStyle = pdbCurrentStyle || 'cartoon';
             pdbViewer.setStyle({}, { [repStyle]: { color: '#cccccc', opacity: bgOpacity } });
 

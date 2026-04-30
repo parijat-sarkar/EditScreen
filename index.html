@@ -393,7 +393,6 @@
             border-radius: 6px;
             margin-bottom: 20px;
         }
-        .hidden { display: none; }
         .heatmap-container {
             background: white;
             padding: 1rem;
@@ -517,9 +516,37 @@
             font-weight: 600;
         }
         .reset-btn:hover { background: #c0392b; }
+        /* Loading overlay shown during heavy synchronous work (Excel parsing, large recolor) */
+        #esLoadingOverlay {
+            position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+            display: none; align-items: center; justify-content: center;
+            z-index: 99999; backdrop-filter: blur(2px);
+        }
+        #esLoadingOverlay.show { display: flex; }
+        #esLoadingOverlay .es-loading-card {
+            background: white; border-radius: 12px; padding: 24px 32px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+            min-width: 240px; max-width: 360px; text-align: center;
+        }
+        #esLoadingOverlay .es-loading-spinner {
+            width: 36px; height: 36px; border: 4px solid #e5e7eb;
+            border-top-color: #2563eb; border-radius: 50%;
+            animation: es-spin 0.9s linear infinite;
+        }
+        #esLoadingOverlay .es-loading-msg { font-size: 14px; font-weight: 600; color: #111827; }
+        #esLoadingOverlay .es-loading-sub { font-size: 12px; color: #6b7280; }
+        @keyframes es-spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
+    <div id="esLoadingOverlay" role="status" aria-live="polite">
+        <div class="es-loading-card">
+            <div class="es-loading-spinner"></div>
+            <div class="es-loading-msg" id="esLoadingMsg">Working…</div>
+            <div class="es-loading-sub" id="esLoadingSub"></div>
+        </div>
+    </div>
     <div class="container">
         <h1>EditScreen</h1>
         <p class="subtitle">Universal base editing and CRISPR screen analysis tool</p>
@@ -564,7 +591,7 @@
                 </div>
             </div>
             <!-- Name inputs — only shown in comparison mode -->
-            <div id="screenNamesRow" class="hidden" style="display:none; gap: 20px; margin-bottom: 20px;">
+            <div id="screenNamesRow" class="hidden" style="gap: 20px; margin-bottom: 20px;">
                 <div style="flex: 1;">
                     <label style="font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block;">Screen A Name</label>
                     <input id="screenANameInput" type="text" placeholder="e.g. NaCl Screen" value="Screen A" style="width: 100%; padding: 8px 12px; border: 1px solid #d0d0d0; border-radius: 6px; font-size: 14px;">
@@ -1026,6 +1053,10 @@
               <input type="range" id="pdbBgOpacity" min="0" max="1" step="0.05" value="1.0" style="width:90px;" oninput="setPdbBgOpacity(this.value)">
               <span id="pdbBgOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">1.0</span>
             </div>
+            <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+              <button id="pdbDownloadBtn" onclick="downloadColoredPDB()" title="Download a PDB file with the current per-residue values written into the B-factor column. Open in PyMOL/ChimeraX and recolor by B-factor to recover this view." style="padding:5px 12px; font-size:11px; border:1px solid #2563eb; border-radius:5px; background:#2563eb; color:white; cursor:pointer; font-weight:600;">⬇ Download colored PDB</button>
+              <button id="pdbDownloadPNGBtn" onclick="downloadStructurePNG()" title="Save the current 3D view as a PNG image." style="padding:5px 12px; font-size:11px; border:1px solid #d1d5db; border-radius:5px; background:white; cursor:pointer;">⬇ PNG snapshot</button>
+            </div>
           </div>
         </div>
 
@@ -1119,8 +1150,13 @@
         <!-- Stats bar -->
         <div class="stats-bar" style="margin-bottom:20px;">
             <div class="stat-card"><div class="stat-label">Total Genes</div><div class="stat-value" id="gTotalGenes">—</div></div>
-            <div class="stat-card"><div class="stat-label">Guides</div><div class="stat-value" id="gTotalGuides">—</div></div>
             <div class="stat-card"><div class="stat-label">Hits (cutoff)</div><div class="stat-value" id="gHitGenes">—</div></div>
+        </div>
+        <!-- Sheet selector — shown only when multiple Excel tabs were imported.
+             Each tab is treated as an independent screen / condition. -->
+        <div id="gSheetSelectorWrap" style="display:none; align-items:center; gap:8px; margin-bottom:14px;">
+            <span style="font-size:13px; font-weight:600; color:#374151;">Screen:</span>
+            <select id="gSheetSelect" onchange="switchGenomeSheet()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; background:white;"></select>
         </div>
         <!-- Controls -->
         <div class="controls" style="margin-bottom:20px;">
@@ -1197,6 +1233,33 @@
                 </div>
             </div>
         </div>
+        <!-- Marker style bar — one shape/color since genome volcano has only one hit category -->
+        <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:12px;">
+            <span style="font-size:12px; font-weight:700; color:#374151;">Hit marker:</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:11px; color:#6b7280;">Shape</span>
+                <select id="gMarkerShape" onchange="updateGenomeView()" style="padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">
+                    <option value="circle">● Circle</option><option value="square">■ Square</option>
+                    <option value="diamond">◆ Diamond</option><option value="triangle-up">▲ Triangle</option>
+                    <option value="cross">✚ Cross</option><option value="x">✕ X</option>
+                </select>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:11px; color:#6b7280;">Color</span>
+                <input type="color" id="gMarkerColor" value="#ef4444" onchange="updateGenomeView(); document.getElementById('gMarkerColorHex').value=this.value;" style="width:30px; height:24px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;">
+                <input type="text" id="gMarkerColorHex" value="#ef4444" maxlength="7" onchange="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){document.getElementById('gMarkerColor').value=this.value; updateGenomeView();}" style="width:74px; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;" title="Hex color (e.g. #ef4444)">
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:11px; color:#6b7280;">Size</span>
+                <input type="range" id="gMarkerSize" min="4" max="20" step="1" value="9" oninput="document.getElementById('gMarkerSizeVal').textContent=this.value; updateGenomeView();" style="width:90px;">
+                <span id="gMarkerSizeVal" style="font-size:11px; color:#6b7280; min-width:18px;">9</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:11px; color:#6b7280;">Opacity</span>
+                <input type="range" id="gMarkerOpacity" min="0.2" max="1" step="0.05" value="0.85" oninput="document.getElementById('gMarkerOpacityVal').textContent=parseFloat(this.value).toFixed(2); updateGenomeView();" style="width:80px;">
+                <span id="gMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.85</span>
+            </div>
+        </div>
         <div id="genomeVolcanoPlot" style="width:100%; height:600px;"></div>
             <div style="text-align:right; margin-top:4px;"><button onclick="downloadSVG('genomeVolcanoPlot','crispr_volcano')" style="padding:3px 10px; font-size:11px; border:1px solid #d1d5db; border-radius:5px; background:white; cursor:pointer; color:#374151;">⬇ SVG</button></div>
         <div id="genomeTableContainer" style="display:none; margin-top:10px;"></div>
@@ -1267,6 +1330,47 @@
                     style="padding:7px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;width:65px;" oninput="updateGenomeComparisonView()">
             </div>
         </div>
+
+        <!-- Per-screen marker style for the CRISPR comparison overlay -->
+        <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:12px; font-weight:600; color:#374151;">Symbol size:</span>
+                <input type="range" id="gcSymbolSize" min="4" max="24" step="1" value="9" oninput="document.getElementById('gcSymbolSizeVal').textContent=this.value; updateGenomeComparisonView()" style="width:100px;">
+                <span id="gcSymbolSizeVal" style="font-size:11px; color:#6b7280; min-width:18px;">9</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:12px; font-weight:600; color:#374151;">Opacity:</span>
+                <input type="range" id="gcMarkerOpacity" min="0.2" max="1" step="0.05" value="0.85" oninput="document.getElementById('gcMarkerOpacityVal').textContent=parseFloat(this.value).toFixed(2); updateGenomeComparisonView()" style="width:80px;">
+                <span id="gcMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.85</span>
+            </div>
+            <div style="display:flex; flex-basis:100%; gap:24px; flex-wrap:wrap; padding-top:6px; border-top:1px dashed #e5e7eb;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span id="gcStyleLabelA" style="font-size:12px; font-weight:700; color:#1d4ed8;">Screen A:</span>
+                    <span style="font-size:11px; color:#6b7280;">Shape</span>
+                    <select id="gcShapeA" onchange="updateGenomeComparisonView()" style="padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">
+                        <option value="circle">● Circle</option><option value="square">■ Square</option>
+                        <option value="diamond">◆ Diamond</option><option value="triangle-up">▲ Triangle</option>
+                        <option value="cross">✚ Cross</option><option value="x">✕ X</option>
+                    </select>
+                    <span style="font-size:11px; color:#6b7280;">Color</span>
+                    <input type="color" id="gcColorA" value="#2563eb" onchange="document.getElementById('gcColorAHex').value=this.value; updateGenomeComparisonView()" style="width:30px; height:24px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;">
+                    <input type="text" id="gcColorAHex" value="#2563eb" maxlength="7" onchange="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){document.getElementById('gcColorA').value=this.value; updateGenomeComparisonView();}" style="width:74px; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;" title="Hex color">
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span id="gcStyleLabelB" style="font-size:12px; font-weight:700; color:#b91c1c;">Screen B:</span>
+                    <span style="font-size:11px; color:#6b7280;">Shape</span>
+                    <select id="gcShapeB" onchange="updateGenomeComparisonView()" style="padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">
+                        <option value="triangle-up">▲ Triangle</option><option value="circle">● Circle</option>
+                        <option value="square">■ Square</option><option value="diamond">◆ Diamond</option>
+                        <option value="cross">✚ Cross</option><option value="x">✕ X</option>
+                    </select>
+                    <span style="font-size:11px; color:#6b7280;">Color</span>
+                    <input type="color" id="gcColorB" value="#e74c3c" onchange="document.getElementById('gcColorBHex').value=this.value; updateGenomeComparisonView()" style="width:30px; height:24px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;">
+                    <input type="text" id="gcColorBHex" value="#e74c3c" maxlength="7" onchange="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){document.getElementById('gcColorB').value=this.value; updateGenomeComparisonView();}" style="width:74px; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;" title="Hex color">
+                </div>
+            </div>
+        </div>
+
         <!-- View toggle -->
         <div style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;">
             <button class="view-btn active" onclick="switchGenomeCompView('overlay', event)">Overlay Plot</button>
@@ -1307,8 +1411,8 @@
             <div style="display:flex; gap:6px; border-bottom:2px solid #e5e7eb; padding-bottom:0; margin-bottom:12px;">
                 <button id="goTabAll" onclick="switchGOTab('all')" style="padding:6px 14px; border:none; border-bottom:2px solid #2563eb; background:none; font-size:13px; font-weight:600; color:#2563eb; cursor:pointer; margin-bottom:-2px;">All Hits</button>
                 <button id="goTabCommon" onclick="switchGOTab('common')" style="padding:6px 14px; border:none; border-bottom:2px solid transparent; background:none; font-size:13px; font-weight:600; color:#6b7280; cursor:pointer; margin-bottom:-2px;">Common</button>
-                <button id="goTabA" onclick="switchGOTab('a')" style="padding:6px 14px; border:none; border-bottom:2px solid transparent; background:none; font-size:13px; font-weight:600; color:#6b7280; cursor:pointer; margin-bottom:-2px;" id="goTabALabel">Screen A only</button>
-                <button id="goTabB" onclick="switchGOTab('b')" style="padding:6px 14px; border:none; border-bottom:2px solid transparent; background:none; font-size:13px; font-weight:600; color:#6b7280; cursor:pointer; margin-bottom:-2px;" id="goTabBLabel">Screen B only</button>
+                <button id="goTabA" onclick="switchGOTab('a')" style="padding:6px 14px; border:none; border-bottom:2px solid transparent; background:none; font-size:13px; font-weight:600; color:#6b7280; cursor:pointer; margin-bottom:-2px;">Screen A only</button>
+                <button id="goTabB" onclick="switchGOTab('b')" style="padding:6px 14px; border:none; border-bottom:2px solid transparent; background:none; font-size:13px; font-weight:600; color:#6b7280; cursor:pointer; margin-bottom:-2px;">Screen B only</button>
             </div>
         </div>
 
@@ -1401,6 +1505,9 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Marker style bar — same shape as single-screen, plus per-screen sections in Customize -->
+            <div id="cmpMarkerStyleBar" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:14px;"></div>
 
             <div class="view-toggle" style="margin-bottom: 30px;">
                 <button class="view-btn active" onclick="switchComparisonView('overlay')">Overlay Plot</button>
@@ -1756,25 +1863,31 @@
             const file = event.target.files[0];
             if (!file) return;
 
+            showLoading('Reading file…', file.name);
             const reader = new FileReader();
             reader.onload = (e) => {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    if (analysisMode === 'comparison') {
-                        // Capture custom name before starting config
-                        const nameInput = document.getElementById('screenANameInput');
-                        if (nameInput && nameInput.value.trim()) {
-                            screenConfigs.A.name = nameInput.value.trim();
+                // Yield one frame so the overlay paints, then do the synchronous parse.
+                setTimeout(function() {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        if (analysisMode === 'comparison') {
+                            const nameInput = document.getElementById('screenANameInput');
+                            if (nameInput && nameInput.value.trim()) {
+                                screenConfigs.A.name = nameInput.value.trim();
+                            }
+                            showSheetSelectionForScreen(workbook, 'A');
+                        } else {
+                            showSheetSelection(workbook);
                         }
-                        showSheetSelectionForScreen(workbook, 'A');
-                    } else {
-                        showSheetSelection(workbook);
+                    } catch (err) {
+                        showError('Error reading file: ' + err.message);
+                    } finally {
+                        hideLoading();
                     }
-                } catch (err) {
-                    showError('Error reading file: ' + err.message);
-                }
+                }, 30);
             };
+            reader.onerror = function() { hideLoading(); showError('Could not read file.'); };
             reader.readAsArrayBuffer(file);
         }
 
@@ -1838,12 +1951,17 @@
             if (screenType === 'genome') {
                 window._genomePreviewRows = rawData;
                 populateGenomeMappingModal(currentColumns);
-                genomeRawGuides = [];
-                // Load ALL selected sheets into genomeRawGuides
+                // Store each selected sheet as its own dataset.
+                // Each tab in the workbook is a separate screen / replicate / cell line —
+                // merging them would mean a gene with FDR=0.001 in tab A and FDR=0.5 in tab B
+                // would appear with mixed values in the same plot. That's a real bug.
+                // We keep them separate and let the user switch via a dropdown.
+                genomeSheetsRaw = {};
                 selectedSheets.forEach(function(sheet) {
-                    const rows = allSheetData[sheet] || [];
-                    genomeRawGuides = genomeRawGuides.concat(rows);
+                    genomeSheetsRaw[sheet] = (allSheetData[sheet] || []).slice();
                 });
+                // Default raw guides used by the column-mapping preview is just the first sheet.
+                genomeRawGuides = genomeSheetsRaw[selectedSheets[0]] || [];
                 // For comparison, set active screen
                 if (analysisMode === 'comparison') {
                     genomeAnalysisMode = 'comparison';
@@ -2449,8 +2567,16 @@
             window.gradientScheme = document.getElementById('gradientSelect').value;
 
             closeModal('proteinModal');
-            processAllSheets();
-            loadUI();
+            // Show loading overlay for the synchronous data crunch (can be slow on 50k+ rows).
+            showLoading('Processing data…', 'Crunching guides across selected sheets');
+            setTimeout(function() {
+                try {
+                    processAllSheets();
+                    loadUI();
+                } finally {
+                    hideLoading();
+                }
+            }, 30);
         }
 
         // ─── p-value / FDR zero-flooring ─────────────────────────────────────
@@ -2793,7 +2919,7 @@
                     size: data.map(d => ms.sizes[d.category] || 9),
                     symbol: symbols,
                     color: data.map(d => ms.colors[d.category] || CATEGORY_COLORS[d.category] || '#95a5a6'),
-                    opacity: 0.7,
+                    opacity: ms.opacity,
                     line: { color: lineColors, width: lineWidths }
                 },
                 text: data.map(d => {
@@ -2964,7 +3090,7 @@
                         const mostCommon = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
                         return lms.colors[mostCommon] || CATEGORY_COLORS[mostCommon] || '#95a5a6';
                     }),
-                    opacity: 0.7,
+                    opacity: lms.opacity,
                     line: { color: '#64748b', width: 1 }
                 },
                 text: residues.map(r => {
@@ -3177,141 +3303,565 @@
             };
         }
 
+        // ─── Loading overlay ────────────────────────────────────────────────────
+        // Use these around any synchronous heavy work (XLSX parsing, large
+        // recolor passes). The browser only repaints between turns of the JS
+        // event loop, so wrap the heavy call in `setTimeout(fn, 0)` so the
+        // overlay actually appears before the work begins.
+        function showLoading(msg, sub) {
+            const ov = document.getElementById('esLoadingOverlay');
+            if (!ov) return;
+            const m = document.getElementById('esLoadingMsg');
+            const s = document.getElementById('esLoadingSub');
+            if (m) m.textContent = msg || 'Working…';
+            if (s) s.textContent = sub || '';
+            ov.classList.add('show');
+        }
+        function hideLoading() {
+            const ov = document.getElementById('esLoadingOverlay');
+            if (ov) ov.classList.remove('show');
+        }
+        // Wrap a synchronous task with the overlay. Yields one frame so the
+        // spinner paints, runs the task, then hides — even if the task throws.
+        function withLoading(msg, sub, task) {
+            return new Promise(function(resolve, reject) {
+                showLoading(msg, sub);
+                setTimeout(function() {
+                    try {
+                        const r = task();
+                        hideLoading();
+                        resolve(r);
+                    } catch (e) {
+                        hideLoading();
+                        reject(e);
+                    }
+                }, 30); // 30ms is enough for a paint frame on slow machines
+            });
+        }
+
+        // Style settings for the BE (multi-screen) comparison view.
+        // Falls back to global font when comparison-specific selectors are absent
+        // (e.g. on first load before the comparison panel has been shown).
+        // Preset-driven comparison style. Returns:
+        //   - family/size/opacity (global)
+        //   - perScreen('A'|'B', category) → {shape, color, size}  ← all scaling applied
+        // When Customize is OFF, both screens use the same preset values
+        // (mirrors the single-screen design exactly).
+        function getComparisonStyle() {
+            const gf = getGlobalFont();
+            const famEl  = document.getElementById('cmpFontFamily');
+            const szEl   = document.getElementById('cmpFontSize');
+            const opEl   = document.getElementById('cmpMarkerOpacity');
+            const msEl   = document.getElementById('cmpMasterSize');
+            const togg   = document.getElementById('cmpCustomToggle');
+            const presetKey = document.getElementById('cmpPreset')?.value || 'default';
+            const preset = MARKER_PRESETS[presetKey] || MARKER_PRESETS.default;
+            const useCustom = !!(togg && togg.checked);
+            const masterSize = parseFloat((msEl && msEl.value) || 1.0);
+
+            function perScreen(s, cat) {
+                let shape = preset.shapes[cat] || 'circle';
+                let color = preset.colors[cat] || '#95a5a6';
+                let baseSize = preset.sizes[cat] || 9;
+                // Default visual contrast between screens when NOT customizing:
+                // Screen A keeps the preset shape, Screen B switches to triangle-up
+                // so the two screens are distinguishable at a glance.
+                if (!useCustom && s === 'B' && shape === 'circle') {
+                    shape = 'triangle-up';
+                }
+                if (useCustom) {
+                    const key = cat.replace('-','_');
+                    const sh = document.getElementById('cmpShape_' + s + '_' + key);
+                    const co = document.getElementById('cmpColor_' + s + '_' + key);
+                    const sz = document.getElementById('cmpSize_' + s + '_' + key);
+                    if (sh && sh.value) shape = sh.value;
+                    if (co && co.value) color = co.value;
+                    if (sz) {
+                        const v = parseInt(sz.value, 10);
+                        if (!isNaN(v)) baseSize = v;
+                    }
+                }
+                let scaled = Math.round(baseSize * masterSize);
+                if (scaled < 3) scaled = 3;
+                if (scaled > 32) scaled = 32;
+                return { shape: shape, color: color, size: scaled };
+            }
+
+            return {
+                family:  (famEl && famEl.value) || gf.family,
+                size:    parseInt((szEl && szEl.value) || gf.size),
+                opacity: parseFloat((opEl && opEl.value) || 0.75),
+                useCustom: useCustom,
+                perScreen: perScreen,
+                // Legacy shape/color: when Customize is OFF, both screens visually
+                // identical; we still export a top-level shapeA/shapeB so existing
+                // call sites that paint a single trace per screen work.
+                shapeA:    perScreen('A', 'Missense').shape,
+                shapeB:    perScreen('B', 'Missense').shape,
+                colorA:    perScreen('A', 'Missense').color,
+                colorB:    perScreen('B', 'Missense').color,
+                symbolSize: perScreen('A', 'Missense').size
+            };
+        }
+
         // ─── Marker style helpers ────────────────────────────────────────────────
+        // Built-in marker presets — each defines per-category shape/color/size baseline.
+        // The "size" here is a *baseline*; the master size slider scales it.
+        // Presets are chosen for clarity AND publication friendliness:
+        //   default  — gentle, all-circle, distinguishable colors (back-compat with old plots)
+        //   impact   — shape encodes severity (triangle = nonsense, diamond = splice, etc)
+        //              + larger size for high-impact categories. Reads at a glance.
+        //   cb_safe  — Okabe-Ito palette (color-blind safe; works for ~99% of viewers)
+        //   mono     — publication B&W: only nonsense pops red, rest tonal grays
+        const MARKER_PRESETS = {
+            default: {
+                shapes: { 'Missense':'circle', 'Nonsense':'circle', 'Silent':'circle', 'Splice-site':'circle' },
+                colors: { 'Missense':'#2563eb', 'Nonsense':'#e74c3c', 'Silent':'#27ae60', 'Splice-site':'#9b59b6' },
+                sizes:  { 'Missense':9, 'Nonsense':9, 'Silent':9, 'Splice-site':9 }
+            },
+            impact: {
+                shapes: { 'Missense':'circle', 'Nonsense':'triangle-up', 'Silent':'circle', 'Splice-site':'diamond' },
+                colors: { 'Missense':'#2563eb', 'Nonsense':'#dc2626', 'Silent':'#9ca3af', 'Splice-site':'#f59e0b' },
+                sizes:  { 'Missense':9, 'Nonsense':12, 'Silent':6, 'Splice-site':11 }
+            },
+            cb_safe: {
+                shapes: { 'Missense':'circle', 'Nonsense':'circle', 'Silent':'circle', 'Splice-site':'circle' },
+                colors: { 'Missense':'#0072b2', 'Nonsense':'#d55e00', 'Silent':'#009e73', 'Splice-site':'#cc79a7' },
+                sizes:  { 'Missense':9, 'Nonsense':9, 'Silent':9, 'Splice-site':9 }
+            },
+            mono: {
+                shapes: { 'Missense':'circle', 'Nonsense':'triangle-up', 'Silent':'circle', 'Splice-site':'square' },
+                colors: { 'Missense':'#374151', 'Nonsense':'#dc2626', 'Silent':'#d1d5db', 'Splice-site':'#6b7280' },
+                sizes:  { 'Missense':9, 'Nonsense':11, 'Silent':6, 'Splice-site':9 }
+            }
+        };
+
+        // Pull current marker style. Reads the active preset, applies any
+        // per-category customizations (when "Custom" is toggled on), and
+        // multiplies all sizes by the master slider.
         function getMarkerStyle() {
             const cats = ['Missense', 'Nonsense', 'Silent', 'Splice-site'];
+            const presetKey = document.getElementById('markerPreset')?.value || 'default';
+            const preset = MARKER_PRESETS[presetKey] || MARKER_PRESETS.default;
+            const useCustom = !!document.getElementById('markerCustomToggle')?.checked;
+            const masterSize = parseFloat(document.getElementById('markerMasterSize')?.value || 1.0);
+            const opacity    = parseFloat(document.getElementById('markerOpacity')?.value || 0.7);
+
             const shapes = {}, colors = {}, sizes = {};
             cats.forEach(cat => {
                 const key = cat.replace('-', '_');
-                const shapeEl = document.getElementById('markerShape_' + key);
-                const colorEl = document.getElementById('markerColor_' + key);
-                const sizeEl  = document.getElementById('markerSize_'  + key);
-                shapes[cat] = shapeEl ? shapeEl.value : 'circle';
-                colors[cat] = colorEl ? colorEl.value : ({'Missense':'#2563eb','Nonsense':'#e74c3c','Silent':'#27ae60','Splice-site':'#9b59b6'}[cat]);
-                let s = sizeEl ? parseInt(sizeEl.value, 10) : 9;
-                if (isNaN(s) || s < 4) s = 4;
-                if (s > 20) s = 20;
-                sizes[cat] = s;
+                let shape = preset.shapes[cat] || 'circle';
+                let color = preset.colors[cat] || '#95a5a6';
+                let baseSize = preset.sizes[cat] || 9;
+
+                if (useCustom) {
+                    const shapeEl = document.getElementById('markerShape_' + key);
+                    const colorEl = document.getElementById('markerColor_' + key);
+                    const sizeEl  = document.getElementById('markerSize_'  + key);
+                    if (shapeEl && shapeEl.value) shape = shapeEl.value;
+                    if (colorEl && colorEl.value) color = colorEl.value;
+                    if (sizeEl) {
+                        const v = parseInt(sizeEl.value, 10);
+                        if (!isNaN(v)) baseSize = v;
+                    }
+                }
+                shapes[cat] = shape;
+                colors[cat] = color;
+                let scaled = Math.round(baseSize * masterSize);
+                if (scaled < 3) scaled = 3;
+                if (scaled > 28) scaled = 28;
+                sizes[cat] = scaled;
             });
-            return { shapes, colors, sizes };
+            return { shapes, colors, sizes, opacity };
         }
 
-        // Build the marker-style panel in JS. The HTML version with ${...}.map(...) doesn't
-        // evaluate (template literals only work in JS), so it rendered as raw text.
+        // Compact marker style bar:
+        //   [Preset ▾]  [Opacity ─●──]  [Size ──●─]  [▾ Customize]
+        // Customize toggle reveals the per-category shape/color/size grid below.
+        // Same panel adapts cleanly across screen widths.
         function renderMarkerStyleBar() {
             const bar = document.getElementById('markerStyleBar');
             if (!bar) return;
             const cats = ['Missense','Nonsense','Silent','Splice-site'];
-            const defaults = {'Missense':'#2563eb','Nonsense':'#e74c3c','Silent':'#27ae60','Splice-site':'#9b59b6'};
             const shapeOptions = [
-                ['circle','●  Circle'],
-                ['square','■  Square'],
-                ['diamond','◆  Diamond'],
-                ['triangle-up','▲  Triangle'],
-                ['cross','✚  Cross'],
-                ['x','✕  X']
+                ['circle','● Circle'],
+                ['square','■ Square'],
+                ['diamond','◆ Diamond'],
+                ['triangle-up','▲ Triangle'],
+                ['cross','✚ Cross'],
+                ['x','✕ X']
             ];
 
-            // Build with DOM APIs so we don't fight innerHTML escaping
+            bar.style.flexWrap = 'wrap';
             bar.innerHTML = '';
 
+            // ── Title ──────────────────────────────────────
             const title = document.createElement('span');
-            title.style.cssText = 'font-size:12px; font-weight:600; color:#374151;';
-            title.textContent = 'Marker style per mutation:';
+            title.style.cssText = 'font-size:12px; font-weight:700; color:#374151;';
+            title.textContent = 'Marker style:';
             bar.appendChild(title);
 
-            const shapeLabel = document.createElement('span');
-            shapeLabel.style.cssText = 'font-size:11px; color:#6b7280;';
-            shapeLabel.textContent = 'Shape →';
-            bar.appendChild(shapeLabel);
+            // ── Preset dropdown ────────────────────────────
+            const presetWrap = document.createElement('div');
+            presetWrap.style.cssText = 'display:flex; align-items:center; gap:6px;';
+            const presetLbl = document.createElement('span');
+            presetLbl.style.cssText = 'font-size:11px; color:#6b7280;';
+            presetLbl.textContent = 'Preset:';
+            const presetSel = document.createElement('select');
+            presetSel.id = 'markerPreset';
+            presetSel.style.cssText = 'font-size:12px; padding:4px 8px; border:1px solid #d1d5db; border-radius:5px; cursor:pointer;';
+            [
+                ['default', 'Default — clean'],
+                ['impact',  'Functional impact (shape = severity)'],
+                ['cb_safe', 'Color-blind safe (Okabe-Ito)'],
+                ['mono',    'Mono / publication']
+            ].forEach(([v, t]) => {
+                const o = document.createElement('option');
+                o.value = v; o.textContent = t;
+                presetSel.appendChild(o);
+            });
+            presetSel.addEventListener('change', () => { syncCustomFromPreset(); updatePlot(); });
+            presetWrap.appendChild(presetLbl);
+            presetWrap.appendChild(presetSel);
+            bar.appendChild(presetWrap);
 
+            // ── Opacity slider ─────────────────────────────
+            const opWrap = document.createElement('div');
+            opWrap.style.cssText = 'display:flex; align-items:center; gap:6px;';
+            opWrap.innerHTML = '<span style="font-size:11px; color:#6b7280;">Opacity:</span>'
+                + '<input type="range" id="markerOpacity" min="0.2" max="1" step="0.05" value="0.7" style="width:90px;">'
+                + '<span id="markerOpacityVal" style="font-size:11px; color:#6b7280; min-width:32px;">0.70</span>';
+            bar.appendChild(opWrap);
+
+            // ── Master size multiplier ─────────────────────
+            const szWrap = document.createElement('div');
+            szWrap.style.cssText = 'display:flex; align-items:center; gap:6px;';
+            szWrap.innerHTML = '<span style="font-size:11px; color:#6b7280;">Size:</span>'
+                + '<input type="range" id="markerMasterSize" min="0.5" max="2.5" step="0.05" value="1.0" style="width:100px;">'
+                + '<span id="markerMasterSizeVal" style="font-size:11px; color:#6b7280; min-width:34px;">1.00×</span>';
+            bar.appendChild(szWrap);
+
+            // ── Customize toggle ───────────────────────────
+            const customWrap = document.createElement('label');
+            customWrap.style.cssText = 'display:flex; align-items:center; gap:5px; font-size:11px; color:#374151; cursor:pointer; user-select:none;';
+            customWrap.innerHTML = '<input type="checkbox" id="markerCustomToggle" style="cursor:pointer;"> ▾ Customize per mutation';
+            bar.appendChild(customWrap);
+
+            // ── Custom panel (initially hidden) ────────────
+            const custom = document.createElement('div');
+            custom.id = 'markerCustomPanel';
+            custom.style.cssText = 'display:none; flex-basis:100%; padding:10px; margin-top:6px; background:white; border:1px solid #e5e7eb; border-radius:6px;';
+            const grid = document.createElement('div');
+            grid.style.cssText = 'display:grid; grid-template-columns: 100px 1fr 1fr 1fr; gap:8px 10px; align-items:center; font-size:11px;';
+            // Header row
+            ['', 'Shape', 'Color', 'Size'].forEach((h, i) => {
+                const cell = document.createElement('div');
+                cell.style.cssText = 'font-weight:700; color:#6b7280;' + (i === 0 ? '' : ' text-align:center;');
+                cell.textContent = h;
+                grid.appendChild(cell);
+            });
+            const defaults = MARKER_PRESETS.default;
             cats.forEach(cat => {
                 const key = cat.replace('-','_');
-                const wrap = document.createElement('div');
-                wrap.style.cssText = 'display:flex; align-items:center; gap:4px;';
-
-                const lbl = document.createElement('span');
-                lbl.style.cssText = `font-size:11px; font-weight:600; color:${defaults[cat]};`;
+                const lbl = document.createElement('div');
+                lbl.style.cssText = 'font-weight:600;';
                 lbl.textContent = cat;
-                wrap.appendChild(lbl);
+                grid.appendChild(lbl);
 
-                const sel = document.createElement('select');
-                sel.id = 'markerShape_' + key;
-                sel.style.cssText = 'font-size:11px; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px;';
+                const sShape = document.createElement('select');
+                sShape.id = 'markerShape_' + key;
+                sShape.style.cssText = 'font-size:11px; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; width:100%;';
                 shapeOptions.forEach(([v, t]) => {
-                    const opt = document.createElement('option');
-                    opt.value = v;
-                    opt.textContent = t;
-                    sel.appendChild(opt);
+                    const o = document.createElement('option');
+                    o.value = v; o.textContent = t;
+                    sShape.appendChild(o);
                 });
-                sel.addEventListener('change', () => updatePlot());
-                wrap.appendChild(sel);
+                sShape.value = defaults.shapes[cat];
+                sShape.addEventListener('change', updatePlot);
+                grid.appendChild(sShape);
 
-                bar.appendChild(wrap);
+                // Color picker + hex text input side by side
+                const colWrap = document.createElement('div');
+                colWrap.style.cssText = 'display:flex; gap:4px; align-items:center;';
+                const colInp = document.createElement('input');
+                colInp.type = 'color';
+                colInp.id = 'markerColor_' + key;
+                colInp.value = defaults.colors[cat];
+                colInp.style.cssText = 'width:32px; height:26px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px; flex-shrink:0;';
+                const hexInp = document.createElement('input');
+                hexInp.type = 'text';
+                hexInp.id = 'markerColorHex_' + key;
+                hexInp.value = defaults.colors[cat];
+                hexInp.maxLength = 7;
+                hexInp.style.cssText = 'width:100%; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;';
+                hexInp.title = 'Hex (e.g. #2563eb)';
+                colInp.addEventListener('change', () => { hexInp.value = colInp.value; updatePlot(); });
+                hexInp.addEventListener('change', () => {
+                    if (/^#[0-9a-fA-F]{6}$/.test(hexInp.value)) { colInp.value = hexInp.value; updatePlot(); }
+                });
+                colWrap.appendChild(colInp);
+                colWrap.appendChild(hexInp);
+                grid.appendChild(colWrap);
+
+                const szInp = document.createElement('input');
+                szInp.type = 'number';
+                szInp.id = 'markerSize_' + key;
+                szInp.value = String(defaults.sizes[cat]);
+                szInp.min = '4'; szInp.max = '24'; szInp.step = '1';
+                szInp.style.cssText = 'width:100%; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;';
+                szInp.addEventListener('change', updatePlot);
+                grid.appendChild(szInp);
             });
+            const note = document.createElement('div');
+            note.style.cssText = 'grid-column: 1 / -1; font-size:10px; color:#9ca3af; margin-top:4px;';
+            note.textContent = 'Per-category overrides take effect only when "Customize" is checked. The master size slider above scales these values.';
+            grid.appendChild(note);
+            custom.appendChild(grid);
+            bar.appendChild(custom);
 
-            const colorLabel = document.createElement('span');
-            colorLabel.style.cssText = 'font-size:11px; color:#6b7280; margin-left:8px;';
-            colorLabel.textContent = 'Color →';
-            bar.appendChild(colorLabel);
+            // ── Wire up live updates ───────────────────────
+            const opInp = document.getElementById('markerOpacity');
+            const opVal = document.getElementById('markerOpacityVal');
+            opInp.addEventListener('input', () => { opVal.textContent = parseFloat(opInp.value).toFixed(2); updatePlot(); });
 
-            cats.forEach(cat => {
-                const key = cat.replace('-','_');
-                const wrap = document.createElement('div');
-                wrap.style.cssText = 'display:flex; align-items:center; gap:4px;';
+            const msInp = document.getElementById('markerMasterSize');
+            const msVal = document.getElementById('markerMasterSizeVal');
+            msInp.addEventListener('input', () => { msVal.textContent = parseFloat(msInp.value).toFixed(2) + '×'; updatePlot(); });
 
-                const lbl = document.createElement('span');
-                lbl.style.cssText = 'font-size:11px; font-weight:600; color:#374151;';
-                lbl.textContent = cat;
-                wrap.appendChild(lbl);
-
-                const inp = document.createElement('input');
-                inp.type = 'color';
-                inp.id = 'markerColor_' + key;
-                inp.value = defaults[cat];
-                inp.style.cssText = 'width:28px; height:22px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;';
-                inp.addEventListener('change', () => updatePlot());
-                wrap.appendChild(inp);
-
-                bar.appendChild(wrap);
-            });
-
-            // ── Size group (numeric, 4–20) ──
-            const sizeLabel = document.createElement('span');
-            sizeLabel.style.cssText = 'font-size:11px; color:#6b7280; margin-left:8px;';
-            sizeLabel.textContent = 'Size →';
-            bar.appendChild(sizeLabel);
-
-            cats.forEach(cat => {
-                const key = cat.replace('-','_');
-                const wrap = document.createElement('div');
-                wrap.style.cssText = 'display:flex; align-items:center; gap:4px;';
-
-                const lbl = document.createElement('span');
-                lbl.style.cssText = 'font-size:11px; font-weight:600; color:#374151;';
-                lbl.textContent = cat;
-                wrap.appendChild(lbl);
-
-                const inp = document.createElement('input');
-                inp.type = 'number';
-                inp.id = 'markerSize_' + key;
-                inp.value = '9';
-                inp.min = '4';
-                inp.max = '20';
-                inp.step = '1';
-                inp.style.cssText = 'width:48px; padding:2px 4px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;';
-                inp.addEventListener('change', () => updatePlot());
-                wrap.appendChild(inp);
-
-                bar.appendChild(wrap);
+            const togg = document.getElementById('markerCustomToggle');
+            togg.addEventListener('change', () => {
+                custom.style.display = togg.checked ? 'block' : 'none';
+                updatePlot();
             });
         }
 
-        // Render the panel as soon as the DOM is parsed.
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', renderMarkerStyleBar);
-        } else {
+        // When the user picks a different preset, mirror its values into the per-category
+        // Custom inputs so toggling Custom on doesn't reset the visual to a stale state.
+        function syncCustomFromPreset() {
+            const presetKey = document.getElementById('markerPreset')?.value || 'default';
+            const preset = MARKER_PRESETS[presetKey] || MARKER_PRESETS.default;
+            ['Missense','Nonsense','Silent','Splice-site'].forEach(cat => {
+                const key = cat.replace('-','_');
+                const sh = document.getElementById('markerShape_' + key);
+                const co = document.getElementById('markerColor_' + key);
+                const cohex = document.getElementById('markerColorHex_' + key);
+                const sz = document.getElementById('markerSize_'  + key);
+                if (sh) sh.value = preset.shapes[cat];
+                if (co) co.value = preset.colors[cat];
+                if (cohex) cohex.value = preset.colors[cat];
+                if (sz) sz.value = String(preset.sizes[cat]);
+            });
+        }
+
+        // ─── COMPARISON marker style bar (mirror of single, with two screens in Customize) ─
+        // Shares the same MARKER_PRESETS. Adds master Opacity + Master Size sliders.
+        // When "Customize" is checked: shows TWO per-screen panels stacked, each labelled
+        // by the user's screen name. Per-category inputs use IDs like markerShape_A_Missense.
+        function renderComparisonMarkerStyleBar() {
+            const bar = document.getElementById('cmpMarkerStyleBar');
+            if (!bar) return;
+            bar.innerHTML = '';
+
+            const cats = ['Missense','Nonsense','Silent','Splice-site'];
+            const shapeOptions = [
+                ['circle','● Circle'],['square','■ Square'],['diamond','◆ Diamond'],
+                ['triangle-up','▲ Triangle'],['cross','✚ Cross'],['x','✕ X']
+            ];
+
+            // Title
+            const title = document.createElement('span');
+            title.style.cssText = 'font-size:12px; font-weight:700; color:#374151;';
+            title.textContent = 'Marker style:';
+            bar.appendChild(title);
+
+            // Preset
+            const presetSel = document.createElement('select');
+            presetSel.id = 'cmpPreset';
+            presetSel.style.cssText = 'font-size:12px; padding:4px 8px; border:1px solid #d1d5db; border-radius:5px; cursor:pointer;';
+            [
+                ['default', 'Default — clean'],
+                ['impact',  'Functional impact (shape = severity)'],
+                ['cb_safe', 'Color-blind safe (Okabe-Ito)'],
+                ['mono',    'Mono / publication']
+            ].forEach(([v, t]) => {
+                const o = document.createElement('option'); o.value = v; o.textContent = t;
+                presetSel.appendChild(o);
+            });
+            presetSel.addEventListener('change', () => { syncCmpCustomFromPreset(); updateComparisonView(); });
+            bar.appendChild(presetSel);
+
+            // Opacity slider
+            const opWrap = document.createElement('div');
+            opWrap.style.cssText = 'display:flex; align-items:center; gap:6px;';
+            opWrap.innerHTML = '<span style="font-size:11px; color:#6b7280;">Opacity:</span>'
+                + '<input type="range" id="cmpMarkerOpacity" min="0.2" max="1" step="0.05" value="0.75" style="width:90px;">'
+                + '<span id="cmpMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:32px;">0.75</span>';
+            bar.appendChild(opWrap);
+
+            // Master size (multiplier)
+            const szWrap = document.createElement('div');
+            szWrap.style.cssText = 'display:flex; align-items:center; gap:6px;';
+            szWrap.innerHTML = '<span style="font-size:11px; color:#6b7280;">Size:</span>'
+                + '<input type="range" id="cmpMasterSize" min="0.5" max="2.5" step="0.05" value="1.0" style="width:100px;">'
+                + '<span id="cmpMasterSizeVal" style="font-size:11px; color:#6b7280; min-width:34px;">1.00×</span>';
+            bar.appendChild(szWrap);
+
+            // Font controls — keep these so existing wiring (cmpFontFamily/cmpFontSize) works
+            const fontWrap = document.createElement('div');
+            fontWrap.style.cssText = 'display:flex; align-items:center; gap:6px;';
+            fontWrap.innerHTML = '<span style="font-size:11px; color:#6b7280;">Font:</span>'
+                + '<select id="cmpFontFamily" style="padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">'
+                +   '<option value="Arial">Arial</option><option value="Helvetica">Helvetica</option>'
+                +   '<option value="Times New Roman">Times New Roman</option><option value="Georgia">Georgia</option>'
+                +   '<option value="Courier New">Courier New</option><option value="Verdana">Verdana</option>'
+                + '</select>'
+                + '<input type="number" id="cmpFontSize" value="13" min="8" max="24" step="1" style="width:48px; padding:4px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">';
+            bar.appendChild(fontWrap);
+
+            // Customize toggle
+            const customWrap = document.createElement('label');
+            customWrap.style.cssText = 'display:flex; align-items:center; gap:5px; font-size:11px; color:#374151; cursor:pointer; user-select:none;';
+            customWrap.innerHTML = '<input type="checkbox" id="cmpCustomToggle" style="cursor:pointer;"> ▾ Customize per mutation';
+            bar.appendChild(customWrap);
+
+            // Custom panel — TWO screens stacked
+            const custom = document.createElement('div');
+            custom.id = 'cmpCustomPanel';
+            custom.style.cssText = 'display:none; flex-basis:100%; padding:10px; margin-top:6px; background:white; border:1px solid #e5e7eb; border-radius:6px;';
+            const nameA = (screenConfigs && screenConfigs.A && screenConfigs.A.name) || 'Screen A';
+            const nameB = (screenConfigs && screenConfigs.B && screenConfigs.B.name) || 'Screen B';
+            ['A','B'].forEach((s, idx) => {
+                const screenName = (s === 'A') ? nameA : nameB;
+                const accent = (s === 'A') ? '#1d4ed8' : '#b91c1c';
+                const section = document.createElement('div');
+                section.style.cssText = 'margin-bottom:' + (idx === 0 ? '14px' : '0') + ';';
+                const head = document.createElement('div');
+                head.id = 'cmpCustomHead_' + s;
+                head.style.cssText = 'font-size:12px; font-weight:700; margin-bottom:6px; color:' + accent + ';';
+                head.textContent = screenName;
+                section.appendChild(head);
+
+                const grid = document.createElement('div');
+                grid.style.cssText = 'display:grid; grid-template-columns:100px 1fr 1fr 1fr; gap:6px 10px; align-items:center; font-size:11px;';
+                ['', 'Shape', 'Color', 'Size'].forEach((h, i) => {
+                    const c = document.createElement('div');
+                    c.style.cssText = 'font-weight:700; color:#6b7280;' + (i === 0 ? '' : ' text-align:center;');
+                    c.textContent = h;
+                    grid.appendChild(c);
+                });
+                const defaults = MARKER_PRESETS.default;
+                cats.forEach(cat => {
+                    const key = cat.replace('-','_');
+                    const lbl = document.createElement('div');
+                    lbl.style.cssText = 'font-weight:600;';
+                    lbl.textContent = cat;
+                    grid.appendChild(lbl);
+
+                    const shSel = document.createElement('select');
+                    shSel.id = 'cmpShape_' + s + '_' + key;
+                    shSel.style.cssText = 'font-size:11px; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; width:100%;';
+                    shapeOptions.forEach(([v, t]) => {
+                        const o = document.createElement('option'); o.value = v; o.textContent = t;
+                        shSel.appendChild(o);
+                    });
+                    // Default Screen B to triangle when the preset shape would be circle,
+                    // so the two screens are visually distinguishable out of the box.
+                    {
+                        let _shape = defaults.shapes[cat];
+                        if (s === 'B' && _shape === 'circle') _shape = 'triangle-up';
+                        shSel.value = _shape;
+                    }
+                    shSel.addEventListener('change', updateComparisonView);
+                    grid.appendChild(shSel);
+
+                    const colWrap = document.createElement('div');
+                    colWrap.style.cssText = 'display:flex; gap:4px; align-items:center;';
+                    const ci = document.createElement('input');
+                    ci.type = 'color';
+                    ci.id = 'cmpColor_' + s + '_' + key;
+                    ci.value = defaults.colors[cat];
+                    ci.style.cssText = 'width:32px; height:26px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px; flex-shrink:0;';
+                    const hi = document.createElement('input');
+                    hi.type = 'text';
+                    hi.id = 'cmpColorHex_' + s + '_' + key;
+                    hi.value = defaults.colors[cat];
+                    hi.maxLength = 7;
+                    hi.style.cssText = 'width:100%; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;';
+                    hi.title = 'Hex (e.g. #2563eb)';
+                    ci.addEventListener('change', () => { hi.value = ci.value; updateComparisonView(); });
+                    hi.addEventListener('change', () => {
+                        if (/^#[0-9a-fA-F]{6}$/.test(hi.value)) { ci.value = hi.value; updateComparisonView(); }
+                    });
+                    colWrap.appendChild(ci); colWrap.appendChild(hi);
+                    grid.appendChild(colWrap);
+
+                    const szInp = document.createElement('input');
+                    szInp.type = 'number';
+                    szInp.id = 'cmpSize_' + s + '_' + key;
+                    szInp.value = String(defaults.sizes[cat]);
+                    szInp.min = '4'; szInp.max = '24'; szInp.step = '1';
+                    szInp.style.cssText = 'width:100%; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;';
+                    szInp.addEventListener('change', updateComparisonView);
+                    grid.appendChild(szInp);
+                });
+                section.appendChild(grid);
+                custom.appendChild(section);
+            });
+            bar.appendChild(custom);
+
+            // Wire up live updates
+            const opInp = document.getElementById('cmpMarkerOpacity');
+            const opVal = document.getElementById('cmpMarkerOpacityVal');
+            opInp.addEventListener('input', () => { opVal.textContent = parseFloat(opInp.value).toFixed(2); updateComparisonView(); });
+            const msInp = document.getElementById('cmpMasterSize');
+            const msVal = document.getElementById('cmpMasterSizeVal');
+            msInp.addEventListener('input', () => { msVal.textContent = parseFloat(msInp.value).toFixed(2) + '×'; updateComparisonView(); });
+            const togg = document.getElementById('cmpCustomToggle');
+            togg.addEventListener('change', () => { custom.style.display = togg.checked ? 'block' : 'none'; updateComparisonView(); });
+            document.getElementById('cmpFontFamily').addEventListener('change', updateComparisonView);
+            document.getElementById('cmpFontSize').addEventListener('input', updateComparisonView);
+        }
+
+        function syncCmpCustomFromPreset() {
+            const presetKey = document.getElementById('cmpPreset')?.value || 'default';
+            const preset = MARKER_PRESETS[presetKey] || MARKER_PRESETS.default;
+            ['A','B'].forEach(s => {
+                ['Missense','Nonsense','Silent','Splice-site'].forEach(cat => {
+                    const key = cat.replace('-','_');
+                    const sh = document.getElementById('cmpShape_' + s + '_' + key);
+                    const co = document.getElementById('cmpColor_' + s + '_' + key);
+                    const ch = document.getElementById('cmpColorHex_' + s + '_' + key);
+                    const sz = document.getElementById('cmpSize_' + s + '_' + key);
+                    let shape = preset.shapes[cat];
+                    // Mirror the visual-contrast default: B uses triangle when preset is circle.
+                    if (s === 'B' && shape === 'circle') shape = 'triangle-up';
+                    if (sh) sh.value = shape;
+                    if (co) co.value = preset.colors[cat];
+                    if (ch) ch.value = preset.colors[cat];
+                    if (sz) sz.value = String(preset.sizes[cat]);
+                });
+            });
+        }
+
+        // Update labels with the current screen names (called when names change / view opens)
+        function updateComparisonScreenLabels() {
+            const a = (screenConfigs && screenConfigs.A && screenConfigs.A.name) || 'Screen A';
+            const b = (screenConfigs && screenConfigs.B && screenConfigs.B.name) || 'Screen B';
+            const ha = document.getElementById('cmpCustomHead_A');
+            const hb = document.getElementById('cmpCustomHead_B');
+            if (ha) ha.textContent = a;
+            if (hb) hb.textContent = b;
+        }
+
+        // Render the panels as soon as the DOM is parsed.
+        function _renderAllMarkerBars() {
             renderMarkerStyleBar();
+            renderComparisonMarkerStyleBar();
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _renderAllMarkerBars);
+        } else {
+            _renderAllMarkerBars();
         }
 
         // ─── SVG Download helper ─────────────────────────────────────────────────
@@ -4341,16 +4891,22 @@
                 screenConfigs.B.name = nameInput.value.trim();
             }
 
+            showLoading('Reading file…', file.name);
             const reader = new FileReader();
             reader.onload = (e) => {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    showSheetSelectionForScreen(workbook, 'B');
-                } catch (err) {
-                    showError('Error reading file: ' + err.message);
-                }
+                setTimeout(function() {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        showSheetSelectionForScreen(workbook, 'B');
+                    } catch (err) {
+                        showError('Error reading file: ' + err.message);
+                    } finally {
+                        hideLoading();
+                    }
+                }, 30);
             };
+            reader.onerror = function() { hideLoading(); showError('Could not read file.'); };
             reader.readAsArrayBuffer(file);
         }
 
@@ -4806,6 +5362,7 @@
             document.getElementById('uniqueHeaderB').textContent = `${nameB} Only`;
             document.getElementById('cutoffLabelA').textContent = nameA;
             document.getElementById('cutoffLabelB').textContent = nameB;
+            updateComparisonScreenLabels();
 
             // Sheet selectors — one per screen
             const sheetSelA = document.getElementById('comparisonSheetSelectA');
@@ -5057,16 +5614,23 @@
             const nCeilA = plotA.filter(ceilA).length;
             const nCeilB = plotB.filter(ceilB).length;
 
+            const cmpStyle = getComparisonStyle();
+            // Per-screen, per-category style. When Customize is OFF, all categories
+            // resolve to the same shape/color/size so the screen looks like one trace.
+            // When Customize is ON, each mutation type gets its own visual.
+            const styA = (d) => cmpStyle.perScreen('A', d.category || 'Missense');
+            const styB = (d) => cmpStyle.perScreen('B', d.category || 'Missense');
+
             const traceA = {
                 x: plotA.map(d => d.residue),
                 y: plotA.map(d => d[metricKeyA]),
                 mode: 'markers',
                 name: nameA,
                 marker: {
-                    symbol: 'circle',
-                    size: 16,
-                    color: plotA.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
-                    opacity: 0.75,
+                    symbol: plotA.map(d => styA(d).shape),
+                    size:   plotA.map(d => styA(d).size),
+                    color:  plotA.map(d => styA(d).color),
+                    opacity: cmpStyle.opacity,
                     line: {
                         color: plotA.map(d => ceilA(d) ? '#000' : '#1a1a1a'),
                         width: plotA.map(d => ceilA(d) ? 2.5 : 0.5)
@@ -5087,10 +5651,10 @@
                 mode: 'markers',
                 name: nameB,
                 marker: {
-                    symbol: 'triangle-up',
-                    size: 16,
-                    color: '#e74c3c',
-                    opacity: 0.7,
+                    symbol: plotB.map(d => styB(d).shape),
+                    size:   plotB.map(d => styB(d).size),
+                    color:  plotB.map(d => styB(d).color),
+                    opacity: cmpStyle.opacity,
                     line: {
                         color: plotB.map(d => ceilB(d) ? '#000' : '#7f1d1d'),
                         width: plotB.map(d => ceilB(d) ? 2.5 : 0.5)
@@ -5136,23 +5700,24 @@
             }
 
             const layout = {
-                title: { text: `Overlay: ${displayName}`, font: { size: 17 } },
+                font: { family: cmpStyle.family, size: cmpStyle.size },
+                title: { text: `Overlay: ${displayName}`, font: { family: cmpStyle.family, size: cmpStyle.size + 4 } },
                 xaxis: {
-                    title: { text: `${displayName} Residue Position`, font: { size: 14 } },
-                    tickfont: { size: 13 },
+                    title: { text: `${displayName} Residue Position`, font: { family: cmpStyle.family, size: cmpStyle.size + 1 } },
+                    tickfont: { family: cmpStyle.family, size: cmpStyle.size },
                     range: xRange,
                     showline: true, mirror: true, ticks: 'outside',
                     ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
                 },
                 yaxis: {
-                    title: { text: metricLabel, font: { size: 14 } },
-                    tickfont: { size: 13 },
+                    title: { text: metricLabel, font: { family: cmpStyle.family, size: cmpStyle.size + 1 } },
+                    tickfont: { family: cmpStyle.family, size: cmpStyle.size },
                     autorange: true,
                     zeroline: true, zerolinewidth: 1.5, zerolinecolor: '#aaa',
                     showline: true, mirror: true, ticks: 'outside',
                     ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
                 },
-                legend: { font: { size: 13 } },
+                legend: { font: { family: cmpStyle.family, size: cmpStyle.size } },
                 hovermode: 'closest',
                 plot_bgcolor: 'white',
                 paper_bgcolor: 'white',
@@ -5208,63 +5773,91 @@
             const sizeA = aOnly.length + common.length;
             const sizeB = bOnly.length + common.length;
             const sizeCommon = common.length;
-            const total = Math.max(sizeA, sizeB, 1);
-
-            // Scale radii by sqrt of set size (area ∝ count)
-            const BASE = 110;
-            const rA = Math.max(20, BASE * Math.sqrt(sizeA / total));
-            const rB = Math.max(20, BASE * Math.sqrt(sizeB / total));
-
-            // Compute circle distance so intersection area ∝ sizeCommon
-            const targetArea = Math.PI * Math.min(rA, rB) ** 2 * (sizeCommon / Math.max(Math.min(sizeA, sizeB), 1));
-            const dist = findCircleDistance(rA, rB, targetArea);
-
-            // Layout in a 600×320 viewBox, circles centred around x=300, y=155
-            const cx = 300, cy = 155;
-            const cxA = cx - dist / 2;
-            const cxB = cx + dist / 2;
 
             const container = document.getElementById('vennContainer');
             container.innerHTML = '';
 
+            // Comparison-view font selectors (added with the new comparison style controls).
+            const fontFam = document.getElementById('cmpFontFamily')?.value || 'Arial';
+            const fontSz  = parseInt(document.getElementById('cmpFontSize')?.value || 13);
+
+            // Empty state
+            if (sizeA === 0 && sizeB === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:60px 20px; color:#9ca3af; font-size:13px; font-family:' + fontFam + ';">'
+                    + '<div style="font-size:32px; margin-bottom:10px;">∅</div>'
+                    + 'No guides pass cutoffs in either screen — adjust cutoffs to see overlap.'
+                    + '</div>';
+                return;
+            }
+
+            const total = Math.max(sizeA, sizeB, 1);
+            const BASE = 100;
+            const rA = Math.max(28, BASE * Math.sqrt(sizeA / total));
+            const rB = Math.max(28, BASE * Math.sqrt(sizeB / total));
+
+            // Distance between centers — clamped so labels never collide with each other.
+            const overlapShare = sizeCommon / Math.max(Math.min(sizeA, sizeB), 1);
+            const targetArea   = Math.PI * Math.min(rA, rB) ** 2 * overlapShare;
+            let dist           = findCircleDistance(rA, rB, targetArea);
+            const minDist      = Math.max(rA, rB) * 0.55;
+            const maxDist      = rA + rB - 6;
+            if (sizeCommon > 0) dist = Math.min(Math.max(dist, minDist), maxDist);
+            else                dist = rA + rB + 30;
+
+            const VBW = 640, VBH = 380;
+            const cy  = 200;
+            const cx  = VBW / 2;
+            const cxA = cx - dist / 2;
+            const cxB = cx + dist / 2;
+
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('width', '100%');
-            svg.setAttribute('height', '340');
-            svg.setAttribute('viewBox', '0 0 600 340');
-            svg.style.maxWidth = '700px';
+            svg.setAttribute('height', '380');
+            svg.setAttribute('viewBox', '0 0 ' + VBW + ' ' + VBH);
+            svg.style.maxWidth = '760px';
             svg.style.margin = '0 auto';
             svg.style.display = 'block';
+            svg.style.fontFamily = fontFam;
 
-            // Clip paths for coloring the intersection correctly
+            const maxNameLen = 22;
+            const trim = s => (s && s.length > maxNameLen) ? (s.slice(0, maxNameLen - 1) + '…') : (s || '');
+            const dispA = trim(nameA);
+            const dispB = trim(nameB);
+
+            // Mid-lobe x positions (geometric, not heuristic)
+            const aLobeX = (cxA - rA + (cxA + rA - dist / 2)) / 2;
+            const bLobeX = (cxB + rB + (cxB - rB + dist / 2)) / 2;
+
+            const big   = fontSz + 8;
+            const small = fontSz - 1;
+
             svg.innerHTML = `
               <defs>
                 <clipPath id="clipA"><circle cx="${cxA}" cy="${cy}" r="${rA}"/></clipPath>
-                <clipPath id="clipB"><circle cx="${cxB}" cy="${cy}" r="${rB}"/></clipPath>
               </defs>
-              <!-- Circle A -->
-              <circle cx="${cxA}" cy="${cy}" r="${rA}" fill="#2563eb" fill-opacity="0.25" stroke="#2563eb" stroke-width="2"/>
-              <!-- Circle B -->
-              <circle cx="${cxB}" cy="${cy}" r="${rB}" fill="#e74c3c" fill-opacity="0.25" stroke="#e74c3c" stroke-width="2"/>
-              <!-- Intersection highlight (B clipped to A) -->
-              <circle cx="${cxB}" cy="${cy}" r="${rB}" fill="#7c3aed" fill-opacity="0.25" clip-path="url(#clipA)"/>
+              <circle cx="${cxA}" cy="${cy}" r="${rA}" fill="#2563eb" fill-opacity="0.28" stroke="#1d4ed8" stroke-width="1.5"/>
+              <circle cx="${cxB}" cy="${cy}" r="${rB}" fill="#e74c3c" fill-opacity="0.28" stroke="#b91c1c" stroke-width="1.5"/>
+              <circle cx="${cxB}" cy="${cy}" r="${rB}" fill="#7c3aed" fill-opacity="0.22" clip-path="url(#clipA)"/>
 
-              <!-- Count: A only -->
-              <text x="${cxA - dist * 0.35}" y="${cy}" text-anchor="middle" font-size="22" font-weight="bold" fill="#1e3a8a">${aOnly.length}</text>
-              <text x="${cxA - dist * 0.35}" y="${cy + 20}" text-anchor="middle" font-size="11" fill="#1e3a8a">unique</text>
+              <!-- Header labels above circles -->
+              <text x="${cxA}" y="${cy - rA - 14}" text-anchor="middle" font-size="${fontSz + 1}" font-weight="700" fill="#1d4ed8"><title>${nameA.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</title>${dispA}</text>
+              <text x="${cxB}" y="${cy - rB - 14}" text-anchor="middle" font-size="${fontSz + 1}" font-weight="700" fill="#b91c1c"><title>${nameB.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</title>${dispB}</text>
 
-              <!-- Count: common -->
-              <text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="22" font-weight="bold" fill="#4c1d95">${common.length}</text>
-              <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="11" fill="#4c1d95">common</text>
+              <!-- Lobe-only counts -->
+              <text x="${aLobeX}" y="${cy + 4}" text-anchor="middle" font-size="${big}" font-weight="700" fill="#1d4ed8">${aOnly.length}</text>
+              <text x="${aLobeX}" y="${cy + fontSz + 14}" text-anchor="middle" font-size="${small}" font-weight="600" fill="#6b7280">only</text>
+              <text x="${bLobeX}" y="${cy + 4}" text-anchor="middle" font-size="${big}" font-weight="700" fill="#b91c1c">${bOnly.length}</text>
+              <text x="${bLobeX}" y="${cy + fontSz + 14}" text-anchor="middle" font-size="${small}" font-weight="600" fill="#6b7280">only</text>
 
-              <!-- Count: B only -->
-              <text x="${cxB + dist * 0.35}" y="${cy}" text-anchor="middle" font-size="22" font-weight="bold" fill="#7f1d1d">${bOnly.length}</text>
-              <text x="${cxB + dist * 0.35}" y="${cy + 20}" text-anchor="middle" font-size="11" fill="#7f1d1d">unique</text>
+              ${sizeCommon > 0 && dist < rA + rB
+                ? `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="${big}" font-weight="700" fill="#7c3aed">${sizeCommon}</text>
+                   <text x="${cx}" y="${cy + fontSz + 14}" text-anchor="middle" font-size="${small}" font-weight="600" fill="#6b7280">common</text>`
+                : `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="${big}" font-weight="700" fill="#9ca3af">0</text>
+                   <text x="${cx}" y="${cy + fontSz + 14}" text-anchor="middle" font-size="${small}" font-weight="600" fill="#9ca3af">common</text>`}
 
-              <!-- Labels -->
-              <text x="${cxA}" y="${cy + rA + 22}" text-anchor="middle" font-size="13" font-weight="600" fill="#2563eb">${nameA}</text>
-              <text x="${cxA}" y="${cy + rA + 38}" text-anchor="middle" font-size="11" fill="#2563eb">(n = ${sizeA})</text>
-              <text x="${cxB}" y="${cy + rB + 22}" text-anchor="middle" font-size="13" font-weight="600" fill="#e74c3c">${nameB}</text>
-              <text x="${cxB}" y="${cy + rB + 38}" text-anchor="middle" font-size="11" fill="#e74c3c">(n = ${sizeB})</text>
+              <!-- Footer totals -->
+              <text x="${cxA}" y="${VBH - 18}" text-anchor="middle" font-size="${small}" font-weight="500" fill="#6b7280">total: ${sizeA}</text>
+              <text x="${cxB}" y="${VBH - 18}" text-anchor="middle" font-size="${small}" font-weight="500" fill="#6b7280">total: ${sizeB}</text>
             `;
 
             container.appendChild(svg);
@@ -5285,6 +5878,7 @@
             const isCeil = g => (ceilKeyA && g.A[ceilKeyA]) || (ceilKeyB && g.B[ceilKeyB]);
             const nCeil = common.filter(isCeil).length;
 
+            const cmpStyle = getComparisonStyle();
             const trace = {
                 x: common.map(g => g.A[metricKeyA]),
                 y: common.map(g => g.B[metricKeyB]),
@@ -5292,9 +5886,9 @@
                 type: 'scatter',
                 marker: {
                     symbol: common.map(g => isCeil(g) ? 'star' : 'diamond'),
-                    size: 16,
+                    size: cmpStyle.symbolSize,
                     color: '#6d28d9',
-                    opacity: 0.75,
+                    opacity: cmpStyle.opacity,
                     line: {
                         color: common.map(g => isCeil(g) ? '#000' : '#4c1d95'),
                         width: common.map(g => isCeil(g) ? 2 : 0.8)
@@ -5330,16 +5924,17 @@
             }
 
             const layout = {
-                title: { text: `Correlation: ${nameA} vs ${nameB} (r = ${r.toFixed(3)})`, font: { size: 15 } },
+                font: { family: cmpStyle.family, size: cmpStyle.size },
+                title: { text: `Correlation: ${nameA} vs ${nameB} (r = ${r.toFixed(3)})`, font: { family: cmpStyle.family, size: cmpStyle.size + 2 } },
                 xaxis: {
-                    title: { text: `${nameA}: ${metricLabel}`, font: { size: 14 } },
-                    tickfont: { size: 13 },
+                    title: { text: `${nameA}: ${metricLabel}`, font: { family: cmpStyle.family, size: cmpStyle.size + 1 } },
+                    tickfont: { family: cmpStyle.family, size: cmpStyle.size },
                     showline: true, mirror: true, ticks: 'outside',
                     ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
                 },
                 yaxis: {
-                    title: { text: `${nameB}: ${metricLabel}`, font: { size: 14 } },
-                    tickfont: { size: 13 },
+                    title: { text: `${nameB}: ${metricLabel}`, font: { family: cmpStyle.family, size: cmpStyle.size + 1 } },
+                    tickfont: { family: cmpStyle.family, size: cmpStyle.size },
                     showline: true, mirror: true, ticks: 'outside',
                     ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
                 },
@@ -5582,9 +6177,16 @@
         let genomeAnalysisMode = 'single'; // 'single' or 'comparison'
         let genomeColMap = {};
         let genomeRawGuides = [];       // raw guide-level rows
-        let genomeGeneData = [];        // gene-level aggregated data
+        let genomeGeneData = [];        // gene-level aggregated data (currently active sheet)
         let genomeFilteredGenes = [];   // after cutoffs
         let genomeCurrentView = 'volcano';
+        // Per-sheet storage for genome single-screen mode.
+        // Each Excel tab is treated as an independent screen (different conditions /
+        // cell lines / replicates) — switching the dropdown rebuilds gene-level data
+        // from that tab's raw guides using the user's saved column mapping.
+        let genomeSheetsRaw = {};       // {sheetName: [rawRows...]}
+        let genomeSheetsAggregated = {};// {sheetName: [geneData...]}  — populated lazily
+        let genomeActiveSheet = '';     // currently selected tab name
         // Comparison state
         let gcConfigs = {
             A: { name: 'Screen A', rawGuides: [], geneData: [], colMap: {} },
@@ -5761,14 +6363,24 @@
         }
 
         function readGenomeCutoffs(prefix) {
-            // prefix = 'g' (single) or 'gcA'/'gcB' (comparison)
-            const z   = parseFloat(document.getElementById(prefix + 'Zcutoff' + (prefix.endsWith('A')||prefix.endsWith('B') ? '' : ''))?.value) || 0;
-            const fc  = parseFloat(document.getElementById(prefix + 'FCcutoff' + (prefix.endsWith('A')||prefix.endsWith('B') ? '' : ''))?.value) || 0;
-            const p   = parseFloat(document.getElementById(prefix + 'Pcutoff' + (prefix.endsWith('A')||prefix.endsWith('B') ? '' : ''))?.value);
-            const fdr = parseFloat(document.getElementById(prefix + 'FDRcutoff' + (prefix.endsWith('A')||prefix.endsWith('B') ? '' : ''))?.value);
-            const zDir = document.getElementById(prefix + 'ZDir' + (prefix.endsWith('A')||prefix.endsWith('B') ? '' : ''))?.value || '>=';
-            const fcDir= document.getElementById(prefix + 'FCDir' + (prefix.endsWith('A')||prefix.endsWith('B') ? '' : ''))?.value || '>=';
-            return { z, fc, p: isNaN(p)?1:p, fdr: isNaN(fdr)?1:fdr, zDir, fcDir };
+            // Builds IDs that actually match the HTML.
+            //   prefix === 'g'   → single-genome  (gZcutoff, gFCcutoff, gPcutoff, gFDRcutoff, gZDir, gFCDir)
+            //   prefix === 'gcA' → comparison A   (gcZcutoffA, gcFCcutoffA, gcPcutoffA, gcFDRcutoffA, gcZDirA, gcFCDirA)
+            //   prefix === 'gcB' → comparison B   (gcZcutoffB, gcFCcutoffB, gcPcutoffB, gcFDRcutoffB, gcZDirB, gcFCDirB)
+            let base, suffix;
+            if (prefix === 'gcA') { base = 'gc'; suffix = 'A'; }
+            else if (prefix === 'gcB') { base = 'gc'; suffix = 'B'; }
+            else { base = 'g'; suffix = ''; }
+            const get = (id) => document.getElementById(id);
+            const numOr = (el, dflt) => { const v = parseFloat(el?.value); return isNaN(v) ? dflt : v; };
+            return {
+                z:    numOr(get(base + 'Zcutoff'   + suffix), 0),
+                fc:   numOr(get(base + 'FCcutoff'  + suffix), 0),
+                p:    numOr(get(base + 'Pcutoff'   + suffix), 1),
+                fdr:  numOr(get(base + 'FDRcutoff' + suffix), 1),
+                zDir: (get(base + 'ZDir'  + suffix)?.value) || '>=',
+                fcDir:(get(base + 'FCDir' + suffix)?.value) || '>='
+            };
         }
 
         function confirmGenomeMapping() {
@@ -5787,14 +6399,45 @@
             if (!colMap.gene) { alert('Gene Name column is required.'); return; }
             closeModal('genomeMappingModal');
 
+            showLoading('Aggregating guides…', 'This can take a few seconds for large screens.');
+            setTimeout(function() {
+              try {
+                _confirmGenomeMappingInner(colMap);
+              } finally {
+                hideLoading();
+              }
+            }, 30);
+        }
+
+        function _confirmGenomeMappingInner(colMap) {
             if (genomeAnalysisMode === 'single') {
                 genomeColMap = colMap;
-                genomeGeneData = aggregateGuidesToGenes(genomeRawGuides, colMap);
+
+                // Aggregate every selected sheet independently. Each becomes a separate
+                // entry in the sheet selector at the top of the genome view.
+                const sheetNames = Object.keys(genomeSheetsRaw || {});
+                if (!sheetNames.length && genomeRawGuides.length) {
+                    // Defensive fallback (e.g. config import path that didn't populate
+                    // genomeSheetsRaw): treat the loaded raw guides as a single sheet.
+                    genomeSheetsRaw = { 'Sheet1': genomeRawGuides.slice() };
+                    sheetNames.push('Sheet1');
+                }
+                genomeSheetsAggregated = {};
+                sheetNames.forEach(function(name) {
+                    genomeSheetsAggregated[name] = aggregateGuidesToGenes(genomeSheetsRaw[name], colMap);
+                });
+
+                // Default to the first sheet
+                genomeActiveSheet = sheetNames[0];
+                genomeRawGuides = genomeSheetsRaw[genomeActiveSheet];
+                genomeGeneData  = genomeSheetsAggregated[genomeActiveSheet];
+
+                // Populate the sheet selector
+                renderGenomeSheetSelector(sheetNames);
+
                 document.getElementById('uploadSection').classList.add('hidden');
                 document.getElementById('genomeSection').classList.remove('hidden');
-                document.getElementById('genomeScreenTitle').textContent = genomeGeneData.length + ' genes · ' + genomeRawGuides.length + ' guides';
-                document.getElementById('gTotalGenes').textContent = genomeGeneData.length;
-                document.getElementById('gTotalGuides').textContent = genomeRawGuides.length;
+                updateGenomeHeaderForActiveSheet();
                 updateGenomeView();
             } else {
                 // Comparison: which screen are we loading?
@@ -5818,11 +6461,53 @@
                     const nameB = gcConfigs.B.name || 'Screen B';
                     document.getElementById('gcNameA').textContent = nameA + ' Cutoffs';
                     document.getElementById('gcNameB').textContent = nameB + ' Cutoffs';
+                    const lblA = document.getElementById('gcStyleLabelA'); if (lblA) lblA.textContent = nameA + ':';
+                    const lblB = document.getElementById('gcStyleLabelB'); if (lblB) lblB.textContent = nameB + ':';
                     document.getElementById('gcUniqueHeaderA').textContent = nameA + ' Only';
                     document.getElementById('gcUniqueHeaderB').textContent = nameB + ' Only';
                     updateGenomeComparisonView();
                 }
             }
+        }
+
+        // Build the sheet dropdown shown above genome single-screen plots.
+        // Hidden when only one sheet was selected — no need to clutter the UI.
+        function renderGenomeSheetSelector(sheetNames) {
+            const wrap = document.getElementById('gSheetSelectorWrap');
+            const sel  = document.getElementById('gSheetSelect');
+            if (!wrap || !sel) return;
+            sel.innerHTML = '';
+            sheetNames.forEach(function(name) {
+                const o = document.createElement('option');
+                o.value = name; o.textContent = name;
+                sel.appendChild(o);
+            });
+            sel.value = genomeActiveSheet || sheetNames[0];
+            wrap.style.display = sheetNames.length > 1 ? 'flex' : 'none';
+        }
+
+        // Switch the active genome sheet without re-uploading.
+        // Re-runs cutoffs and re-renders whichever view (volcano / table) is open.
+        function switchGenomeSheet() {
+            const sel = document.getElementById('gSheetSelect');
+            if (!sel) return;
+            const name = sel.value;
+            if (!genomeSheetsAggregated.hasOwnProperty(name)) return;
+            genomeActiveSheet = name;
+            genomeRawGuides   = genomeSheetsRaw[name] || [];
+            genomeGeneData    = genomeSheetsAggregated[name] || [];
+            updateGenomeHeaderForActiveSheet();
+            updateGenomeView();
+        }
+
+        function updateGenomeHeaderForActiveSheet() {
+            const titleEl = document.getElementById('genomeScreenTitle');
+            const totEl   = document.getElementById('gTotalGenes');
+            if (titleEl) {
+                const sheetTag = genomeActiveSheet ? (genomeActiveSheet + ' · ') : '';
+                titleEl.textContent = sheetTag + genomeGeneData.length + ' genes';
+            }
+            if (totEl) totEl.textContent = genomeGeneData.length;
         }
 
         function getGenomeMetricLabel(m) {
@@ -5905,11 +6590,17 @@
                 };
             }
 
+            // User-controlled hit marker style
+            const hitColor   = document.getElementById('gMarkerColor')?.value || '#ef4444';
+            const hitShape   = document.getElementById('gMarkerShape')?.value || 'circle';
+            const hitSize    = parseInt(document.getElementById('gMarkerSize')?.value || 9);
+            const hitOpacity = parseFloat(document.getElementById('gMarkerOpacity')?.value || 0.85);
+
             const traces = [
-                makeTrace(bgGenes,   'Non-hit genes', '#d1d5db', 7,  0.6,  false)
+                makeTrace(bgGenes,   'Non-hit genes', '#d1d5db', Math.max(4, hitSize - 2),  0.6,  false)
             ];
-            if (hitNormal.length)  traces.push(makeTrace(hitNormal,  'Hit genes',        '#ef4444', 9,  0.85, true));
-            if (hitCeiling.length) traces.push(makeTrace(hitCeiling, 'Hit genes (⚑ at floor)', '#ef4444', 9, 0.95, true, 'triangle-up', '#000', 2));
+            if (hitNormal.length)  traces.push(makeTrace(hitNormal,  'Hit genes',        hitColor, hitSize,  hitOpacity, true, hitShape));
+            if (hitCeiling.length) traces.push(makeTrace(hitCeiling, 'Hit genes (⚑ at floor)', hitColor, hitSize, Math.min(1, hitOpacity + 0.1), true, 'triangle-up', '#000', 2));
 
             // Arrow annotations for top hits
             const annotations = hitsSorted.slice(0, Math.min(labelTop, hitsSorted.length))
@@ -6052,7 +6743,11 @@
         }
 
         function plotGenomeCorrelation(genesA, genesB, passSetA, passSetB, nameA, nameB) {
-            const gf = getGlobalFont();
+            // Use the genome-comparison font selectors (these live in the gc panel).
+            const gf = {
+                family: document.getElementById('gcFontFamily')?.value || 'Arial',
+                size: parseInt(document.getElementById('gcFontSize')?.value || 13)
+            };
             const mapA = new Map(genesA.map(g=>[g.gene,g]));
             const mapB = new Map(genesB.map(g=>[g.gene,g]));
             const allGenes = [...new Set([...mapA.keys(),...mapB.keys()])];
@@ -6086,33 +6781,119 @@
         }
 
         function plotGenomeVenn(sizeA, sizeB, nCommon, nameA, nameB) {
-            const total=Math.max(sizeA,sizeB,1),BASE=110;
-            const rA=Math.max(20,BASE*Math.sqrt(sizeA/total)), rB=Math.max(20,BASE*Math.sqrt(sizeB/total));
-            const targetArea=Math.PI*Math.min(rA,rB)**2*(nCommon/Math.max(Math.min(sizeA,sizeB),1));
-            const dist=findCircleDistance(rA,rB,targetArea);
-            const cx=300,cy=155,cxA=cx-dist/2,cxB=cx+dist/2;
-            const container=document.getElementById('gcVennContainer');
-            container.innerHTML='';
-            const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-            svg.setAttribute('viewBox','0 0 600 310');svg.setAttribute('width','100%');svg.setAttribute('height','100%');
-            function circ(cx2,cy2,r,fill,opacity,label,count){
-                const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
-                c.setAttribute('cx',cx2);c.setAttribute('cy',cy2);c.setAttribute('r',r);c.setAttribute('fill',fill);c.setAttribute('opacity',opacity);
-                svg.appendChild(c);
-                const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-                t.setAttribute('x',cx2);t.setAttribute('y',cy2-r*0.35);t.setAttribute('text-anchor','middle');t.setAttribute('font-size','14');t.setAttribute('font-weight','600');t.setAttribute('fill','#1a1a1a');
-                t.textContent=label; svg.appendChild(t);
-                const t2=document.createElementNS('http://www.w3.org/2000/svg','text');
-                t2.setAttribute('x',cx2);t2.setAttribute('y',cy2+r*0.1);t2.setAttribute('text-anchor','middle');t2.setAttribute('font-size','20');t2.setAttribute('font-weight','700');t2.setAttribute('fill','#1a1a1a');
-                t2.textContent=count; svg.appendChild(t2);
+            const container = document.getElementById('gcVennContainer');
+            container.innerHTML = '';
+
+            // Genome-comparison font selectors
+            const fontFam = document.getElementById('gcFontFamily')?.value || 'Arial';
+            const fontSz  = parseInt(document.getElementById('gcFontSize')?.value || 13);
+
+            // Empty state — neither screen has any hits
+            if (sizeA === 0 && sizeB === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:60px 20px; color:#9ca3af; font-size:13px; font-family:' + fontFam + ';">'
+                    + '<div style="font-size:32px; margin-bottom:10px;">∅</div>'
+                    + 'No hits in either screen — adjust cutoffs to see overlap.'
+                    + '</div>';
+                return;
             }
-            circ(cxA,cy,rA,'#2563eb',0.3,nameA,sizeA);
-            circ(cxB,cy,rB,'#e74c3c',0.3,nameB,sizeB);
-            if(nCommon>0){
-                const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-                t.setAttribute('x',cx);t.setAttribute('y',cy+8);t.setAttribute('text-anchor','middle');t.setAttribute('font-size','18');t.setAttribute('font-weight','700');t.setAttribute('fill','#7c3aed');
-                t.textContent=nCommon; svg.appendChild(t);
+
+            const total = Math.max(sizeA, sizeB, 1);
+            const BASE  = 100;
+            const rA = Math.max(28, BASE * Math.sqrt(sizeA / total));
+            const rB = Math.max(28, BASE * Math.sqrt(sizeB / total));
+
+            // Distance between centers — clamp so labels never collide.
+            // We compute the overlap-area-driven distance, then clamp to a sane range.
+            const overlapShare = nCommon / Math.max(Math.min(sizeA, sizeB), 1);
+            const targetArea   = Math.PI * Math.min(rA, rB) ** 2 * overlapShare;
+            let dist           = findCircleDistance(rA, rB, targetArea);
+            const minDist      = Math.max(rA, rB) * 0.55;       // never let one circle swallow the other
+            const maxDist      = rA + rB - 6;                   // keep at least a sliver of overlap if any common
+            if (nCommon > 0) dist = Math.min(Math.max(dist, minDist), maxDist);
+            else             dist = rA + rB + 30;               // disjoint — push them clearly apart
+
+            // Layout: leave generous top padding for header labels and bottom for legend.
+            const VBW = 640, VBH = 360;
+            const cy  = 200;
+            const cx  = VBW / 2;
+            const cxA = cx - dist / 2;
+            const cxB = cx + dist / 2;
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 ' + VBW + ' ' + VBH);
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            svg.style.fontFamily = fontFam;
+
+            // Truncate very long names so headers don't wrap into the circles.
+            const maxNameLen = 22;
+            const trim = s => (s && s.length > maxNameLen) ? (s.slice(0, maxNameLen - 1) + '…') : (s || '');
+            const dispA = trim(nameA);
+            const dispB = trim(nameB);
+
+            function makeText(x, y, txt, opts) {
+                const o = opts || {};
+                const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                t.setAttribute('x', x); t.setAttribute('y', y);
+                t.setAttribute('text-anchor', o.anchor || 'middle');
+                t.setAttribute('font-size', o.size || fontSz);
+                t.setAttribute('font-weight', o.weight || '600');
+                t.setAttribute('fill', o.color || '#1a1a1a');
+                if (o.title) {
+                    const ti = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                    ti.textContent = o.title; t.appendChild(ti);
+                }
+                t.textContent = txt;
+                return t;
             }
+
+            // Circles
+            const ca = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            ca.setAttribute('cx', cxA); ca.setAttribute('cy', cy); ca.setAttribute('r', rA);
+            ca.setAttribute('fill', '#2563eb'); ca.setAttribute('opacity', 0.32);
+            ca.setAttribute('stroke', '#1d4ed8'); ca.setAttribute('stroke-width', 1);
+            svg.appendChild(ca);
+            const cb = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            cb.setAttribute('cx', cxB); cb.setAttribute('cy', cy); cb.setAttribute('r', rB);
+            cb.setAttribute('fill', '#e74c3c'); cb.setAttribute('opacity', 0.32);
+            cb.setAttribute('stroke', '#b91c1c'); cb.setAttribute('stroke-width', 1);
+            svg.appendChild(cb);
+
+            // Header labels — placed ABOVE the circles, color-matched, never overlapping the shapes.
+            svg.appendChild(makeText(cxA, cy - rA - 14, dispA, {
+                size: fontSz + 1, weight: 700, color: '#1d4ed8', title: nameA
+            }));
+            svg.appendChild(makeText(cxB, cy - rB - 14, dispB, {
+                size: fontSz + 1, weight: 700, color: '#b91c1c', title: nameB
+            }));
+
+            // Counts: place "A only" and "B only" in the non-overlapping lobes.
+            // Center each label between the inner edge of the lens and the outer edge of the circle.
+            const aOnly = sizeA - nCommon;
+            const bOnly = sizeB - nCommon;
+            const aLobeX = (cxA - rA + (cxA + rA - dist / 2)) / 2;   // mid of left lobe
+            const bLobeX = (cxB + rB + (cxB - rB + dist / 2)) / 2;   // mid of right lobe
+
+            // Big number = lobe-only count; small caption underneath.
+            svg.appendChild(makeText(aLobeX, cy + 4, String(aOnly), { size: fontSz + 7, weight: 700, color: '#1d4ed8' }));
+            svg.appendChild(makeText(aLobeX, cy + fontSz + 14, 'only', { size: fontSz - 2, weight: 600, color: '#6b7280' }));
+            svg.appendChild(makeText(bLobeX, cy + 4, String(bOnly), { size: fontSz + 7, weight: 700, color: '#b91c1c' }));
+            svg.appendChild(makeText(bLobeX, cy + fontSz + 14, 'only', { size: fontSz - 2, weight: 600, color: '#6b7280' }));
+
+            // Common count in the lens (only if circles actually overlap and there's something to show)
+            if (nCommon > 0 && dist < rA + rB) {
+                svg.appendChild(makeText(cx, cy + 4, String(nCommon), { size: fontSz + 7, weight: 700, color: '#7c3aed' }));
+                svg.appendChild(makeText(cx, cy + fontSz + 14, 'common', { size: fontSz - 2, weight: 600, color: '#6b7280' }));
+            } else if (nCommon === 0) {
+                // Disjoint circles — say so explicitly between them.
+                svg.appendChild(makeText(cx, cy + 4, '0', { size: fontSz + 7, weight: 700, color: '#9ca3af' }));
+                svg.appendChild(makeText(cx, cy + fontSz + 14, 'common', { size: fontSz - 2, weight: 600, color: '#9ca3af' }));
+            }
+
+            // Footer totals — small, neutral.
+            svg.appendChild(makeText(cxA, VBH - 18, 'total: ' + sizeA, { size: fontSz - 2, weight: 500, color: '#6b7280' }));
+            svg.appendChild(makeText(cxB, VBH - 18, 'total: ' + sizeB, { size: fontSz - 2, weight: 500, color: '#6b7280' }));
+
             container.appendChild(svg);
         }
 
@@ -6226,15 +7007,23 @@
             genesA.forEach(function(g) { const k = grp(g.gene); buckets.A[k] = buckets.A[k] || []; buckets.A[k].push(g); });
             genesB.forEach(function(g) { const k = grp(g.gene); buckets.B[k] = buckets.B[k] || []; buckets.B[k].push(g); });
 
+            // User-controlled per-screen marker style
+            const symA = document.getElementById('gcShapeA')?.value || 'circle';
+            const symB = document.getElementById('gcShapeB')?.value || 'triangle-up';
+            const colA = document.getElementById('gcColorA')?.value || '#2563eb';
+            const colB = document.getElementById('gcColorB')?.value || '#e74c3c';
+            const symSize = parseInt(document.getElementById('gcSymbolSize')?.value || 9);
+            const symOpacity = parseFloat(document.getElementById('gcMarkerOpacity')?.value || 0.85);
+
             function trace(genes, name, color, symbol, screen, showLegend) {
                 const isBg = color === '#d1d5db';
                 return { x: genes.map(g=>g[xMetric]), y: genes.map(g=>g[yMetric]),
                     mode:'markers', type:'scattergl', name:name, showlegend:showLegend,
                     marker:{
                         symbol:symbol,
-                        size: (symbol==='circle' ? 7 : 9),
+                        size: isBg ? Math.max(4, symSize - 2) : symSize,
                         color:color,
-                        opacity: isBg ? 0.4 : 0.85,
+                        opacity: isBg ? 0.4 : symOpacity,
                         line:{
                             color: genes.map(g => isCeil(g) ? '#000' : (isBg ? '#9ca3af' : '#333')),
                             width: genes.map(g => isCeil(g) ? 2 : 0.4)
@@ -6244,12 +7033,14 @@
             }
 
             const traces = [];
-            if ((buckets.A.none||[]).length) traces.push(trace(buckets.A.none, nameA+' (no hit)', '#d1d5db', 'circle', nameA, true));
-            if ((buckets.B.none||[]).length) traces.push(trace(buckets.B.none, nameB+' (no hit)', '#d1d5db', 'triangle-up', nameB, true));
-            if ((buckets.A.a||[]).length)    traces.push(trace(buckets.A.a,    nameA+' only',    '#2563eb', 'circle', nameA, true));
-            if ((buckets.B.b||[]).length)    traces.push(trace(buckets.B.b,    nameB+' only',    '#e74c3c', 'triangle-up', nameB, true));
-            if ((buckets.A.common||[]).length) traces.push(trace(buckets.A.common, 'Common — '+nameA, '#7c3aed', 'circle', nameA, true));
-            if ((buckets.B.common||[]).length) traces.push(trace(buckets.B.common, 'Common — '+nameB, '#7c3aed', 'triangle-up', nameB, true));
+            if ((buckets.A.none||[]).length) traces.push(trace(buckets.A.none, nameA+' (no hit)', '#d1d5db', symA, nameA, true));
+            if ((buckets.B.none||[]).length) traces.push(trace(buckets.B.none, nameB+' (no hit)', '#d1d5db', symB, nameB, true));
+            if ((buckets.A.a||[]).length)    traces.push(trace(buckets.A.a,    nameA+' only',    colA,      symA, nameA, true));
+            if ((buckets.B.b||[]).length)    traces.push(trace(buckets.B.b,    nameB+' only',    colB,      symB, nameB, true));
+            // Common hits use each screen's own picker color (the trace name conveys "common").
+            // Previously hardcoded to violet, which made the color picker appear to do nothing.
+            if ((buckets.A.common||[]).length) traces.push(trace(buckets.A.common, 'Common — '+nameA, colA, symA, nameA, true));
+            if ((buckets.B.common||[]).length) traces.push(trace(buckets.B.common, 'Common — '+nameB, colB, symB, nameB, true));
 
             // Annotation footnote for ceiling counts
             const annotations = [];
@@ -6302,9 +7093,7 @@
             const onlyA=[...setA].filter(g=>!setB.has(g));
             const onlyB=[...setB].filter(g=>!setA.has(g));
             _goGeneSets = { all:[...new Set([...setA,...setB])], common, a:onlyA, b:onlyB, nameA, nameB };
-            // Update tab labels
-            document.getElementById('goTabALabel') && (document.getElementById('goTabALabel').textContent = nameA + ' only');
-            document.getElementById('goTabBLabel') && (document.getElementById('goTabBLabel').textContent = nameB + ' only');
+            // Tab labels are set with counts below; no need to set them twice.
             const tabs = document.getElementById('goListTabs');
             if (tabs) tabs.style.display = 'block';
             // Update tab button text counts
@@ -6458,6 +7247,9 @@
         let pdbParsedChains = {};
         let structureViewerMode = 'single'; // 'single' | 'comparison'
         let pdbResiGuideMap = {};
+        let pdbResiColorMap = {};     // {pdbResi: '#rrggbb'} — populated by coloring fns, used by downloadColoredPDB
+        let pdbResiValueMap = {};     // {pdbResi: number} — numeric value for B-factor encoding (NaN-safe)
+        let pdbColoringMeta = null;   // {scheme, metric, vmin, vmax, mode, chain} — annotation for download header
         let pdbCurrentStyle = 'cartoon';
         let pdbAlignmentMap = null;   // Map<userPos(1-based int) → pdbResidueNum(int)>
         let pdbRawText = '';          // Raw PDB text, stored for re-alignment on chain change
@@ -6901,13 +7693,43 @@
             const chainId = document.getElementById('pdbChainSelect').value;
             if (!chainId) return;
             const fallbackOffset = parseInt(document.getElementById('pdbResidueOffset').value) || 0;
-            // Reset entire model to gray
             const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity') ? document.getElementById('pdbBgOpacity').value : 1.0);
-            pdbViewer.setStyle({}, { cartoon: { color: '#cccccc', opacity: bgOpacity } });
+            const repStyle = pdbCurrentStyle || 'cartoon';
+
+            // Reset to background. We always paint cartoon as the base — when the
+            // user picks "stick" or "surface" we add the chosen rep ON TOP so
+            // colored residues remain visible. (3Dmol replaces — not adds — when
+            // setStyle is called, so per-residue coloring later in the pipeline
+            // wouldn't reach a "stick-only" model otherwise.)
+            try { pdbViewer.removeAllSurfaces(); } catch(e) {}
+            if (repStyle === 'stick') {
+                pdbViewer.setStyle({}, {
+                    cartoon: { color: '#cccccc', opacity: bgOpacity },
+                    stick:   { color: '#cccccc', opacity: bgOpacity, radius: 0.18 }
+                });
+            } else {
+                pdbViewer.setStyle({}, { cartoon: { color: '#cccccc', opacity: bgOpacity } });
+            }
+
             if (structureViewerMode === 'single') {
                 colorSingleScreenOnStructure(chainId, fallbackOffset);
             } else {
                 colorComparisonOnStructure(chainId, fallbackOffset);
+            }
+
+            // Surface is additive — apply after coloring so it picks up residue colors.
+            if (repStyle === 'surface') {
+                try {
+                    pdbViewer.addSurface($3Dmol.SurfaceType.VDW,
+                        { opacity: 0.75, colorscheme: { prop: 'b', map: null } },
+                        { chain: chainId },
+                        { chain: chainId });
+                } catch(e) {
+                    // Some 3Dmol builds expect different signature — fallback
+                    try {
+                        pdbViewer.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.75 }, { chain: chainId });
+                    } catch(e2) { console.warn('Surface render failed:', e2); }
+                }
             }
             pdbViewer.render();
         }
@@ -6933,8 +7755,9 @@
                     btn.style.borderColor = (s === style) ? '#2563eb' : '#d1d5db';
                 }
             });
-            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity')?.value || 1.0);
-            pdbViewer.setStyle({}, { [style]: { color: 'lightgray', opacity: bgOpacity } });
+            // Always remove any existing surfaces before reapplying — surfaces persist
+            // across setStyle calls and stack otherwise.
+            try { pdbViewer.removeAllSurfaces(); } catch(e) {}
             applyStructureColoring();
         }
 
@@ -6972,11 +7795,10 @@
             const vmin = vals.length ? Math.min.apply(null, vals) : 0;
             const vmax = vals.length ? Math.max.apply(null, vals) : 1;
 
-            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity')?.value || 1.0);
-            const repStyle = pdbCurrentStyle || 'cartoon';
-            pdbViewer.setStyle({}, { [repStyle]: { color: '#cccccc', opacity: bgOpacity } });
-
+            // Background style is applied by applyStructureColoring(); we just paint per-residue.
             pdbResiGuideMap = {};
+            pdbResiColorMap = {};
+            pdbResiValueMap = {};
             data.forEach(function(d) {
                 const pdbResi = resolveResi(d.residue, offset);
                 if (pdbResi == null) return; // residue not in alignment
@@ -6990,9 +7812,17 @@
                 } else {
                     color = metricGradientColor(d[metricKey], vmin, vmax);
                 }
-                pdbViewer.setStyle({ chain: chainId, resi: pdbResi },
-                    { cartoon: { color: color, opacity: 1.0 } });
+                pdbResiColorMap[pdbResi] = color;
+                // For B-factor: use the metric value when meaningful, else 1.0 (presence flag).
+                const v = d[metricKey];
+                pdbResiValueMap[pdbResi] = (v != null && !isNaN(v)) ? v : 1.0;
+                // Always include cartoon (so the spine stays visible), and add stick when stick mode is active.
+                const repStyle = pdbCurrentStyle || 'cartoon';
+                const styleObj = { cartoon: { color: color, opacity: 1.0 } };
+                if (repStyle === 'stick') styleObj.stick = { color: color, opacity: 1.0, radius: 0.22 };
+                pdbViewer.setStyle({ chain: chainId, resi: pdbResi }, styleObj);
             });
+            pdbColoringMeta = { scheme: scheme, metric: metric, vmin: vmin, vmax: vmax, mode: 'single', chain: chainId };
 
             // Legend
             const leg = document.getElementById('pdbLegend');
@@ -7077,11 +7907,10 @@
             const nameA = screenConfigs.A.name || 'Screen A';
             const nameB = screenConfigs.B.name || 'Screen B';
 
-            const bgOpacity = parseFloat(document.getElementById('pdbBgOpacity')?.value || 1.0);
-            const repStyle = pdbCurrentStyle || 'cartoon';
-            pdbViewer.setStyle({}, { [repStyle]: { color: '#cccccc', opacity: bgOpacity } });
-
+            // Background style is applied by applyStructureColoring(); we just paint per-residue.
             pdbResiGuideMap = {};
+            pdbResiColorMap = {};
+            pdbResiValueMap = {};
             [common, aOnly, bOnly].forEach(function(list) {
                 list.forEach(function(item) {
                     const d = item.A || item;
@@ -7092,26 +7921,32 @@
                 });
             });
 
-            function colorSet(userResidues, color) {
+            // Encode group as small integer in B-factor: 1 = A only, 2 = B only, 3 = common.
+            const repStyle = pdbCurrentStyle || 'cartoon';
+            function colorSet(userResidues, color, groupCode) {
                 userResidues.forEach(function(userResi) {
                     const pdbResi = resolveResi(userResi, offset);
                     if (pdbResi == null) return;
-                    pdbViewer.setStyle({ chain: chainId, resi: pdbResi },
-                        { cartoon: { color: color, opacity: 1.0 } });
+                    pdbResiColorMap[pdbResi] = color;
+                    pdbResiValueMap[pdbResi] = groupCode;
+                    const styleObj = { cartoon: { color: color, opacity: 1.0 } };
+                    if (repStyle === 'stick') styleObj.stick = { color: color, opacity: 1.0, radius: 0.22 };
+                    pdbViewer.setStyle({ chain: chainId, resi: pdbResi }, styleObj);
                 });
             }
 
             if (overlayFilter === 'common') {
-                colorSet(common.map(function(g) { return g.A.residue; }), '#7c3aed');
+                colorSet(common.map(function(g) { return g.A.residue; }), '#7c3aed', 3);
             } else if (overlayFilter === 'a') {
-                colorSet(aOnly.map(function(d) { return d.residue; }), '#2563eb');
+                colorSet(aOnly.map(function(d) { return d.residue; }), '#2563eb', 1);
             } else if (overlayFilter === 'b') {
-                colorSet(bOnly.map(function(d) { return d.residue; }), '#e74c3c');
+                colorSet(bOnly.map(function(d) { return d.residue; }), '#e74c3c', 2);
             } else {
-                colorSet(common.map(function(g) { return g.A.residue; }), '#7c3aed');
-                colorSet(aOnly.map(function(d) { return d.residue; }), '#2563eb');
-                colorSet(bOnly.map(function(d) { return d.residue; }), '#e74c3c');
+                colorSet(common.map(function(g) { return g.A.residue; }), '#7c3aed', 3);
+                colorSet(aOnly.map(function(d) { return d.residue; }), '#2563eb', 1);
+                colorSet(bOnly.map(function(d) { return d.residue; }), '#e74c3c', 2);
             }
+            pdbColoringMeta = { scheme: 'comparison', mode: 'comparison', chain: chainId, nameA: nameA, nameB: nameB, filter: overlayFilter };
 
             renderComparisonStructureLegend(nameA, nameB, common.length, aOnly.length, bOnly.length);
 
@@ -7152,6 +7987,137 @@
                     viewer.render();
                 }
             );
+        }
+
+        // ─── Download current structure with per-residue values as B-factors ────
+        // Standard PDB ATOM record: cols 61-66 = temperature factor (B-factor), %6.2f.
+        // Open the resulting file in PyMOL  → spectrum b, blue_white_red
+        //                  ChimeraX        → color bfactor palette blue-white-red
+        //                  Mol* / 3Dmol    → color by B-factor
+        // and you'll see the same residue highlighting EditScreen produced.
+        function downloadColoredPDB() {
+            if (!pdbRawText) { alert('No structure loaded.'); return; }
+            const colored = Object.keys(pdbResiColorMap).length;
+            if (!colored) { alert('No coloring applied yet — adjust filters or click Apply Coloring first.'); return; }
+
+            const targetChain = (pdbColoringMeta && pdbColoringMeta.chain) || (document.getElementById('pdbChainSelect')?.value) || 'A';
+
+            // Build a header that explains exactly how to recover the view in any viewer.
+            const headerLines = [
+                'REMARK 999 EditScreen — colored PDB',
+                'REMARK 999 ============================================',
+                'REMARK 999 The B-factor (cols 61-66) of each ATOM/HETATM',
+                'REMARK 999 record on the highlighted chain has been replaced',
+                'REMARK 999 with the per-residue value EditScreen used for coloring.',
+                'REMARK 999 Residues with no data keep B-factor = 0.00.',
+                'REMARK 999 ',
+                'REMARK 999 Chain colored: ' + targetChain,
+                'REMARK 999 Residues colored: ' + colored
+            ];
+            if (pdbColoringMeta) {
+                if (pdbColoringMeta.mode === 'comparison') {
+                    headerLines.push('REMARK 999 Mode: multi-screen comparison');
+                    headerLines.push('REMARK 999 Filter: ' + (pdbColoringMeta.filter || 'all'));
+                    headerLines.push('REMARK 999 B-factor encoding (group code):');
+                    headerLines.push('REMARK 999   1 = ' + (pdbColoringMeta.nameA || 'Screen A') + ' only  (blue)');
+                    headerLines.push('REMARK 999   2 = ' + (pdbColoringMeta.nameB || 'Screen B') + ' only  (red)');
+                    headerLines.push('REMARK 999   3 = common  (purple)');
+                } else {
+                    headerLines.push('REMARK 999 Mode: single-screen');
+                    headerLines.push('REMARK 999 Color scheme: ' + (pdbColoringMeta.scheme || 'metric'));
+                    if (pdbColoringMeta.scheme === 'metric') {
+                        headerLines.push('REMARK 999 Metric: ' + (pdbColoringMeta.metric || ''));
+                        headerLines.push('REMARK 999 Value range: ' + (+pdbColoringMeta.vmin).toFixed(3) + '  to  ' + (+pdbColoringMeta.vmax).toFixed(3));
+                        headerLines.push('REMARK 999 To recolor in PyMOL:    spectrum b, blue_white_red, minimum=' + (+pdbColoringMeta.vmin).toFixed(2) + ', maximum=' + (+pdbColoringMeta.vmax).toFixed(2));
+                        headerLines.push('REMARK 999 To recolor in ChimeraX: color bfactor palette blue-white-red range ' + (+pdbColoringMeta.vmin).toFixed(2) + ',' + (+pdbColoringMeta.vmax).toFixed(2));
+                    }
+                }
+            }
+            headerLines.push('REMARK 999 Generated: ' + new Date().toISOString());
+
+            // Detect input format. mmCIF cannot share the PDB column layout, so we
+            // fall back to a thin warning + raw passthrough in that case.
+            const looksLikeCIF = /^data_/m.test(pdbRawText) || /^_atom_site\./m.test(pdbRawText);
+            let outputText;
+            let suggestedExt = 'pdb';
+            if (looksLikeCIF) {
+                // For CIF, just prepend a header explaining the mapping; users can
+                // recolor by importing the residue→value map from the sidecar JSON.
+                outputText = headerLines.map(l => '# ' + l).join('\n') + '\n' + pdbRawText;
+                suggestedExt = 'cif';
+            } else {
+                const lines = pdbRawText.split(/\r?\n/);
+                const out = [];
+                let modified = 0;
+                for (let i = 0; i < lines.length; i++) {
+                    const ln = lines[i];
+                    const rec = ln.substring(0, 6);
+                    if (rec === 'ATOM  ' || rec === 'HETATM') {
+                        const chain = ln.substring(21, 22);
+                        const resi = parseInt(ln.substring(22, 26).trim());
+                        if (chain === targetChain && pdbResiValueMap.hasOwnProperty(resi)) {
+                            const v = pdbResiValueMap[resi];
+                            const num = (v == null || isNaN(v)) ? 0 : v;
+                            // Format to fit cols 61-66 (6 chars, right-aligned, 2 decimals)
+                            // Cap range so we never exceed 6 chars: -99.99 .. 999.99 covers all real cases.
+                            const clipped = Math.max(-99.99, Math.min(999.99, num));
+                            const bstr = clipped.toFixed(2).padStart(6, ' ');
+                            // Pad/extend the line if it's short (some PDBs are truncated).
+                            const padded = (ln + '                                                                                ').substring(0, 80);
+                            out.push(padded.substring(0, 60) + bstr + padded.substring(66));
+                            modified++;
+                        } else {
+                            out.push(ln);
+                        }
+                    } else {
+                        out.push(ln);
+                    }
+                }
+                outputText = headerLines.map(l => l).join('\n') + '\n' + out.join('\n');
+                if (modified === 0) {
+                    if (!confirm('No ATOM lines on chain ' + targetChain + ' matched the coloring. Download anyway?')) return;
+                }
+            }
+
+            // Sidecar JSON with the exact residue→{color, value} map for tools that
+            // can't read PDB B-factors easily (or for re-import elsewhere).
+            const sidecar = {
+                editscreen: 'colored-structure-export',
+                generated: new Date().toISOString(),
+                chain: targetChain,
+                meta: pdbColoringMeta,
+                residues: Object.keys(pdbResiColorMap).map(r => ({
+                    pdbResi: parseInt(r),
+                    color: pdbResiColorMap[r],
+                    value: pdbResiValueMap[r]
+                })).sort((a, b) => a.pdbResi - b.pdbResi)
+            };
+
+            const baseName = 'editscreen_colored_' + new Date().toISOString().slice(0, 10);
+
+            function dl(filename, text, mime) {
+                const blob = new Blob([text], { type: mime });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+            dl(baseName + '.' + suggestedExt, outputText, 'chemical/x-pdb');
+            dl(baseName + '.colors.json', JSON.stringify(sidecar, null, 2), 'application/json');
+        }
+
+        function downloadStructurePNG() {
+            if (!pdbViewer) { alert('No structure loaded.'); return; }
+            try {
+                const dataUrl = pdbViewer.pngURI();
+                const a = document.createElement('a');
+                a.href = dataUrl;
+                a.download = 'editscreen_structure_' + new Date().toISOString().slice(0,10) + '.png';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            } catch (e) {
+                alert('Could not capture image: ' + (e.message || e));
+            }
         }
 
         function renderComparisonStructureLegend(nameA, nameB, nCommon, nA, nB) {

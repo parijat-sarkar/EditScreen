@@ -537,6 +537,22 @@
         #esLoadingOverlay .es-loading-msg { font-size: 14px; font-weight: 600; color: #111827; }
         #esLoadingOverlay .es-loading-sub { font-size: 12px; color: #6b7280; }
         @keyframes es-spin { to { transform: rotate(360deg); } }
+        /* Download SVG button — used everywhere a plot can be exported. Made deliberately
+           prominent (orange) so users actually notice it. */
+        .svg-dl-btn {
+            padding: 5px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid #c2410c;
+            border-radius: 6px;
+            background: #f97316;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+            transition: background 0.15s, transform 0.05s;
+        }
+        .svg-dl-btn:hover { background: #ea580c; }
+        .svg-dl-btn:active { transform: translateY(1px); }
     </style>
 </head>
 <body>
@@ -575,9 +591,7 @@
                     🔬 Genome-Wide CRISPR / Insertional Mutagenesis Screen
                 </button>
             </div>
-            <div id="genomeModeNote" style="display:none; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:12px 16px; font-size:13px; color:#065f46; margin-bottom:20px;">
-                <b>Genome-Wide Mode:</b> Each row = one guide RNA. Required columns: Gene Name + at least one stat (Z-score, Fold Change, P-value, or FDR). Guides are aggregated to gene level for analysis. No residue position needed.
-            </div>
+            <div id="genomeModeNote" style="display:none;"></div>
 
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 12px; font-weight: 600; color: #1a1a1a;">Analysis Mode</label>
@@ -643,7 +657,7 @@
                 <div class="control-group">
                     <label>Y-axis Metric</label>
                     <select id="metricSelect" onchange="updatePlotAndHeatmap()">
-                        <option value="zscore">Z-score</option>
+                        <option value="zscore" data-score-label="{label}">Z-score</option>
                         <option value="foldchange">Fold Change (log2)</option>
                         <option value="logpvalue">-log10(P-value)</option>
                         <option value="logfdr">-log10(FDR)</option>
@@ -660,7 +674,7 @@
                     </select>
                 </div>
                 <div class="control-group">
-                    <label>Z-score</label>
+                    <label data-score-label="{label}">Z-score</label>
                     <select id="zcutoffDir" onchange="updatePlotAndHeatmap()" style="padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:12px; width:100%; margin-bottom:4px;">
                         <option value=">=">≥ (enriched)</option>
                         <option value="<=">≤ (depleted)</option>
@@ -742,7 +756,7 @@
                         <label style="font-size:11px; font-weight:600; color:#6b7280;">X Axis</label>
                         <select id="volcanoXMetric" onchange="updatePlotAndHeatmap()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;">
                             <option value="foldchange">Fold Change (log2)</option>
-                            <option value="zscore">Z-score</option>
+                            <option value="zscore" data-score-label="{label}">Z-score</option>
                             <option value="logpvalue">-log10(P-value)</option>
                             <option value="logfdr">-log10(FDR)</option>
                         </select>
@@ -752,7 +766,7 @@
                         <select id="volcanoYMetric" onchange="updatePlotAndHeatmap()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;">
                             <option value="logpvalue">-log10(P-value)</option>
                             <option value="logfdr">-log10(FDR)</option>
-                            <option value="zscore">Z-score</option>
+                            <option value="zscore" data-score-label="{label}">Z-score</option>
                             <option value="foldchange">Fold Change (log2)</option>
                         </select>
                     </div>
@@ -760,21 +774,27 @@
                         <input type="checkbox" id="volcanoShowControls" onchange="updatePlotAndHeatmap()" style="width:15px; height:15px; cursor:pointer;">
                         <label for="volcanoShowControls" style="font-size:12px; font-weight:600; color:#374151; cursor:pointer;">Show control guides <span style="color:#9ca3af; font-weight:400;">(gray)</span></label>
                     </div>
+                    <div style="display:flex; align-items:center; gap:6px; padding-bottom:6px;">
+                        <span style="font-size:11px; color:#6b7280;">Size</span>
+                        <input type="range" id="volcanoMarkerSize" min="4" max="20" step="1" value="9" oninput="document.getElementById('volcanoMarkerSizeVal').textContent=this.value; updatePlotAndHeatmap();" style="width:80px;">
+                        <span id="volcanoMarkerSizeVal" style="font-size:11px; color:#6b7280; min-width:18px;">9</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; padding-bottom:6px;">
+                        <span style="font-size:11px; color:#6b7280;">Opacity</span>
+                        <input type="range" id="volcanoMarkerOpacity" min="0.2" max="1" step="0.05" value="0.7" oninput="document.getElementById('volcanoMarkerOpacityVal').textContent=parseFloat(this.value).toFixed(2); updatePlotAndHeatmap();" style="width:80px;">
+                        <span id="volcanoMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.70</span>
+                    </div>
                 </div>
             </div>
 
             <div class="stats">
                 <div class="stat-card">
+                    <div class="stat-label">Total Guides</div>
+                    <div class="stat-value" id="totalGuidesAll">—</div>
+                </div>
+                <div class="stat-card">
                     <div class="stat-label">Total Guides (filtered)</div>
                     <div class="stat-value" id="totalGuides">—</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Z &gt; +3</div>
-                    <div class="stat-value" id="significantGuides">—</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Avg Z-score</div>
-                    <div class="stat-value" id="avgZscore">—</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Control Guides</div>
@@ -783,8 +803,8 @@
             </div>
 
             <div id="plotContainer"></div>
-            <div style="text-align:right; margin-top:4px; margin-bottom:2px;">
-                <button onclick="downloadSVG('plotContainer','editscreen_plot')" style="padding:3px 10px; font-size:11px; border:1px solid #d1d5db; border-radius:5px; background:white; cursor:pointer; color:#374151;">⬇ SVG</button>
+            <div id="plotDownloadRow" style="text-align:right; margin-top:4px; margin-bottom:2px;">
+                <button onclick="downloadSVG('plotContainer','editscreen_plot')" class="svg-dl-btn">⬇ Download SVG</button>
             </div>
             <div id="domainLegend" style="display:none; margin:6px 0 10px 0; padding:8px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; flex-wrap:wrap; gap:8px; font-size:12px;"></div>
             <!-- Heatmap scale controls (hidden until heatmap is shown) -->
@@ -803,6 +823,7 @@
                 <input type="number" id="heatmapScaleMax" step="0.1" style="width:70px; padding:4px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:12px;" oninput="updateHeatmapColors()">
               </div>
               <button onclick="resetHeatmapScale()" style="padding:4px 12px; font-size:12px; border:1px solid #d1d5db; border-radius:5px; background:white; cursor:pointer; color:#374151;">Auto-scale</button>
+              <button onclick="downloadHeatmapSVG()" class="svg-dl-btn" style="margin-left:auto;">⬇ Download SVG</button>
             </div>
             <div id="heatmapContainer"></div>
             <div id="controlsPlot" class="hidden"></div>
@@ -1164,7 +1185,7 @@
                 <label>X Axis</label>
                 <select id="gXMetric" onchange="updateGenomeView()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:100%;">
                     <option value="foldchange">Fold Change</option>
-                    <option value="zscore">IGTIOB</option>
+                    <option value="zscore" data-score-label="{label}">Z-score</option>
                     <option value="logpvalue">−log10(P-value)</option>
                     <option value="logfdr">−log10(FDR)</option>
                 </select>
@@ -1174,12 +1195,12 @@
                 <select id="gYMetric" onchange="updateGenomeView()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:100%;">
                     <option value="logpvalue">−log10(P-value)</option>
                     <option value="logfdr">−log10(FDR)</option>
-                    <option value="zscore">IGTIOB</option>
+                    <option value="zscore" data-score-label="{label}">Z-score</option>
                     <option value="foldchange">Fold Change</option>
                 </select>
             </div>
             <div class="control-group">
-                <label>IGTIOB</label>
+                <label data-score-label="{label}">Z-score</label>
                 <select id="gZDir" onchange="updateGenomeView()" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;width:100%;margin-bottom:4px;">
                     <option value=">=">≥ (enriched)</option>
                     <option value="<=">≤ (depleted)</option>
@@ -1261,7 +1282,7 @@
             </div>
         </div>
         <div id="genomeVolcanoPlot" style="width:100%; height:600px;"></div>
-            <div style="text-align:right; margin-top:4px;"><button onclick="downloadSVG('genomeVolcanoPlot','crispr_volcano')" style="padding:3px 10px; font-size:11px; border:1px solid #d1d5db; border-radius:5px; background:white; cursor:pointer; color:#374151;">⬇ SVG</button></div>
+            <div style="text-align:right; margin-top:4px;"><button onclick="downloadSVG('genomeVolcanoPlot','crispr_volcano')" class="svg-dl-btn">⬇ Download SVG</button></div>
         <div id="genomeTableContainer" style="display:none; margin-top:10px;"></div>
         <div class="download-section" style="margin-top:20px;">
             <button class="download-btn" onclick="downloadGenomeData()">⬇️ Download Gene-Level Data</button>
@@ -1285,7 +1306,7 @@
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
                 <div style="font-weight:700; color:#2563eb; margin-bottom:10px;" id="gcNameA">Screen A Cutoffs</div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">IGTIOB</div><div style="display:flex;gap:3px;"><select id="gcZDirA" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcZcutoffA" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
+                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;" data-score-label="{label}">Z-score</div><div style="display:flex;gap:3px;"><select id="gcZDirA" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcZcutoffA" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
                     <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">Fold Change</div><div style="display:flex;gap:3px;"><select id="gcFCDirA" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcFCcutoffA" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
                     <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">P-value</div><select id="gcPDirA" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcPcutoffA" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
                     <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">FDR</div><select id="gcFDRDirA" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcFDRcutoffA" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
@@ -1294,7 +1315,7 @@
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
                 <div style="font-weight:700; color:#e74c3c; margin-bottom:10px;" id="gcNameB">Screen B Cutoffs</div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">IGTIOB</div><div style="display:flex;gap:3px;"><select id="gcZDirB" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcZcutoffB" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
+                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;" data-score-label="{label}">Z-score</div><div style="display:flex;gap:3px;"><select id="gcZDirB" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcZcutoffB" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
                     <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">Fold Change</div><div style="display:flex;gap:3px;"><select id="gcFCDirB" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcFCcutoffB" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
                     <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">P-value</div><select id="gcPDirB" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcPcutoffB" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
                     <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">FDR</div><select id="gcFDRDirB" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcFDRcutoffB" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
@@ -1343,6 +1364,10 @@
                 <input type="range" id="gcMarkerOpacity" min="0.2" max="1" step="0.05" value="0.85" oninput="document.getElementById('gcMarkerOpacityVal').textContent=parseFloat(this.value).toFixed(2); updateGenomeComparisonView()" style="width:80px;">
                 <span id="gcMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.85</span>
             </div>
+            <div style="display:flex; align-items:center; gap:6px;" title="Label this many top-ranked hits (by −log10 P) on the overlay and correlation plots. Only labels above-cutoff genes. 0 = no labels.">
+                <span style="font-size:12px; font-weight:600; color:#374151;">Label top N hits:</span>
+                <input type="number" id="gcLabelTop" value="10" min="0" max="50" step="1" oninput="updateGenomeComparisonView()" style="width:60px; padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;">
+            </div>
             <div style="display:flex; flex-basis:100%; gap:24px; flex-wrap:wrap; padding-top:6px; border-top:1px dashed #e5e7eb;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span id="gcStyleLabelA" style="font-size:12px; font-weight:700; color:#1d4ed8;">Screen A:</span>
@@ -1379,9 +1404,58 @@
             <button class="view-btn" onclick="switchGenomeCompView('unique', event)">Unique Genes</button>
             <button class="view-btn" onclick="switchGenomeCompView('common', event)">Common Genes</button>
         </div>
+        <!-- Overlay filter bar — mirrors the BE comparison overlay UX: All / Common / Unique to A / Unique to B -->
+        <div id="gcOverlayFilterBar" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+            <span style="font-size:12px; color:#6b7280; align-self:center; margin-right:4px;">Show:</span>
+            <button id="gcOfBtn_all"    class="overlay-filter-btn active" onclick="setGcOverlayFilter('all')">All Genes</button>
+            <button id="gcOfBtn_common" class="overlay-filter-btn"        onclick="setGcOverlayFilter('common')">Common (both screens)</button>
+            <button id="gcOfBtn_a"      class="overlay-filter-btn"        onclick="setGcOverlayFilter('a')">Unique to <span id="gcOfLabelA">Screen A</span></button>
+            <button id="gcOfBtn_b"      class="overlay-filter-btn"        onclick="setGcOverlayFilter('b')">Unique to <span id="gcOfLabelB">Screen B</span></button>
+        </div>
         <div id="gcOverlayPlot" style="width:100%; height:580px;"></div>
-        <div style="text-align:right; margin-top:4px;"><button onclick="downloadSVG('gcOverlayPlot','crispr_overlay')" style="padding:3px 10px; font-size:11px; border:1px solid #d1d5db; border-radius:5px; background:white; cursor:pointer; color:#374151;">⬇ SVG</button></div>
+        <div style="text-align:right; margin-top:4px;"><button onclick="downloadSVG('gcOverlayPlot','crispr_overlay')" class="svg-dl-btn">⬇ Download SVG</button></div>
+        <!-- Correlation axis controls — selectable metric + per-axis range / autoscale.
+             Hidden until the user clicks the Correlation tab. -->
+        <div id="gcCorrelationControls" style="display:none; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:10px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; font-size:12px;">
+                <div>
+                    <div style="font-weight:700; color:#1d4ed8; margin-bottom:6px;" id="gcCorrXLabel">X-axis (Screen A)</div>
+                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                        <label>Metric</label>
+                        <select id="gcCorrXMetric" onchange="updateGenomeComparisonView()" style="padding:4px 8px; border:1px solid #d1d5db; border-radius:5px;">
+                            <option value="zscore" data-score-label="{label}">Z-score</option>
+                            <option value="foldchange">Fold Change (log2)</option>
+                            <option value="logpvalue">−log10(P-value)</option>
+                            <option value="logfdr">−log10(FDR)</option>
+                        </select>
+                        <label style="margin-left:8px;"><input type="checkbox" id="gcCorrXAuto" checked onchange="updateGenomeComparisonView()"> Auto</label>
+                        <label>Min</label>
+                        <input type="number" id="gcCorrXMin" step="0.1" style="width:70px; padding:4px 6px; border:1px solid #d1d5db; border-radius:5px;" oninput="updateGenomeComparisonView()">
+                        <label>Max</label>
+                        <input type="number" id="gcCorrXMax" step="0.1" style="width:70px; padding:4px 6px; border:1px solid #d1d5db; border-radius:5px;" oninput="updateGenomeComparisonView()">
+                    </div>
+                </div>
+                <div>
+                    <div style="font-weight:700; color:#b91c1c; margin-bottom:6px;" id="gcCorrYLabel">Y-axis (Screen B)</div>
+                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                        <label>Metric</label>
+                        <select id="gcCorrYMetric" onchange="updateGenomeComparisonView()" style="padding:4px 8px; border:1px solid #d1d5db; border-radius:5px;">
+                            <option value="zscore" data-score-label="{label}">Z-score</option>
+                            <option value="foldchange">Fold Change (log2)</option>
+                            <option value="logpvalue">−log10(P-value)</option>
+                            <option value="logfdr">−log10(FDR)</option>
+                        </select>
+                        <label style="margin-left:8px;"><input type="checkbox" id="gcCorrYAuto" checked onchange="updateGenomeComparisonView()"> Auto</label>
+                        <label>Min</label>
+                        <input type="number" id="gcCorrYMin" step="0.1" style="width:70px; padding:4px 6px; border:1px solid #d1d5db; border-radius:5px;" oninput="updateGenomeComparisonView()">
+                        <label>Max</label>
+                        <input type="number" id="gcCorrYMax" step="0.1" style="width:70px; padding:4px 6px; border:1px solid #d1d5db; border-radius:5px;" oninput="updateGenomeComparisonView()">
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="gcCorrelationPlot" style="display:none; width:100%; height:520px;"></div>
+        <div id="gcCorrelationDownloadRow" style="display:none; text-align:right; margin-top:4px;"><button onclick="downloadSVG('gcCorrelationPlot','crispr_correlation')" class="svg-dl-btn">⬇ Download SVG</button></div>
         <div id="gcVennContainer" style="display:none; width:100%; height:380px; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden;"></div>
         <div id="gcUniquePanel" style="display:none;">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
@@ -1461,7 +1535,7 @@
                 <div class="control-group">
                     <label>Y-axis Metric</label>
                     <select id="comparisonMetricSelect" onchange="updateComparisonView()">
-                        <option value="zscore">Z-score</option>
+                        <option value="zscore" data-score-label="{label}">Z-score</option>
                         <option value="foldchange">Fold Change (log2)</option>
                         <option value="logpvalue">-log10(P-value)</option>
                         <option value="logfdr">-log10(FDR)</option>
@@ -1486,7 +1560,7 @@
                     <div>
                         <div id="cutoffLabelA" style="font-size:12px; font-weight:600; color:#2563eb; margin-bottom:8px;">Screen A</div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                            <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">Z-score</div><div style="display:flex;gap:3px;"><select id="cmpZcutoffDirA" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpZcutoffA" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
+                            <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;" data-score-label="{label}">Z-score</div><div style="display:flex;gap:3px;"><select id="cmpZcutoffDirA" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpZcutoffA" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">Fold Change</div><div style="display:flex;gap:3px;"><select id="cmpFccutoffDirA" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpFccutoffA" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">P-value</div><select id="cmpPcutoffDirA" onchange="updateComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; significant</option><option value=">">&gt; not significant</option></select><input type="number" id="cmpPcutoffA" step="0.01" min="0" max="1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div>
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">FDR</div><select id="cmpFdrcutoffDirA" onchange="updateComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; significant</option><option value=">">&gt; not significant</option></select><input type="number" id="cmpFdrcutoffA" step="0.01" min="0" max="1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div>
@@ -1496,7 +1570,7 @@
                     <div>
                         <div id="cutoffLabelB" style="font-size:12px; font-weight:600; color:#e74c3c; margin-bottom:8px;">Screen B</div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                            <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">Z-score</div><div style="display:flex;gap:3px;"><select id="cmpZcutoffDirB" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpZcutoffB" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
+                            <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;" data-score-label="{label}">Z-score</div><div style="display:flex;gap:3px;"><select id="cmpZcutoffDirB" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpZcutoffB" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">Fold Change</div><div style="display:flex;gap:3px;"><select id="cmpFccutoffDirB" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpFccutoffB" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">P-value</div><select id="cmpPcutoffDirB" onchange="updateComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; significant</option><option value=">">&gt; not significant</option></select><input type="number" id="cmpPcutoffB" step="0.01" min="0" max="1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div>
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">FDR</div><select id="cmpFdrcutoffDirB" onchange="updateComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; significant</option><option value=">">&gt; not significant</option></select><input type="number" id="cmpFdrcutoffB" step="0.01" min="0" max="1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div>
@@ -1526,10 +1600,11 @@
                 <button id="ofBtn_b"      class="overlay-filter-btn"        onclick="setOverlayFilter('b')">Unique to <span id="ofLabelB">Screen B</span></button>
             </div>
             <div id="overlayPlot" style="width: 100%; height: 600px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 4px;"></div>
-            <div style="text-align:right; margin-bottom:10px;"><button onclick="downloadSVG('overlayPlot','be_overlay')" style="padding:3px 10px; font-size:11px; border:1px solid #d1d5db; border-radius:5px; background:white; cursor:pointer;">⬇ SVG</button></div>
+            <div style="text-align:right; margin-bottom:10px;"><button onclick="downloadSVG('overlayPlot','be_overlay')" class="svg-dl-btn">⬇ Download SVG</button></div>
             <div id="overlayDomainLegend" style="display:none; margin-bottom:20px; padding:8px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; flex-wrap:wrap; gap:8px; font-size:12px;"></div>
             <div id="vennContainer" style="width: 100%; height: 400px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 30px; display: none;"></div>
-            <div id="correlationPlot" style="width: 100%; height: 500px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 30px; display: none;"></div>
+            <div id="correlationPlot" style="width: 100%; height: 500px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 4px; display: none;"></div>
+            <div id="correlationDownloadRow" style="text-align:right; margin-bottom:30px; display:none;"><button onclick="downloadSVG('correlationPlot','be_correlation')" class="svg-dl-btn">⬇ Download SVG</button></div>
             <div id="uniqueGuidesPanel" style="display: none; margin-bottom: 30px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
                     <div>
@@ -1557,12 +1632,41 @@
         </div>
 
     <script>
+        // ── Score / Z-score label preference ────────────────────────────────────
+        // User can pick whether the first stat is labeled "Z-score" or "Score".
+        // Internally we still key everything off `zscore_*` (no math change); this
+        // only controls strings shown to the user and exported in headers.
+        let SCORE_LABEL = 'Z-score';
+        function getScoreLabel() { return SCORE_LABEL; }
+        function setScoreLabel(label) {
+            if (label !== 'Score' && label !== 'Z-score') return;
+            SCORE_LABEL = label;
+            // Visual state of the toggle buttons
+            const z = document.getElementById('scoreLabelBtnZscore');
+            const s = document.getElementById('scoreLabelBtnScore');
+            const isZ = label === 'Z-score';
+            if (z) { z.style.background = isZ ? '#fb923c' : 'white'; z.style.color = isZ ? 'white' : '#9a3412'; }
+            if (s) { s.style.background = isZ ? 'white' : '#fb923c'; s.style.color = isZ ? '#9a3412' : 'white'; }
+            // Walk the DOM and rewrite the label-only elements that are tagged with
+            // data-score-label. New elements should use this attribute so they stay
+            // in sync without a hard re-render.
+            document.querySelectorAll('[data-score-label]').forEach(el => {
+                const tmpl = el.getAttribute('data-score-label');
+                el.textContent = tmpl.replace('{label}', label);
+            });
+            // Refresh any currently-rendered plots so axis titles / hover text update.
+            try { if (typeof updatePlotAndHeatmap === 'function' && typeof rawData !== 'undefined' && rawData && rawData.length) updatePlotAndHeatmap(); } catch(e){}
+            try { if (typeof updateComparisonView === 'function') updateComparisonView(); } catch(e){}
+            try { if (typeof updateGenomeView === 'function') updateGenomeView(); } catch(e){}
+            try { if (typeof updateGenomeComparisonView === 'function') updateGenomeComparisonView(); } catch(e){}
+        }
+
         // Global mutation category colors - used across all plots
         const CATEGORY_COLORS = {
-            'Missense':   '#2563eb',
-            'Nonsense':   '#e74c3c',
-            'Silent':     '#27ae60',
-            'Splice-site':'#9b59b6',
+            'Missense':   '#66c2a5',
+            'Nonsense':   '#e78ac3',
+            'Silent':     '#fc8d62',
+            'Splice-site':'#8da0cb',
             'Unknown':    '#95a5a6'
         };
         // PROTEIN LIBRARY - All 7 proteins with full sequences
@@ -2225,7 +2329,13 @@
                     </div>
                     
                     <div class="stat-field">
-                        <div class="mapping-label">Z-score or Score (optional)</div>
+                        <div class="mapping-label" style="display:flex; align-items:center; gap:10px;">
+                            <span>Z-score or Score (optional)</span>
+                            ${idx === 0 ? `<span style="display:inline-flex; border:1px solid #fb923c; border-radius:999px; overflow:hidden; font-size:11px; margin-left:auto;">
+                                <button id="scoreLabelBtnZscore" type="button" onclick="setScoreLabel('Z-score')" style="padding:3px 10px; font-weight:600; border:none; background:${SCORE_LABEL==='Z-score'?'#fb923c':'white'}; color:${SCORE_LABEL==='Z-score'?'white':'#9a3412'}; cursor:pointer;">Z-score</button>
+                                <button id="scoreLabelBtnScore" type="button" onclick="setScoreLabel('Score')" style="padding:3px 10px; font-weight:600; border:none; background:${SCORE_LABEL==='Score'?'#fb923c':'white'}; color:${SCORE_LABEL==='Score'?'white':'#9a3412'}; cursor:pointer;">Score</button>
+                            </span>` : ''}
+                        </div>
                         <select onchange="updateStatistic(${idx}, 'zscore', this.value)">
                             <option value="">-- Select column --</option>
                             ${currentColumns.map(col => `<option value="${col}" ${stat.zscore === col ? 'selected' : ''}>${col}</option>`).join('')}
@@ -2935,7 +3045,7 @@
                     // Show every stat the user actually mapped — one line each.
                     // NaN/undefined means the column wasn't mapped, so skip it.
                     const _stats = [
-                        { key: 'zscore',     label: 'Z-score' },
+                        { key: 'zscore',     label: getScoreLabel() },
                         { key: 'foldchange', label: 'Fold Change (log2)' },
                         { key: 'logpvalue',  label: '-log10(P-value)' },
                         { key: 'logfdr',     label: '-log10(FDR)' }
@@ -2997,7 +3107,7 @@
                     font: { size: getGlobalFont().size + 1, family: getGlobalFont().family }
                 },
                 xaxis: {
-                    title: { text: 'Protein position (amino acids)', font: { size: getGlobalFont().size, family: getGlobalFont().family } },
+                    title: { text: 'Amino acid residue', font: { size: getGlobalFont().size, family: getGlobalFont().family } },
                     tickfont: { size: getGlobalFont().size, family: getGlobalFont().family },
                     zeroline: false,
                     range: [0, protein.length],
@@ -3074,6 +3184,7 @@
                 mode: 'markers',
                 type: 'scatter',
                 name: 'Residues',
+                showlegend: false,
                 marker: {
                     size: residues.map(r => (5 + Math.log(residueStats[r].count + 1) * 2) * 1.5),
                     symbol: residues.map(r => {
@@ -3131,7 +3242,7 @@
                     font: { size: getGlobalFont().size + 1, family: getGlobalFont().family }
                 },
                 xaxis: {
-                    title: { text: 'Protein position (amino acids)', font: { size: getGlobalFont().size, family: getGlobalFont().family } },
+                    title: { text: 'Amino acid residue', font: { size: getGlobalFont().size, family: getGlobalFont().family } },
                     tickfont: { size: getGlobalFont().size, family: getGlobalFont().family },
                     zeroline: false,
                     range: [0, protein.length],
@@ -3150,6 +3261,7 @@
                 plot_bgcolor: 'white',
                 paper_bgcolor: 'white',
                 shapes: shapes,
+                showlegend: false,
                 height: 600,
                 margin: { l: 80, r: 30, t: 70, b: 70 }
             };
@@ -3239,7 +3351,7 @@
                         let text = `<b>${d.guideID || d.guide || 'Control'}</b><br>`;
                         text += `Category: ${d.category || 'Unknown'}<br>`;
                         text += `${metricLabel}: ${isNaN(d[metricKey]) ? 'N/A' : d[metricKey].toFixed(3)}<br>`;
-                        text += `Z-score: ${isNaN(d[`zscore_${statIdx}`]) ? 'N/A' : d[`zscore_${statIdx}`].toFixed(2)}<br>`;
+                        text += `${getScoreLabel()}: ${isNaN(d[`zscore_${statIdx}`]) ? 'N/A' : d[`zscore_${statIdx}`].toFixed(2)}<br>`;
                         if (d.guide) text += `Sequence: ${d.guide}`;
                         return text;
                     }),
@@ -3364,10 +3476,12 @@
                 let color = preset.colors[cat] || '#95a5a6';
                 let baseSize = preset.sizes[cat] || 9;
                 // Default visual contrast between screens when NOT customizing:
-                // Screen A keeps the preset shape, Screen B switches to triangle-up
-                // so the two screens are distinguishable at a glance.
-                if (!useCustom && s === 'B' && shape === 'circle') {
+                // Screen A keeps the preset shape; Screen B uses triangle-up + distinct
+                // color palette (CMP_DEFAULT_COLORS_B) so the two screens are
+                // distinguishable at a glance with the default preset.
+                if (!useCustom && s === 'B' && presetKey === 'default') {
                     shape = 'triangle-up';
+                    if (CMP_DEFAULT_COLORS_B[cat]) color = CMP_DEFAULT_COLORS_B[cat];
                 }
                 if (useCustom) {
                     const key = cat.replace('-','_');
@@ -3413,10 +3527,20 @@
         //              + larger size for high-impact categories. Reads at a glance.
         //   cb_safe  — Okabe-Ito palette (color-blind safe; works for ~99% of viewers)
         //   mono     — publication B&W: only nonsense pops red, rest tonal grays
+        // Screen-B color override for the comparison view's "default" preset. Only applies
+        // when the user is in Multi-Screen Comparison and Screen B uses the default preset.
+        // Keeps Screen A's palette identical to single-screen, while Screen B gets a clearly
+        // distinguishable second-screen palette out of the box.
+        const CMP_DEFAULT_COLORS_B = {
+            'Missense':   '#8da0cb',
+            'Nonsense':   '#b3b3b3',
+            'Silent':     '#ffd92f',
+            'Splice-site':'#a6d854'
+        };
         const MARKER_PRESETS = {
             default: {
                 shapes: { 'Missense':'circle', 'Nonsense':'circle', 'Silent':'circle', 'Splice-site':'circle' },
-                colors: { 'Missense':'#2563eb', 'Nonsense':'#e74c3c', 'Silent':'#27ae60', 'Splice-site':'#9b59b6' },
+                colors: { 'Missense':'#66c2a5', 'Nonsense':'#e78ac3', 'Silent':'#fc8d62', 'Splice-site':'#8da0cb' },
                 sizes:  { 'Missense':9, 'Nonsense':9, 'Silent':9, 'Splice-site':9 }
             },
             impact: {
@@ -3764,27 +3888,24 @@
                         const o = document.createElement('option'); o.value = v; o.textContent = t;
                         shSel.appendChild(o);
                     });
-                    // Default Screen B to triangle when the preset shape would be circle,
-                    // so the two screens are visually distinguishable out of the box.
-                    {
-                        let _shape = defaults.shapes[cat];
-                        if (s === 'B' && _shape === 'circle') _shape = 'triangle-up';
-                        shSel.value = _shape;
-                    }
+                    // Default Screen B uses triangle shape; colors below visually distinguish screens.
+                    shSel.value = (s === 'B') ? 'triangle-up' : defaults.shapes[cat];
                     shSel.addEventListener('change', updateComparisonView);
                     grid.appendChild(shSel);
 
+                    const _defaultColor = (s === 'B' && CMP_DEFAULT_COLORS_B[cat])
+                        ? CMP_DEFAULT_COLORS_B[cat] : defaults.colors[cat];
                     const colWrap = document.createElement('div');
                     colWrap.style.cssText = 'display:flex; gap:4px; align-items:center;';
                     const ci = document.createElement('input');
                     ci.type = 'color';
                     ci.id = 'cmpColor_' + s + '_' + key;
-                    ci.value = defaults.colors[cat];
+                    ci.value = _defaultColor;
                     ci.style.cssText = 'width:32px; height:26px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px; flex-shrink:0;';
                     const hi = document.createElement('input');
                     hi.type = 'text';
                     hi.id = 'cmpColorHex_' + s + '_' + key;
-                    hi.value = defaults.colors[cat];
+                    hi.value = _defaultColor;
                     hi.maxLength = 7;
                     hi.style.cssText = 'width:100%; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;';
                     hi.title = 'Hex (e.g. #2563eb)';
@@ -3832,12 +3953,12 @@
                     const co = document.getElementById('cmpColor_' + s + '_' + key);
                     const ch = document.getElementById('cmpColorHex_' + s + '_' + key);
                     const sz = document.getElementById('cmpSize_' + s + '_' + key);
-                    let shape = preset.shapes[cat];
-                    // Mirror the visual-contrast default: B uses triangle when preset is circle.
-                    if (s === 'B' && shape === 'circle') shape = 'triangle-up';
-                    if (sh) sh.value = shape;
-                    if (co) co.value = preset.colors[cat];
-                    if (ch) ch.value = preset.colors[cat];
+                    // Both screens use the preset shape, except Screen B defaults to triangle.
+                    if (sh) sh.value = (s === 'B' && presetKey === 'default') ? 'triangle-up' : preset.shapes[cat];
+                    const colorVal = (s === 'B' && presetKey === 'default' && CMP_DEFAULT_COLORS_B[cat])
+                        ? CMP_DEFAULT_COLORS_B[cat] : preset.colors[cat];
+                    if (co) co.value = colorVal;
+                    if (ch) ch.value = colorVal;
                     if (sz) sz.value = String(preset.sizes[cat]);
                 });
             });
@@ -3871,6 +3992,116 @@
             Plotly.downloadImage(divId, { format: 'svg', filename: filename || divId, width: 1400, height: 700 });
         }
 
+        // Heatmap is rendered as DOM cells (not Plotly), so it can't go through
+        // Plotly.downloadImage. Walk the rendered cells and build an SVG by hand.
+        function downloadHeatmapSVG() {
+            const container = document.getElementById('heatmapContainer');
+            if (!container || !container.children.length) {
+                alert('No heatmap to download yet.');
+                return;
+            }
+            const cellW = 16, cellH = 16, gap = 1;
+            const labelW = 90, posRowH = 14, aaRowH = 16, valRowH = 16;
+            const rowsPerChunk = posRowH + aaRowH + valRowH + 2 * gap + 6;
+            // Total width = label + 50 cells + padding
+            const totalW = labelW + 50 * (cellW + gap) + 30;
+            const chunks = container.querySelectorAll('.heatmap-container');
+            const totalH = 30 + chunks.length * (rowsPerChunk + 18);
+            const protSel = document.getElementById('proteinSelect');
+            const proteinName = protSel ? protSel.value : 'protein';
+            const metric = document.getElementById('metricSelect')?.value || '';
+            const metricLabel = getMetricLabel ? getMetricLabel(metric) : metric;
+
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('xmlns', svgNS);
+            svg.setAttribute('width', totalW);
+            svg.setAttribute('height', totalH);
+            svg.setAttribute('viewBox', '0 0 ' + totalW + ' ' + totalH);
+            svg.setAttribute('font-family', 'Arial, sans-serif');
+
+            // Title
+            const title = document.createElementNS(svgNS, 'text');
+            title.setAttribute('x', 10); title.setAttribute('y', 16);
+            title.setAttribute('font-size', '13'); title.setAttribute('font-weight', '700');
+            title.textContent = 'Heatmap | ' + proteinName + ' | ' + metricLabel;
+            svg.appendChild(title);
+
+            let yCursor = 30;
+            chunks.forEach(chunk => {
+                const rows = chunk.querySelectorAll('.heatmap-row');
+                rows.forEach((row, rowIdx) => {
+                    const lbl = row.querySelector('.heatmap-label');
+                    const labelText = lbl ? lbl.textContent : '';
+                    if (labelText) {
+                        const t = document.createElementNS(svgNS, 'text');
+                        t.setAttribute('x', 8); t.setAttribute('y', yCursor + 12);
+                        t.setAttribute('font-size', '11');
+                        t.setAttribute('font-weight', rowIdx === 1 ? '600' : '400');
+                        t.setAttribute('fill', '#374151');
+                        t.textContent = labelText;
+                        svg.appendChild(t);
+                    }
+                    // Cells
+                    const grid = row.children[1]; // second child is the grid
+                    if (grid) {
+                        const cells = grid.children;
+                        for (let i = 0; i < cells.length; i++) {
+                            const c = cells[i];
+                            const x = labelW + i * (cellW + gap);
+                            // Position number row (top row, no background)
+                            if (rowIdx === 0) {
+                                if (c.textContent) {
+                                    const t = document.createElementNS(svgNS, 'text');
+                                    t.setAttribute('x', x + cellW / 2);
+                                    t.setAttribute('y', yCursor + 10);
+                                    t.setAttribute('font-size', '8');
+                                    t.setAttribute('text-anchor', 'middle');
+                                    t.setAttribute('fill', '#999');
+                                    t.textContent = c.textContent;
+                                    svg.appendChild(t);
+                                }
+                            } else if (rowIdx === 1) {
+                                // Sequence (AA letter) row
+                                const t = document.createElementNS(svgNS, 'text');
+                                t.setAttribute('x', x + cellW / 2);
+                                t.setAttribute('y', yCursor + 12);
+                                t.setAttribute('font-size', '11');
+                                t.setAttribute('font-weight', '600');
+                                t.setAttribute('text-anchor', 'middle');
+                                t.textContent = c.textContent;
+                                svg.appendChild(t);
+                            } else {
+                                // Color cell
+                                const fill = c.style.background || c.style.backgroundColor || '#eee';
+                                const r = document.createElementNS(svgNS, 'rect');
+                                r.setAttribute('x', x);
+                                r.setAttribute('y', yCursor);
+                                r.setAttribute('width', cellW);
+                                r.setAttribute('height', cellH);
+                                r.setAttribute('fill', fill);
+                                r.setAttribute('stroke', '#fff');
+                                r.setAttribute('stroke-width', '0.5');
+                                svg.appendChild(r);
+                            }
+                        }
+                    }
+                    yCursor += (rowIdx === 0 ? posRowH : (rowIdx === 1 ? aaRowH : valRowH)) + gap;
+                });
+                yCursor += 18; // gap between chunks
+            });
+
+            const serializer = new XMLSerializer();
+            const src = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(svg);
+            const blob = new Blob([src], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'editscreen_heatmap_' + proteinName + '.svg';
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+        }
+
         function applyGlobalFont() {
             const gf = getGlobalFont();
             const fontObj = { family: gf.family, size: gf.size };
@@ -3902,6 +4133,8 @@
             const yLabel = getMetricLabel(yMetric);
             const gf = getGlobalFont();
             const protein = proteins[selectedProtein];
+            const vSize    = parseInt(document.getElementById('volcanoMarkerSize')?.value || 9);
+            const vOpacity = parseFloat(document.getElementById('volcanoMarkerOpacity')?.value || 0.7);
 
             // Flag ceiling points (raw p=0 / FDR=0 that we floored) when y-axis is log p/FDR
             const yCeilingKey = (yMetric === 'logpvalue' || yMetric === 'logfdr')
@@ -3929,9 +4162,9 @@
                 name: '',
                 showlegend: false,
                 marker: {
-                    size: 8,
+                    size: vSize,
                     color: normal.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
-                    opacity: 0.75,
+                    opacity: vOpacity,
                     line: { color: '#64748b', width: 0.5 }
                 },
                 text: normal.map(makeHover),
@@ -3948,7 +4181,7 @@
                     showlegend: false,
                     marker: {
                         symbol: 'triangle-up',
-                        size: 8,
+                        size: vSize,
                         color: ceiling.map(d => CATEGORY_COLORS[d.category] || '#95a5a6'),
                         opacity: 0.95,
                         line: { color: '#000', width: 2 }
@@ -4055,7 +4288,7 @@
                 { key: 'rawMutations',   label: 'Predicted Mutations',  w: 180 },
                 { key: 'gene',           label: 'Gene',                 w: 90 },
                 { key: 'highInTreatment',label: 'High in Treatment',    w: 130 },
-                { key: 'zscore_0',       label: 'Z-score',              w: 90,  num: true },
+                { key: 'zscore_0',       label: getScoreLabel(),         w: 90,  num: true },
                 { key: 'foldchange_0',   label: 'Log-FoldChange',       w: 115, num: true },
                 { key: 'logpvalue_0',    label: 'log(P-value)',         w: 105, num: true },
                 { key: 'logfdr_0',       label: 'logFDR',               w: 90,  num: true }
@@ -4156,7 +4389,7 @@
 
         function getMetricLabel(metric) {
             const labels = {
-                'zscore': 'Z-score',
+                'zscore': getScoreLabel(),
                 'foldchange': 'Fold Change (log2)',
                 'logpvalue': '-log10(P-value)',
                 'logfdr': '-log10(FDR)'
@@ -4178,6 +4411,8 @@
             if (tableContainer) tableContainer.style.display = 'none';
             const axisRow = document.getElementById('volcanoAxisRow');
             if (axisRow) axisRow.style.display = view === 'volcano' ? 'flex' : 'none';
+            const plotDlRow = document.getElementById('plotDownloadRow');
+            if (plotDlRow) plotDlRow.style.display = (view === 'heatmap' || view === 'table') ? 'none' : '';
 
             if (view === 'heatmap') {
                 const selectedProtein = document.getElementById('proteinSelect').value;
@@ -4727,13 +4962,23 @@
         }
 
         function updateStats(data, controls, statIdx) {
-            const significant = data.filter(d => d[`zscore_${statIdx}`] > 3).length;
-            const avgZ = data.length > 0 ? (data.reduce((s, d) => s + d[`zscore_${statIdx}`], 0) / data.length).toFixed(2) : '—';
+            // Total guides = all targeting guides for the currently-selected protein (unfiltered).
+            // When the user selects "Controls" as the protein, we show 0 here since there are no
+            // targeting guides in the main dataset for that view.
+            const selectedProtein = document.getElementById('proteinSelect')?.value;
+            let totalUnfiltered = 0;
+            if (selectedProtein && selectedProtein !== '__controls__' && Array.isArray(rawData)) {
+                totalUnfiltered = columnMapping.geneName
+                    ? rawData.filter(d => d.gene === selectedProtein).length
+                    : rawData.length;
+            }
+            // Control guides total (all uploaded control/NTC guides, unfiltered).
+            const totalControls = Array.isArray(controlGuides) ? controlGuides.length : 0;
 
+            const elAll = document.getElementById('totalGuidesAll');
+            if (elAll) elAll.textContent = totalUnfiltered;
             document.getElementById('totalGuides').textContent = data.length;
-            document.getElementById('significantGuides').textContent = significant;
-            document.getElementById('avgZscore').textContent = avgZ;
-            document.getElementById('controlCount').textContent = controls.length;
+            document.getElementById('controlCount').textContent = totalControls;
         }
 
         function updateProteinInfo(selectedProtein) {
@@ -4775,7 +5020,7 @@
             row['Predicted Mutations'] = d.rawMutations || '';
             row['Gene']             = d.gene || '';
             row['High in Treatment']= d.highInTreatment != null ? d.highInTreatment : '';
-            row['Z-score']          = d.zscore_0 != null ? d.zscore_0 : '';
+            row[getScoreLabel()]    = d.zscore_0 != null ? d.zscore_0 : '';
             row['Log-FoldChange']   = d.foldchange_0 != null ? d.foldchange_0 : '';
             row['log(P-value)']     = d.logpvalue_0 != null ? d.logpvalue_0 : '';
             row['logFDR']           = d.logfdr_0 != null ? d.logfdr_0 : '';
@@ -5410,6 +5655,8 @@
             document.getElementById('overlayPlot').style.display = view === 'overlay' ? '' : 'none';
             document.getElementById('vennContainer').style.display = view === 'venn' ? '' : 'none';
             document.getElementById('correlationPlot').style.display = view === 'correlation' ? '' : 'none';
+            const corrDl = document.getElementById('correlationDownloadRow');
+            if (corrDl) corrDl.style.display = view === 'correlation' ? '' : 'none';
             document.getElementById('uniqueGuidesPanel').style.display = view === 'unique' ? '' : 'none';
             document.getElementById('commonGuidesPanel').style.display = view === 'common' ? '' : 'none';
 
@@ -6150,7 +6397,7 @@
                     'Residue':            d.residue != null ? Math.round(d.residue) : '',
                     'Category':           d.category || '',
                     'Predicted Mutations':d.rawMutations || '',
-                    'Z-score':            d.zscore_0 != null ? d.zscore_0 : '',
+                    [getScoreLabel()]:    d.zscore_0 != null ? d.zscore_0 : '',
                     'Log-FoldChange':     d.foldchange_0 != null ? d.foldchange_0 : '',
                     'log(P-value)':       d.logpvalue_0 != null ? d.logpvalue_0 : '',
                     'logFDR':             d.logfdr_0 != null ? d.logfdr_0 : '',
@@ -6446,13 +6693,25 @@
                 gcConfigs[screen].rawGuides = genomeRawGuides.slice();
                 gcConfigs[screen].geneData = aggregateGuidesToGenes(genomeRawGuides, colMap);
                 if (screen === 'A') {
-                    // Need to load screen B — trigger B upload
+                    // Need to load screen B — trigger B upload. Mirror the BE-comparison UX:
+                    // hide Screen A upload, reveal Screen B upload only.
                     gcActiveScreen = 'B';
                     activeScreen = 'B';   // keep BE routing state in sync so Screen B file → screenConfigs.B
+                    document.getElementById('screenAUploadSection').classList.add('hidden');
                     document.getElementById('screenBUploadSection').classList.remove('hidden');
                     document.getElementById('uploadSection').classList.remove('hidden');
+                    // Inline banner instead of an alert — same pattern BE comparison should feel like.
+                    let banner = document.getElementById('gcUploadBBanner');
+                    if (!banner) {
+                        banner = document.createElement('div');
+                        banner.id = 'gcUploadBBanner';
+                        banner.style.cssText = 'margin: 12px 0; padding: 10px 14px; background:#ecfccb; border:1px solid #a3e635; border-radius:8px; font-size:13px; color:#365314;';
+                        const sb = document.getElementById('screenBUploadSection');
+                        sb.parentNode.insertBefore(banner, sb);
+                    }
+                    banner.textContent = 'Screen A loaded (' + gcConfigs.A.geneData.length + ' genes). Now upload Screen B.';
+                    banner.style.display = '';
                     document.getElementById('screenBUploadSection').scrollIntoView({ behavior: 'smooth' });
-                    alert('Screen A loaded (' + gcConfigs.A.geneData.length + ' genes). Now upload Screen B.');
                 } else {
                     // Both loaded — show comparison
                     document.getElementById('uploadSection').classList.add('hidden');
@@ -6465,6 +6724,8 @@
                     const lblB = document.getElementById('gcStyleLabelB'); if (lblB) lblB.textContent = nameB + ':';
                     document.getElementById('gcUniqueHeaderA').textContent = nameA + ' Only';
                     document.getElementById('gcUniqueHeaderB').textContent = nameB + ' Only';
+                    const ofA = document.getElementById('gcOfLabelA'); if (ofA) ofA.textContent = nameA;
+                    const ofB = document.getElementById('gcOfLabelB'); if (ofB) ofB.textContent = nameB;
                     updateGenomeComparisonView();
                 }
             }
@@ -6511,7 +6772,7 @@
         }
 
         function getGenomeMetricLabel(m) {
-            return { zscore:'IGTIOB', foldchange:'Fold Change', logpvalue:'−log10(P-value)', logfdr:'−log10(FDR)' }[m] || m;
+            return { zscore: getScoreLabel(), foldchange:'Fold Change', logpvalue:'−log10(P-value)', logfdr:'−log10(FDR)' }[m] || m;
         }
 
         function updateGenomeView() {
@@ -6715,16 +6976,24 @@
             const nameA = gcConfigs.A.name||'Screen A', nameB = gcConfigs.B.name||'Screen B';
             const cutsA = { z:parseFloat(document.getElementById('gcZcutoffA')?.value)||0, fc:parseFloat(document.getElementById('gcFCcutoffA')?.value)||0, p:parseFloat(document.getElementById('gcPcutoffA')?.value)||1, fdr:parseFloat(document.getElementById('gcFDRcutoffA')?.value)||1, zDir:document.getElementById('gcZDirA')?.value||'>=', fcDir:document.getElementById('gcFCDirA')?.value||'>=', pDir:document.getElementById('gcPDirA')?.value||'<', fdrDir:document.getElementById('gcFDRDirA')?.value||'<' };
             const cutsB = { z:parseFloat(document.getElementById('gcZcutoffB')?.value)||0, fc:parseFloat(document.getElementById('gcFCcutoffB')?.value)||0, p:parseFloat(document.getElementById('gcPcutoffB')?.value)||1, fdr:parseFloat(document.getElementById('gcFDRcutoffB')?.value)||1, zDir:document.getElementById('gcZDirB')?.value||'>=', fcDir:document.getElementById('gcFCDirB')?.value||'>=', pDir:document.getElementById('gcPDirB')?.value||'<', fdrDir:document.getElementById('gcFDRDirB')?.value||'<' };
-            const passA = applyGenomeCutoffs(gcConfigs.A.geneData, cutsA.z, cutsA.zDir, cutsA.fc, cutsA.fcDir, cutsA.p, cutsA.fdr, cutsA.pDir, cutsA.fdrDir);
-            const passB = applyGenomeCutoffs(gcConfigs.B.geneData, cutsB.z, cutsB.zDir, cutsB.fc, cutsB.fcDir, cutsB.p, cutsB.fdr, cutsB.pDir, cutsB.fdrDir);
+            // Detect whether any cutoff is meaningfully active. If user hasn't set any
+            // cutoff, applyGenomeCutoffs returns ALL genes, which would incorrectly mark
+            // every point as a "hit" (violet square). Defaults are z=0, fc=0, p=1, fdr=1.
+            // Note: applyGenomeCutoffs only triggers z/fc filters when value > 0, so a
+            // negative z cutoff currently behaves as "off" anyway — keep this check in
+            // sync with that logic (cutsA.z > 0, cutsA.fc > 0).
+            const cutsActiveA = (cutsA.z > 0) || (cutsA.fc > 0) || (cutsA.p > 0 && cutsA.p < 1) || (cutsA.fdr > 0 && cutsA.fdr < 1);
+            const cutsActiveB = (cutsB.z > 0) || (cutsB.fc > 0) || (cutsB.p > 0 && cutsB.p < 1) || (cutsB.fdr > 0 && cutsB.fdr < 1);
+            const passA = cutsActiveA ? applyGenomeCutoffs(gcConfigs.A.geneData, cutsA.z, cutsA.zDir, cutsA.fc, cutsA.fcDir, cutsA.p, cutsA.fdr, cutsA.pDir, cutsA.fdrDir) : [];
+            const passB = cutsActiveB ? applyGenomeCutoffs(gcConfigs.B.geneData, cutsB.z, cutsB.zDir, cutsB.fc, cutsB.fcDir, cutsB.p, cutsB.fdr, cutsB.pDir, cutsB.fdrDir) : [];
             const passSetA = new Set(passA.map(g=>g.gene));
             const passSetB = new Set(passB.map(g=>g.gene));
             const common = [...passSetA].filter(g=>passSetB.has(g));
             const onlyA  = [...passSetA].filter(g=>!passSetB.has(g));
             const onlyB  = [...passSetB].filter(g=>!passSetA.has(g));
-            if (gcCurrentView==='overlay') plotGenomeOverlay(gcConfigs.A.geneData, gcConfigs.B.geneData, passSetA, passSetB, nameA, nameB);
-            else if (gcCurrentView==='correlation') plotGenomeCorrelation(gcConfigs.A.geneData, gcConfigs.B.geneData, passSetA, passSetB, nameA, nameB);
-            else if (gcCurrentView==='venn') plotGenomeVenn(passSetA.size, passSetB.size, common.length, nameA, nameB);
+            if (gcCurrentView==='overlay') plotGenomeOverlay(gcConfigs.A.geneData, gcConfigs.B.geneData, passSetA, passSetB, nameA, nameB, cutsActiveA, cutsActiveB);
+            else if (gcCurrentView==='correlation') plotGenomeCorrelation(gcConfigs.A.geneData, gcConfigs.B.geneData, passSetA, passSetB, nameA, nameB, cutsActiveA, cutsActiveB);
+            else if (gcCurrentView==='venn') plotGenomeVenn(passSetA.size, passSetB.size, common.length, nameA, nameB, cutsActiveA, cutsActiveB);
             else if (gcCurrentView==='unique') renderGenomeUnique(onlyA, gcConfigs.A.geneData, nameA, onlyB, gcConfigs.B.geneData, nameB);
             else if (gcCurrentView==='common') renderGenomeCommon(common, gcConfigs.A.geneData, gcConfigs.B.geneData, nameA, nameB);
             document.getElementById('gcCommonHeader').textContent = 'Common Hits (' + common.length + ')';
@@ -6739,48 +7008,168 @@
             document.getElementById('gcVennContainer').style.display = view==='venn'?'':'none';
             document.getElementById('gcUniquePanel').style.display = view==='unique'?'':'none';
             document.getElementById('gcCommonPanel').style.display = view==='common'?'':'none';
+            const fbar = document.getElementById('gcOverlayFilterBar');
+            if (fbar) fbar.style.display = (view === 'overlay') ? 'flex' : 'none';
+            const corrCtrl = document.getElementById('gcCorrelationControls');
+            if (corrCtrl) corrCtrl.style.display = (view === 'correlation') ? '' : 'none';
+            const corrDl = document.getElementById('gcCorrelationDownloadRow');
+            if (corrDl) corrDl.style.display = (view === 'correlation') ? '' : 'none';
             updateGenomeComparisonView();
         }
 
-        function plotGenomeCorrelation(genesA, genesB, passSetA, passSetB, nameA, nameB) {
+        // Overlay sub-filter for the CRISPR comparison overlay (mirrors BE comparison).
+        function setGcOverlayFilter(f) {
+            window._gcOverlayFilter = f;
+            ['all','common','a','b'].forEach(k => {
+                const btn = document.getElementById('gcOfBtn_' + k);
+                if (btn) btn.classList.toggle('active', k === f);
+            });
+            // Re-render the overlay with the new filter
+            if (gcCurrentView === 'overlay') updateGenomeComparisonView();
+        }
+
+        function plotGenomeCorrelation(genesA, genesB, passSetA, passSetB, nameA, nameB, cutsActiveA, cutsActiveB) {
             // Use the genome-comparison font selectors (these live in the gc panel).
             const gf = {
                 family: document.getElementById('gcFontFamily')?.value || 'Arial',
                 size: parseInt(document.getElementById('gcFontSize')?.value || 13)
             };
+            // User-selectable axis metrics — Z-score, fold change, log p-value, log FDR.
+            // Each axis is independent so the user can plot any combination they care about.
+            const xMetric = document.getElementById('gcCorrXMetric')?.value || 'zscore';
+            const yMetric = document.getElementById('gcCorrYMetric')?.value || 'zscore';
+            const xLabel = getGenomeMetricLabel ? getGenomeMetricLabel(xMetric) : xMetric;
+            const yLabel = getGenomeMetricLabel ? getGenomeMetricLabel(yMetric) : yMetric;
+
             const mapA = new Map(genesA.map(g=>[g.gene,g]));
             const mapB = new Map(genesB.map(g=>[g.gene,g]));
             const allGenes = [...new Set([...mapA.keys(),...mapB.keys()])];
+
+            // Classification mirrors the overlay plot:
+            //  - When neither screen has a cutoff, every gene is "common" (treated as
+            //    own-screen-passing in both). This keeps the at-rest view colored, not
+            //    a sea of gray.
+            //  - "common" requires BOTH cutoffs active and gene in both pass sets.
+            //  - "a" / "b" require that screen's cutoff active.
             function classify(gene) {
-                const inA=passSetA.has(gene), inB=passSetB.has(gene);
-                if(inA&&inB) return 'common';
-                if(inA) return 'a';
-                if(inB) return 'b';
-                return 'none';
+                if (!cutsActiveA && !cutsActiveB) return 'common';
+                const inA = cutsActiveA ? passSetA.has(gene) : true;
+                const inB = cutsActiveB ? passSetB.has(gene) : true;
+                if (cutsActiveA && cutsActiveB) {
+                    if (inA && inB) return 'common';
+                    if (inA) return 'a';
+                    if (inB) return 'b';
+                    return 'none';
+                }
+                // Only one screen has a cutoff. The "passing" side keeps own-screen color;
+                // the "failing" side is gray. (Common/violet doesn't apply here.)
+                if (cutsActiveA) return inA ? 'a' : 'none';
+                return inB ? 'b' : 'none';
             }
             const groups = { common:{x:[],y:[],genes:[]}, a:{x:[],y:[],genes:[]}, b:{x:[],y:[],genes:[]}, none:{x:[],y:[],genes:[]} };
             allGenes.forEach(function(g) {
                 const dA=mapA.get(g), dB=mapB.get(g);
                 if(!dA||!dB) return;
+                const xv = dA[xMetric];
+                const yv = dB[yMetric];
+                if (xv == null || yv == null || isNaN(xv) || isNaN(yv)) return;
                 const cls=classify(g);
-                groups[cls].x.push(dA.zscore); groups[cls].y.push(dB.zscore); groups[cls].genes.push(g);
+                groups[cls].x.push(xv); groups[cls].y.push(yv); groups[cls].genes.push(g);
             });
-            const colors={common:'#7c3aed',a:'#2563eb',b:'#e74c3c',none:'#d1d5db'};
-            const labels={common:'Common hits',a:nameA+' only',b:nameB+' only',none:'Non-hits'};
-            const traces=Object.entries(groups).map(function([k,d]){
-                return { x:d.x, y:d.y, mode:'markers', type:'scatter', name:labels[k],
-                    marker:{size:7,color:colors[k],opacity:k==='none'?0.4:0.8},
-                    text:d.genes, hovertemplate:'<b>%{text}</b><br>'+nameA+': %{x:.3f}<br>'+nameB+': %{y:.3f}<extra></extra>' };
-            });
+            const colors={common:'#7c3aed',a:'#2563eb',b:'#e74c3c',none:'#9ca3af'}; // gray darkened from #d1d5db
+            const labels={common:'Common hits',a:nameA+' only',b:nameB+' only',none:'Below cutoff'};
+
+            // ─── Top-N labelling (mirrors single-screen volcano) ────────────────
+            // Rank above-cutoff genes (common + A-only + B-only) by combined significance
+            // (sum of −log10 P from both screens, falling back to Z-score magnitude).
+            // Only label genes whose data point we actually plotted.
+            const _ltRaw = document.getElementById('gcLabelTop')?.value;
+            const labelTop = (_ltRaw === '' || _ltRaw === undefined || _ltRaw === null) ? 10 : Math.max(0, parseInt(_ltRaw) || 0);
+            const hitGenes = [].concat(groups.common.genes, groups.a.genes, groups.b.genes);
+            function rankScore(g) {
+                const a = mapA.get(g) || {}, b = mapB.get(g) || {};
+                const pA = isNaN(a.logpvalue) ? 0 : a.logpvalue;
+                const pB = isNaN(b.logpvalue) ? 0 : b.logpvalue;
+                if (pA + pB > 0) return pA + pB;
+                const zA = isNaN(a.zscore) ? 0 : Math.abs(a.zscore);
+                const zB = isNaN(b.zscore) ? 0 : Math.abs(b.zscore);
+                return zA + zB;
+            }
+            const topLabelGenes = hitGenes.slice().sort((x,y) => rankScore(y) - rankScore(x)).slice(0, labelTop);
+            const labelSet = new Set(topLabelGenes);
+
+            // Build traces in a specific order so above-cutoff points (a, b, common) sit
+            // ON TOP of the below-cutoff "none" cloud. Below-cutoff is darker now so
+            // users can actually see it, but still recedes vs. the colored hits.
+            function makeTrace(k) {
+                const d = groups[k];
+                if (!d.x.length) return null;
+                const isBg = (k === 'none');
+                return {
+                    x: d.x, y: d.y,
+                    mode: isBg ? 'markers' : 'markers+text',
+                    type:'scatter',
+                    name: labels[k],
+                    marker: {
+                        size: isBg ? 5 : 8,
+                        color: colors[k],
+                        opacity: isBg ? 0.55 : 0.9, // darker gray (was 0.18)
+                        line: { color: isBg ? '#6b7280' : '#1f2937', width: isBg ? 0.3 : 0.5 }
+                    },
+                    text: d.genes.map(g => labelSet.has(g) ? g : ''),
+                    textposition: 'top center',
+                    textfont: { size: Math.max(9, gf.size - 2), family: gf.family, color: '#111827' },
+                    customdata: d.genes,
+                    hovertemplate: '<b>%{customdata}</b><br>' + xLabel + ': %{x:.3f}<br>' + yLabel + ': %{y:.3f}<extra></extra>'
+                };
+            }
+            // Order: none → a → b → common (common drawn last = highest layer)
+            const traces = ['none','a','b','common'].map(makeTrace).filter(Boolean);
+
+            // Axis range: autoscale unless the user supplied a numeric min/max.
+            function readAxisRange(prefix, vals) {
+                const autoEl = document.getElementById('gcCorr' + prefix + 'Auto');
+                const minEl  = document.getElementById('gcCorr' + prefix + 'Min');
+                const maxEl  = document.getElementById('gcCorr' + prefix + 'Max');
+                const minV = parseFloat(minEl?.value);
+                const maxV = parseFloat(maxEl?.value);
+                if (autoEl && autoEl.checked) return null;            // null → Plotly auto
+                if (!isNaN(minV) && !isNaN(maxV)) return [minV, maxV];
+                // Fallback: compute padded range from the data so partial input still works
+                if (!vals.length) return null;
+                const lo = Math.min.apply(null, vals);
+                const hi = Math.max.apply(null, vals);
+                const pad = (hi - lo || 1) * 0.05;
+                const out = [lo - pad, hi + pad];
+                if (!isNaN(minV)) out[0] = minV;
+                if (!isNaN(maxV)) out[1] = maxV;
+                return out;
+            }
+            const allX = [].concat(groups.common.x, groups.a.x, groups.b.x, groups.none.x);
+            const allY = [].concat(groups.common.y, groups.a.y, groups.b.y, groups.none.y);
+            const xRange = readAxisRange('X', allX);
+            const yRange = readAxisRange('Y', allY);
+
+            // Update labels above the controls so users know which axis controls what
+            const xLbl = document.getElementById('gcCorrXLabel');
+            const yLbl = document.getElementById('gcCorrYLabel');
+            if (xLbl) xLbl.textContent = 'X-axis (' + nameA + ')';
+            if (yLbl) yLbl.textContent = 'Y-axis (' + nameB + ')';
+
+            const xAxis = {title:{text:nameA + ' — ' + xLabel,font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},showline:true,mirror:true,ticks:'outside',linewidth:1.5,linecolor:'#333',automargin:true,zeroline:true,zerolinewidth:1,zerolinecolor:'#aaa'};
+            const yAxis = {title:{text:nameB + ' — ' + yLabel,font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},showline:true,mirror:true,ticks:'outside',linewidth:1.5,linecolor:'#333',automargin:true,zeroline:true,zerolinewidth:1,zerolinecolor:'#aaa'};
+            if (xRange) xAxis.range = xRange;
+            if (yRange) yAxis.range = yRange;
+
             Plotly.newPlot('gcCorrelationPlot', traces, {
-                title:{text:'Gene Z-score Correlation: '+nameA+' vs '+nameB,x:0.5,xanchor:'center',font:{size:gf.size+2,family:gf.family}},
-                xaxis:{title:{text:nameA+' Mean Z-score',font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},showline:true,mirror:true,ticks:'outside',linewidth:1.5,linecolor:'#333',automargin:true,zeroline:true,zerolinewidth:1,zerolinecolor:'#aaa'},
-                yaxis:{title:{text:nameB+' Mean Z-score',font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},showline:true,mirror:true,ticks:'outside',linewidth:1.5,linecolor:'#333',automargin:true,zeroline:true,zerolinewidth:1,zerolinecolor:'#aaa'},
+                title:{text:'Gene Correlation: '+nameA+' ('+xLabel+') vs '+nameB+' ('+yLabel+')',x:0.5,xanchor:'center',font:{size:gf.size+2,family:gf.family}},
+                xaxis: xAxis,
+                yaxis: yAxis,
                 hovermode:'closest',plot_bgcolor:'white',paper_bgcolor:'white',height:520,margin:{l:80,r:30,t:70,b:70}
             },{responsive:true});
         }
 
-        function plotGenomeVenn(sizeA, sizeB, nCommon, nameA, nameB) {
+        function plotGenomeVenn(sizeA, sizeB, nCommon, nameA, nameB, cutsActiveA, cutsActiveB) {
             const container = document.getElementById('gcVennContainer');
             container.innerHTML = '';
 
@@ -6788,11 +7177,25 @@
             const fontFam = document.getElementById('gcFontFamily')?.value || 'Arial';
             const fontSz  = parseInt(document.getElementById('gcFontSize')?.value || 13);
 
-            // Empty state — neither screen has any hits
+            // Distinguish "no cutoff selected" from "cutoff set but nothing passes".
+            // The Venn is meaningless without a cutoff in at least one screen — say so
+            // clearly instead of drawing two empty zero-circles or claiming "no hits".
+            if (!cutsActiveA && !cutsActiveB) {
+                container.innerHTML = '<div style="text-align:center; padding:60px 20px; color:#374151; font-size:14px; font-family:' + fontFam + '; line-height:1.6;">'
+                    + '<div style="font-size:38px; margin-bottom:14px;">⚙️</div>'
+                    + '<div style="font-weight:600; margin-bottom:6px;">No cutoff selected.</div>'
+                    + '<div style="color:#6b7280; font-size:12px; max-width:420px; margin:0 auto;">'
+                    + 'A Venn diagram needs hit calls. Set a Z-score, fold-change, p-value, or FDR '
+                    + 'cutoff in <b>' + nameA + '</b> and/or <b>' + nameB + '</b> using the panels above '
+                    + 'to define which genes count as hits.'
+                    + '</div></div>';
+                return;
+            }
+            // Cutoffs were set, but nothing made it through — that's a real "no hit" state.
             if (sizeA === 0 && sizeB === 0) {
                 container.innerHTML = '<div style="text-align:center; padding:60px 20px; color:#9ca3af; font-size:13px; font-family:' + fontFam + ';">'
                     + '<div style="font-size:32px; margin-bottom:10px;">∅</div>'
-                    + 'No hits in either screen — adjust cutoffs to see overlap.'
+                    + 'No hits in either screen at the current cutoffs — try loosening them.'
                     + '</div>';
                 return;
             }
@@ -6904,7 +7307,7 @@
                 const sorted=genes.map(g=>dataMap.get(g)||{gene:g}).sort((a,b)=>(b.logpvalue||0)-(a.logpvalue||0));
                 return '<table style="border-collapse:collapse;width:100%"><thead><tr>'
                     +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">Gene</th>'
-                    +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">Z-score</th>'
+                    +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">'+getScoreLabel()+'</th>'
                     +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">−log10(P)</th>'
                     +'</tr></thead><tbody>'
                     +sorted.map((g,i)=>'<tr style="background:'+(i%2===0?'white':'#fafafa')+'">'
@@ -6957,7 +7360,7 @@
                 const anyCeil = a.logpvalueCeiling || a.logfdrCeiling || b.logpvalueCeiling || b.logfdrCeiling;
                 return { 'Gene':g, 'Group':inA&&inB?'Common':inA?nameA+' only':inB?nameB+' only':'Non-hit',
                     ['Passed '+nameA]:inA?'Yes':'No', ['Passed '+nameB]:inB?'Yes':'No',
-                    [nameA+' Z-score']:a.zscore??'', [nameB+' Z-score']:b.zscore??'',
+                    [nameA+' '+getScoreLabel()]:a.zscore??'', [nameB+' '+getScoreLabel()]:b.zscore??'',
                     [nameA+' log2FC']:a.foldchange??'', [nameB+' log2FC']:b.foldchange??'',
                     [nameA+' −log10P']:a.logpvalue??'', [nameB+' −log10P']:b.logpvalue??'',
                     'Notes': anyCeil ? 'true FDR below numerical precision and this is a floor' : ''
@@ -6977,21 +7380,71 @@
         }
 
         // ─── Genome overlay plot ────────────────────────────────────────────────
-        function plotGenomeOverlay(genesA, genesB, passSetA, passSetB, nameA, nameB) {
+        // All genes plotted twice (Screen A = circle blue, Screen B = circle red).
+        // If a gene passes cutoff in either screen, BOTH of its points become
+        // violet square. All other points remain circle blue / circle red.
+        function plotGenomeOverlay(genesA, genesB, passSetA, passSetB, nameA, nameB, cutsActiveA, cutsActiveB) {
             const xMetric = document.getElementById('gcXMetric')?.value || 'foldchange';
             const yMetric = document.getElementById('gcYMetric')?.value || 'logpvalue';
             const xLabel = getGenomeMetricLabel(xMetric);
             const yLabel = getGenomeMetricLabel(yMetric);
             const gf = { family: document.getElementById('gcFontFamily')?.value||'Arial', size: parseInt(document.getElementById('gcFontSize')?.value||13) };
 
-            // Ceiling detection when y-axis is log p-value / log FDR
+            // Ceiling detection
             const yCeilKey = (yMetric === 'logpvalue' || yMetric === 'logfdr') ? (yMetric + 'Ceiling') : null;
             const isCeil = g => yCeilKey ? !!g[yCeilKey] : false;
 
-            function grp(gene) {
-                const a = passSetA.has(gene), b = passSetB.has(gene);
-                return a && b ? 'common' : a ? 'a' : b ? 'b' : 'none';
+            const symSize    = parseInt(document.getElementById('gcSymbolSize')?.value || 9);
+            const symOpacity = parseFloat(document.getElementById('gcMarkerOpacity')?.value || 0.85);
+            const colA   = '#2563eb';   // circle blue — Screen A, above its own cutoff
+            const colB   = '#e74c3c';   // circle red  — Screen B, above its own cutoff
+            const colBg  = '#d1d5db';   // gray         — below cutoff in own screen
+            const colHit = '#7c3aed';   // violet square — gene passes cutoff in BOTH screens
+
+            // ─── Classification rules (3-tier) ───────────────────────────────────
+            // For each gene's point in screen X (X = A or B):
+            //  1. If gene passes cutoff in BOTH A and B  → violet square
+            //  2. Else if gene passes cutoff in screen X → original color/symbol
+            //     (Screen A: blue circle; Screen B: red circle)
+            //  3. Else (below cutoff in screen X)        → gray circle
+            //
+            // When NO cutoff is active in a screen, every gene in that screen is
+            // treated as "above cutoff in its own screen" — i.e. keeps its color.
+            // This gives the at-rest view: blue circles + red circles, no gray, no violet.
+            // ─────────────────────────────────────────────────────────────────────
+            const inBoth = function(g) { return passSetA.has(g.gene) && passSetB.has(g.gene); };
+            // "Passes own screen": if cutoffs aren't active for that screen, treat as passing.
+            const passesOwnA = function(g) { return cutsActiveA ? passSetA.has(g.gene) : true; };
+            const passesOwnB = function(g) { return cutsActiveB ? passSetB.has(g.gene) : true; };
+            // Violet (square) only fires when BOTH screens have cutoffs active AND gene
+            // passes both. Otherwise we don't know what "common hit" means.
+            const isCommonHit = function(g) { return cutsActiveA && cutsActiveB && inBoth(g); };
+
+            // ─── Overlay filter (sub-selection above the plot) ───────────────────
+            //  'all'    → no extra filtering
+            //  'common' → only genes passing cutoff in BOTH screens (violet squares)
+            //  'a'      → only genes passing A's cutoff but NOT B's (Screen A unique hits)
+            //  'b'      → only genes passing B's cutoff but NOT A's (Screen B unique hits)
+            // Filter is silently ignored when not enough cutoffs are active to give it
+            // meaning (e.g. asking for "common" with only A's cutoff set).
+            const overlayFilter = window._gcOverlayFilter || 'all';
+            function passesOverlayFilter(g) {
+                if (overlayFilter === 'all') return true;
+                if (overlayFilter === 'common') {
+                    return cutsActiveA && cutsActiveB && passSetA.has(g.gene) && passSetB.has(g.gene);
+                }
+                if (overlayFilter === 'a') {
+                    if (!cutsActiveA) return false;
+                    // unique to A: passes A; if B has a cutoff active, must NOT pass B.
+                    return passSetA.has(g.gene) && !(cutsActiveB && passSetB.has(g.gene));
+                }
+                if (overlayFilter === 'b') {
+                    if (!cutsActiveB) return false;
+                    return passSetB.has(g.gene) && !(cutsActiveA && passSetA.has(g.gene));
+                }
+                return true;
             }
+
             function makeHover(g, screen) {
                 let t = '<b>' + g.gene + '</b> (' + screen + ')<br>'
                     + xLabel + ': ' + (isNaN(g[xMetric]) ? 'N/A' : (+g[xMetric]).toFixed(3)) + '<br>'
@@ -6999,68 +7452,140 @@
                     + 'FC: ' + (isNaN(g.foldchange)?'N/A':(+g.foldchange).toFixed(3)) + '  '
                     + '−log10P: ' + (isNaN(g.logpvalue)?'N/A':(+g.logpvalue).toFixed(3)) + '<br>'
                     + '−log10FDR: ' + (isNaN(g.logfdr)?'N/A':(+g.logfdr).toFixed(3));
-                if (isCeil(g)) t += '<br><b style="color:#b91c1c">⚑ at floor — raw ' + (yMetric==='logpvalue'?'p':'FDR') + ' = 0 for top guide</b>';
+                if (isCeil(g)) t += '<br><b style="color:#b91c1c">⚑ at floor</b>';
                 return t;
             }
 
-            const buckets = { A: { none:[], a:[], common:[] }, B: { none:[], b:[], common:[] } };
-            genesA.forEach(function(g) { const k = grp(g.gene); buckets.A[k] = buckets.A[k] || []; buckets.A[k].push(g); });
-            genesB.forEach(function(g) { const k = grp(g.gene); buckets.B[k] = buckets.B[k] || []; buckets.B[k].push(g); });
+            // Partition Screen A points into 3 buckets (after the overlay filter)
+            const aBoth = [], aOwn = [], aBg = [];
+            genesA.forEach(function(g) {
+                if (!passesOverlayFilter(g)) return;
+                if (isCommonHit(g))      aBoth.push(g);
+                else if (passesOwnA(g))  aOwn.push(g);
+                else                     aBg.push(g);
+            });
+            // Partition Screen B points into 3 buckets (after the overlay filter)
+            const bBoth = [], bOwn = [], bBg = [];
+            genesB.forEach(function(g) {
+                if (!passesOverlayFilter(g)) return;
+                if (isCommonHit(g))      bBoth.push(g);
+                else if (passesOwnB(g))  bOwn.push(g);
+                else                     bBg.push(g);
+            });
 
-            // User-controlled per-screen marker style
-            const symA = document.getElementById('gcShapeA')?.value || 'circle';
-            const symB = document.getElementById('gcShapeB')?.value || 'triangle-up';
-            const colA = document.getElementById('gcColorA')?.value || '#2563eb';
-            const colB = document.getElementById('gcColorB')?.value || '#e74c3c';
-            const symSize = parseInt(document.getElementById('gcSymbolSize')?.value || 9);
-            const symOpacity = parseFloat(document.getElementById('gcMarkerOpacity')?.value || 0.85);
-
-            function trace(genes, name, color, symbol, screen, showLegend) {
-                const isBg = color === '#d1d5db';
+            function mkTrace(genes, name, color, symbol, screen, showLegend) {
                 return { x: genes.map(g=>g[xMetric]), y: genes.map(g=>g[yMetric]),
                     mode:'markers', type:'scattergl', name:name, showlegend:showLegend,
                     marker:{
-                        symbol:symbol,
-                        size: isBg ? Math.max(4, symSize - 2) : symSize,
-                        color:color,
-                        opacity: isBg ? 0.4 : symOpacity,
-                        line:{
-                            color: genes.map(g => isCeil(g) ? '#000' : (isBg ? '#9ca3af' : '#333')),
-                            width: genes.map(g => isCeil(g) ? 2 : 0.4)
-                        }
+                        symbol: symbol,
+                        size: symSize,
+                        color: color,
+                        opacity: symOpacity,
+                        line:{ color: genes.map(g => isCeil(g) ? '#000' : '#333'), width: genes.map(g => isCeil(g) ? 2 : 0.4) }
                     },
                     text: genes.map(g=>makeHover(g, screen)), hovertemplate:'%{text}<extra></extra>' };
             }
 
             const traces = [];
-            if ((buckets.A.none||[]).length) traces.push(trace(buckets.A.none, nameA+' (no hit)', '#d1d5db', symA, nameA, true));
-            if ((buckets.B.none||[]).length) traces.push(trace(buckets.B.none, nameB+' (no hit)', '#d1d5db', symB, nameB, true));
-            if ((buckets.A.a||[]).length)    traces.push(trace(buckets.A.a,    nameA+' only',    colA,      symA, nameA, true));
-            if ((buckets.B.b||[]).length)    traces.push(trace(buckets.B.b,    nameB+' only',    colB,      symB, nameB, true));
-            // Common hits use each screen's own picker color (the trace name conveys "common").
-            // Previously hardcoded to violet, which made the color picker appear to do nothing.
-            if ((buckets.A.common||[]).length) traces.push(trace(buckets.A.common, 'Common — '+nameA, colA, symA, nameA, true));
-            if ((buckets.B.common||[]).length) traces.push(trace(buckets.B.common, 'Common — '+nameB, colB, symB, nameB, true));
+            // Draw order: gray (bottom) → own-screen color → violet hits (top).
+            // Below-cutoff points from both screens look identical (same color + symbol),
+            // so we render them as ONE combined trace with a single legend entry that
+            // honestly says "below cutoff (both screens)".
+            if (aBg.length || bBg.length) {
+                traces.push(mkTrace(aBg.concat(bBg), 'Below cutoff (both screens)', colBg, 'circle', '(below cutoff)', true));
+            }
+            if (aOwn.length)  traces.push(mkTrace(aOwn,  nameA, colA, 'circle', nameA, true));
+            if (bOwn.length)  traces.push(mkTrace(bOwn,  nameB, colB, 'circle', nameB, true));
+            // Common-hit points across both screens are also identical (violet square) —
+            // collapse to one legend entry, but keep the per-screen hover names by tagging
+            // each point with its screen name.
+            if (aBoth.length || bBoth.length) {
+                const combined = aBoth.concat(bBoth);
+                const screens  = aBoth.map(()=>nameA).concat(bBoth.map(()=>nameB));
+                traces.push({
+                    x: combined.map(g=>g[xMetric]), y: combined.map(g=>g[yMetric]),
+                    mode:'markers', type:'scattergl', name:'Common hit (both screens)', showlegend:true,
+                    marker:{
+                        symbol:'square', size:symSize, color:colHit, opacity:symOpacity,
+                        line:{ color: combined.map(g => isCeil(g) ? '#000' : '#333'), width: combined.map(g => isCeil(g) ? 2 : 0.4) }
+                    },
+                    text: combined.map((g,i)=>makeHover(g, screens[i])), hovertemplate:'%{text}<extra></extra>'
+                });
+            }
 
-            // Annotation footnote for ceiling counts
             const annotations = [];
             if (yCeilKey) {
                 const nA = genesA.filter(isCeil).length;
                 const nB = genesB.filter(isCeil).length;
                 if (nA + nB > 0) {
                     const parts = [];
-                    if (nA > 0) parts.push(`${nameA}: ${nA}`);
-                    if (nB > 0) parts.push(`${nameB}: ${nB}`);
+                    if (nA > 0) parts.push(nameA + ': ' + nA);
+                    if (nB > 0) parts.push(nameB + ': ' + nB);
                     annotations.push({
                         xref:'paper', yref:'paper', x:0, y:1.05, xanchor:'left', yanchor:'bottom',
-                        text: `⚑ At-floor genes (raw ${yMetric==='logpvalue'?'p-value':'FDR'} = 0 for top guide, plotted at min-nonzero/10) — ` + parts.join(', '),
+                        text: '⚑ At-floor genes — ' + parts.join(', '),
                         showarrow:false, font:{ size: gf.size-1, color:'#7f1d1d', family: gf.family }
                     });
                 }
             }
 
+            // ─── Top-N gene labels for above-cutoff hits ─────────────────────────
+            // Mirrors the single-screen volcano: rank above-cutoff genes by combined
+            // significance and label the top N with arrow annotations. We label each
+            // gene ONCE (on whichever of its two points has the higher Y value), to
+            // avoid double-labelling the same gene across screens.
+            const _ltRaw = document.getElementById('gcLabelTop')?.value;
+            const labelTop = (_ltRaw === '' || _ltRaw === undefined || _ltRaw === null) ? 10 : Math.max(0, parseInt(_ltRaw) || 0);
+            if (labelTop > 0) {
+                // Build a map of gene → best (x, y) point across the hit/own buckets
+                const hitBuckets = aBoth.concat(bBoth, aOwn, bOwn);
+                const bestByGene = new Map();
+                hitBuckets.forEach(function(g) {
+                    const xv = g[xMetric], yv = g[yMetric];
+                    if (xv == null || yv == null || isNaN(xv) || isNaN(yv)) return;
+                    const prev = bestByGene.get(g.gene);
+                    if (!prev || yv > prev.y) bestByGene.set(g.gene, { gene: g.gene, x: xv, y: yv, ref: g });
+                });
+                // Rank by combined significance (sum of −log10P across screens, fallback Z)
+                const mapA = new Map(genesA.map(g=>[g.gene,g]));
+                const mapB = new Map(genesB.map(g=>[g.gene,g]));
+                function rankScoreOL(geneName) {
+                    const a = mapA.get(geneName) || {}, b = mapB.get(geneName) || {};
+                    const pA = isNaN(a.logpvalue) ? 0 : a.logpvalue;
+                    const pB = isNaN(b.logpvalue) ? 0 : b.logpvalue;
+                    if (pA + pB > 0) return pA + pB;
+                    const zA = isNaN(a.zscore) ? 0 : Math.abs(a.zscore);
+                    const zB = isNaN(b.zscore) ? 0 : Math.abs(b.zscore);
+                    return zA + zB;
+                }
+                const ranked = [...bestByGene.values()].sort((u,v) => rankScoreOL(v.gene) - rankScoreOL(u.gene)).slice(0, labelTop);
+                ranked.forEach(function(p, i) {
+                    annotations.push({
+                        x: p.x, y: p.y, xref:'x', yref:'y',
+                        text: '<b>' + p.gene + '</b>' + (isCeil(p.ref) ? ' ⚑' : ''),
+                        showarrow: true, arrowhead: 2, arrowsize: 0.8, arrowwidth: 1, arrowcolor:'#555',
+                        ax: (i % 2 === 0 ? 30 : -30), ay: -30,
+                        font: { size: Math.max(10, gf.size - 2), family: gf.family, color:'#222' },
+                        bgcolor:'rgba(255,255,255,0.85)', bordercolor:'#ccc', borderwidth:1, borderpad:2
+                    });
+                });
+            }
+
+            // Empty-state hint when a sub-filter is selected but its prerequisites aren't met.
+            if (traces.length === 0 && overlayFilter !== 'all') {
+                let hint = '';
+                if (overlayFilter === 'common') hint = 'No common hits — set a cutoff in BOTH screens to see common-hit genes.';
+                else if (overlayFilter === 'a') hint = 'No '+nameA+'-unique hits — set a cutoff in '+nameA+' to filter unique hits.';
+                else if (overlayFilter === 'b') hint = 'No '+nameB+'-unique hits — set a cutoff in '+nameB+' to filter unique hits.';
+                annotations.push({
+                    xref:'paper', yref:'paper', x:0.5, y:0.5, xanchor:'center', yanchor:'middle',
+                    text: hint, showarrow:false,
+                    font:{ size: gf.size+1, color:'#6b7280', family: gf.family }
+                });
+            }
+
             Plotly.newPlot('gcOverlayPlot', traces, {
-                title:{text:'Overlay: '+nameA+' (●) vs '+nameB+' (▲)',x:0.5,xanchor:'center',font:{size:gf.size+2,family:gf.family}},
+                title:{text:'Overlay: '+nameA+' (● blue) vs '+nameB+' (● red) | Below cutoff: ● gray | Common hit: ■ violet',x:0.5,xanchor:'center',font:{size:gf.size+2,family:gf.family}},
                 xaxis:{title:{text:xLabel,font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},
                     showline:true,mirror:true,ticks:'outside',ticklen:5,linewidth:1.5,linecolor:'#333',automargin:true,zeroline:true,zerolinewidth:1,zerolinecolor:'#aaa'},
                 yaxis:{title:{text:yLabel,font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},

@@ -290,18 +290,24 @@
         }
         .view-toggle {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+            gap: 6px;
+            flex-wrap: nowrap;
         }
         .view-btn {
             flex: 1;
-            min-width: 80px;
-            padding: 8px 12px;
+            min-width: 0;
+            padding: 10px 6px;
             border: 1px solid #d0d0d0;
             background: white;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
             font-weight: 600;
             transition: all 0.2s;
         }
@@ -310,18 +316,62 @@
             color: white;
             border-color: #2563eb;
         }
+        .view-btn svg { display: block; flex: 0 0 auto; }
+        .view-btn .vb-stroke { stroke: #4b5563; }
+        .view-btn .vb-fill   { fill:   #4b5563; }
+        .view-btn.active .vb-stroke { stroke: #ffffff; }
+        .view-btn.active .vb-fill   { fill:   #ffffff; }
+
+        /* Option B — used for the "Show:" filter buttons in comparison views.
+           Smaller than .view-btn, single-row layout (icon + text inline). */
+        .filter-btn--b {
+            padding: 7px 12px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4b5563;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .filter-btn--b.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        .filter-btn--b svg { display: block; flex: 0 0 auto; }
+        .filter-btn--b .vb-stroke { stroke: #4b5563; }
+        .filter-btn--b .vb-fill   { fill:   #4b5563; }
+        .filter-btn--b.active .vb-stroke { stroke: #ffffff; }
+        .filter-btn--b.active .vb-fill   { fill:   #ffffff; }
         .overlay-filter-btn {
-            padding: 5px 12px;
+            padding: 7px 12px;
             border: 1px solid #d1d5db;
             border-radius: 6px;
             background: white;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 600;
             cursor: pointer;
-            color: #374151;
+            color: #4b5563;
             transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
         }
         .overlay-filter-btn:hover { background: #f3f4f6; }
         .overlay-filter-btn.active { background: #7c3aed; color: white; border-color: #7c3aed; }
+        .overlay-filter-btn svg { display: block; flex: 0 0 auto; }
+        .overlay-filter-btn .vb-stroke { stroke: #4b5563; }
+        .overlay-filter-btn .vb-fill   { fill:   #4b5563; }
+        .overlay-filter-btn.active .vb-stroke { stroke: #ffffff; }
+        .overlay-filter-btn.active .vb-fill   { fill:   #ffffff; }
         .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -740,14 +790,15 @@
                         style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:100%;"
                         oninput="applyGlobalFont()">
                 </div>
-                <div class="control-group">
+                <div class="control-group" style="grid-column: 1 / -1;">
                     <label>View Type</label>
                     <div class="view-toggle">
-                        <button class="view-btn active" onclick="switchView('scatter')">Scatter</button>
-                        <button class="view-btn" onclick="switchView('lollipop')">Lollipop</button>
-                        <button class="view-btn" onclick="switchView('heatmap')">Heatmap</button>
-                        <button class="view-btn" onclick="switchView('volcano')">Volcano</button>
-                        <button class="view-btn" onclick="switchView('table')">Table</button>
+                        <button class="view-btn active" onclick="switchView('scatter')" title="Scatter"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><circle class="vb-fill" cx="2" cy="9" r="1.3"/><circle class="vb-fill" cx="5" cy="6" r="1.3"/><circle class="vb-fill" cx="8" cy="8" r="1.3"/><circle class="vb-fill" cx="11" cy="4" r="1.3"/><circle class="vb-fill" cx="14" cy="2" r="1.3"/></svg>Scatter</button>
+                        <button class="view-btn" onclick="switchView('lollipop')" title="Lollipop"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><line class="vb-stroke" x1="2" y1="11" x2="2" y2="6" stroke-width="1"/><line class="vb-stroke" x1="6" y1="11" x2="6" y2="3" stroke-width="1"/><line class="vb-stroke" x1="10" y1="11" x2="10" y2="7" stroke-width="1"/><line class="vb-stroke" x1="14" y1="11" x2="14" y2="2" stroke-width="1"/><circle class="vb-fill" cx="2" cy="6" r="1.3"/><circle class="vb-fill" cx="6" cy="3" r="1.3"/><circle class="vb-fill" cx="10" cy="7" r="1.3"/><circle class="vb-fill" cx="14" cy="2" r="1.3"/></svg>Lollipop</button>
+                        <button class="view-btn" onclick="switchView('heatmap')" title="Heatmap"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><rect class="vb-fill" x="1" y="1" width="3" height="3" opacity="0.3"/><rect class="vb-fill" x="5" y="1" width="3" height="3" opacity="0.7"/><rect class="vb-fill" x="9" y="1" width="3" height="3" opacity="0.4"/><rect class="vb-fill" x="13" y="1" width="2" height="3" opacity="0.9"/><rect class="vb-fill" x="1" y="5" width="3" height="3" opacity="0.6"/><rect class="vb-fill" x="5" y="5" width="3" height="3" opacity="0.2"/><rect class="vb-fill" x="9" y="5" width="3" height="3" opacity="0.8"/><rect class="vb-fill" x="13" y="5" width="2" height="3" opacity="0.5"/><rect class="vb-fill" x="1" y="9" width="3" height="2" opacity="0.9"/><rect class="vb-fill" x="5" y="9" width="3" height="2" opacity="0.4"/><rect class="vb-fill" x="9" y="9" width="3" height="2" opacity="0.6"/><rect class="vb-fill" x="13" y="9" width="2" height="2" opacity="0.3"/></svg>Heatmap</button>
+                        <button class="view-btn" onclick="switchView('volcano')" title="Volcano"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><circle class="vb-fill" cx="2" cy="9" r="1" opacity="0.7"/><circle class="vb-fill" cx="4" cy="8" r="1" opacity="0.7"/><circle class="vb-fill" cx="6" cy="6" r="1.2"/><circle class="vb-fill" cx="8" cy="9" r="1" opacity="0.6"/><circle class="vb-fill" cx="10" cy="6" r="1.2"/><circle class="vb-fill" cx="12" cy="3" r="1.3"/><circle class="vb-fill" cx="14" cy="2" r="1.3"/><circle class="vb-fill" cx="2" cy="3" r="1.3"/><circle class="vb-fill" cx="4" cy="2" r="1.3"/></svg>Volcano</button>
+                        <button class="view-btn" onclick="switchView('distribution')" title="Distribution"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><rect class="vb-fill" x="1"  y="9" width="2" height="2"/><rect class="vb-fill" x="3.5" y="7" width="2" height="4"/><rect class="vb-fill" x="6"  y="4" width="2" height="7"/><rect class="vb-fill" x="8.5" y="2" width="2" height="9"/><rect class="vb-fill" x="11" y="5" width="2" height="6"/><rect class="vb-fill" x="13.5" y="8" width="1.8" height="3"/></svg>Distribution</button>
+                        <button class="view-btn" onclick="switchView('table')" title="Table"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><rect x="1" y="1" width="14" height="10" fill="none" class="vb-stroke" stroke-width="1"/><line class="vb-stroke" x1="1" y1="4" x2="15" y2="4" stroke-width="1"/><line class="vb-stroke" x1="1" y1="7.5" x2="15" y2="7.5" stroke-width="1"/><line class="vb-stroke" x1="6" y1="1" x2="6" y2="11" stroke-width="1"/><line class="vb-stroke" x1="11" y1="1" x2="11" y2="11" stroke-width="1"/></svg>Table</button>
                     </div>
                 </div>
                 <!-- Volcano axis selectors — only shown when volcano view is active -->
@@ -812,6 +863,50 @@
             <!-- Populated by renderMarkerStyleBar() at startup. The previous template-literal
                  syntax (${...}.map(...)) doesn't evaluate inside static HTML, so this is built in JS. -->
             <div id="markerStyleBar" style="display:none; align-items:center; gap:12px; padding:10px 16px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:8px; flex-wrap:wrap;"></div>
+            <!-- Distribution view control bar (hidden unless 'distribution' view is active) -->
+            <div id="distributionControlBar" style="display:none; align-items:center; gap:16px; padding:12px 16px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:8px; flex-wrap:wrap; font-size:14px;">
+                <!-- Cutoff: dedicated input ON the distribution bar so the user
+                     doesn't have to hunt in the sidebar. Defaults to whatever
+                     value the matching sidebar input holds for the active
+                     metric, and writes back to that input so all views stay
+                     in sync. The actual filter logic still lives in the
+                     sidebar inputs; this is a mirror with a clearer label. -->
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-weight:700; color:#111827;">Cutoff</span>
+                    <input type="number" id="distCutoffInput" step="0.1" placeholder="0 = off"
+                           style="width:90px; padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:14px;"
+                           oninput="onDistCutoffInput(this.value)">
+                    <span id="distCutoffMetricLabel" style="color:#6b7280; font-size:12px;"></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-weight:700; color:#111827;">View:</span>
+                    <label style="cursor:pointer;"><input type="radio" name="distMode" value="histogram" checked onchange="plotDistributionFromControls()"> Histogram</label>
+                    <label style="cursor:pointer;"><input type="radio" name="distMode" value="ecdf" onchange="plotDistributionFromControls()"> ECDF</label>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;" id="distBinsRow">
+                    <span style="font-weight:700; color:#111827;">Bins:</span>
+                    <input type="range" id="distBins" min="10" max="200" value="0" step="1" style="width:140px;" oninput="document.getElementById('distBinsLabel').textContent = (this.value === '0' ? 'auto (FD)' : this.value); plotDistributionFromControls();">
+                    <span id="distBinsLabel" style="color:#6b7280; min-width:54px;">auto (FD)</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-weight:700; color:#111827;">Y:</span>
+                    <label style="cursor:pointer;"><input type="radio" name="distNorm" value="density" checked onchange="plotDistributionFromControls()"> Density</label>
+                    <label style="cursor:pointer;"><input type="radio" name="distNorm" value="count" onchange="plotDistributionFromControls()"> Count</label>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;" id="distCategoryToggles">
+                    <span style="font-weight:700; color:#111827;">Categories:</span>
+                    <!-- Filled at runtime; one checkbox per category present in filteredData -->
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <span style="font-weight:700; color:#111827;">Overlay:</span>
+                    <label style="cursor:pointer;"><input type="checkbox" id="distShowZero" checked onchange="plotDistributionFromControls()"> x=0</label>
+                    <label style="cursor:pointer;"><input type="checkbox" id="distShowCutoff" checked onchange="plotDistributionFromControls()"> Cutoff</label>
+                    <label style="cursor:pointer;"><input type="checkbox" id="distShowNTCMean" checked onchange="plotDistributionFromControls()"> NTC mean</label>
+                    <label style="cursor:pointer;"><input type="checkbox" id="distShowNTCBand" checked onchange="plotDistributionFromControls()"> NTC distribution</label>
+                </div>
+            </div>
+            <!-- Distribution summary stats table (rendered under the plot) -->
+            <div id="distributionStats" style="display:none; margin-top:10px;"></div>
             <div id="heatmapScaleBar" style="display:none; align-items:center; gap:16px; padding:10px 16px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:10px; flex-wrap:wrap;">
               <span style="font-size:12px; font-weight:600; color:#374151;">Color scale:</span>
               <div style="display:flex; align-items:center; gap:6px;">
@@ -1249,8 +1344,8 @@
             <div class="control-group">
                 <label>View</label>
                 <div class="view-toggle">
-                    <button class="view-btn active" onclick="switchGenomeView('volcano', event)">Volcano</button>
-                    <button class="view-btn" onclick="switchGenomeView('table', event)">Table</button>
+                    <button class="view-btn active" onclick="switchGenomeView('volcano', event)" title="Volcano"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><circle class="vb-fill" cx="2" cy="9" r="1" opacity="0.7"/><circle class="vb-fill" cx="4" cy="8" r="1" opacity="0.7"/><circle class="vb-fill" cx="6" cy="6" r="1.2"/><circle class="vb-fill" cx="8" cy="9" r="1" opacity="0.6"/><circle class="vb-fill" cx="10" cy="6" r="1.2"/><circle class="vb-fill" cx="12" cy="3" r="1.3"/><circle class="vb-fill" cx="14" cy="2" r="1.3"/><circle class="vb-fill" cx="2" cy="3" r="1.3"/><circle class="vb-fill" cx="4" cy="2" r="1.3"/></svg>Volcano</button>
+                    <button class="view-btn" onclick="switchGenomeView('table', event)" title="Table"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><rect x="1" y="1" width="14" height="10" fill="none" class="vb-stroke" stroke-width="1"/><line class="vb-stroke" x1="1" y1="4" x2="15" y2="4" stroke-width="1"/><line class="vb-stroke" x1="1" y1="7.5" x2="15" y2="7.5" stroke-width="1"/><line class="vb-stroke" x1="6" y1="1" x2="6" y2="11" stroke-width="1"/><line class="vb-stroke" x1="11" y1="1" x2="11" y2="11" stroke-width="1"/></svg>Table</button>
                 </div>
             </div>
         </div>
@@ -1398,19 +1493,19 @@
 
         <!-- View toggle -->
         <div style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;">
-            <button class="view-btn active" onclick="switchGenomeCompView('overlay', event)">Overlay Plot</button>
-            <button class="view-btn" onclick="switchGenomeCompView('correlation', event)">Correlation</button>
-            <button class="view-btn" onclick="switchGenomeCompView('venn', event)">Venn Diagram</button>
-            <button class="view-btn" onclick="switchGenomeCompView('unique', event)">Unique Genes</button>
-            <button class="view-btn" onclick="switchGenomeCompView('common', event)">Common Genes</button>
+            <button class="view-btn active" onclick="switchGenomeCompView('overlay', event)" title="Overlay Plot"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><circle class="vb-fill" cx="3" cy="9" r="1.3" opacity="0.85"/><circle class="vb-fill" cx="5" cy="6" r="1.3" opacity="0.85"/><circle class="vb-fill" cx="7" cy="3" r="1.3" opacity="0.85"/><circle class="vb-fill" cx="9" cy="9" r="1.3" opacity="0.4"/><circle class="vb-fill" cx="11" cy="6" r="1.3" opacity="0.4"/><circle class="vb-fill" cx="13" cy="3" r="1.3" opacity="0.4"/></svg>Overlay Plot</button>
+            <button class="view-btn" onclick="switchGenomeCompView('correlation', event)" title="Correlation"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><line class="vb-stroke" x1="1.5" y1="10.5" x2="14.5" y2="1.5" stroke-width="1" stroke-dasharray="1,1"/><circle class="vb-fill" cx="3" cy="10" r="1.1"/><circle class="vb-fill" cx="6" cy="7.5" r="1.1"/><circle class="vb-fill" cx="9" cy="5" r="1.1"/><circle class="vb-fill" cx="12" cy="3" r="1.1"/><circle class="vb-fill" cx="5" cy="9" r="0.9" opacity="0.6"/><circle class="vb-fill" cx="11" cy="5" r="0.9" opacity="0.6"/></svg>Correlation</button>
+            <button class="view-btn" onclick="switchGenomeCompView('venn', event)" title="Venn Diagram"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1.2"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1.2"/></svg>Venn Diagram</button>
+            <button class="view-btn" onclick="switchGenomeCompView('unique', event)" title="Unique Genes"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><defs><mask id="uniqMaskGc"><rect width="16" height="12" fill="white"/><circle cx="10" cy="6" r="4" fill="black"/></mask></defs><circle cx="6" cy="6" r="4" class="vb-fill" mask="url(#uniqMaskGc)"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/></svg>Unique Genes</button>
+            <button class="view-btn" onclick="switchGenomeCompView('common', event)" title="Common Genes"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><defs><clipPath id="commonClipGc"><circle cx="10" cy="6" r="4"/></clipPath></defs><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="6" cy="6" r="4" class="vb-fill" clip-path="url(#commonClipGc)"/></svg>Common Genes</button>
         </div>
         <!-- Overlay filter bar — mirrors the BE comparison overlay UX: All / Common / Unique to A / Unique to B -->
         <div id="gcOverlayFilterBar" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
             <span style="font-size:12px; color:#6b7280; align-self:center; margin-right:4px;">Show:</span>
-            <button id="gcOfBtn_all"    class="overlay-filter-btn active" onclick="setGcOverlayFilter('all')">All Genes</button>
-            <button id="gcOfBtn_common" class="overlay-filter-btn"        onclick="setGcOverlayFilter('common')">Common (both screens)</button>
-            <button id="gcOfBtn_a"      class="overlay-filter-btn"        onclick="setGcOverlayFilter('a')">Unique to <span id="gcOfLabelA">Screen A</span></button>
-            <button id="gcOfBtn_b"      class="overlay-filter-btn"        onclick="setGcOverlayFilter('b')">Unique to <span id="gcOfLabelB">Screen B</span></button>
+            <button id="gcOfBtn_all"    class="overlay-filter-btn active" onclick="setGcOverlayFilter('all')" title="All genes"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1"/><circle cx="10" cy="6" r="4" class="vb-fill" opacity="0.55"/><circle cx="6" cy="6" r="4" class="vb-fill" opacity="0.55"/></svg>All Genes</button>
+            <button id="gcOfBtn_common" class="overlay-filter-btn"        onclick="setGcOverlayFilter('common')" title="Common to both"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><clipPath id="comFltClipGc"><circle cx="10" cy="6" r="4"/></clipPath></defs><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="6" cy="6" r="4" class="vb-fill" clip-path="url(#comFltClipGc)"/></svg>Common (both screens)</button>
+            <button id="gcOfBtn_a"      class="overlay-filter-btn"        onclick="setGcOverlayFilter('a')" title="Unique to A"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><mask id="uniqAFltMaskGc"><rect width="16" height="12" fill="white"/><circle cx="10" cy="6" r="4" fill="black"/></mask></defs><circle cx="6" cy="6" r="4" class="vb-fill" mask="url(#uniqAFltMaskGc)"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/></svg>Unique to <span id="gcOfLabelA">Screen A</span></button>
+            <button id="gcOfBtn_b"      class="overlay-filter-btn"        onclick="setGcOverlayFilter('b')" title="Unique to B"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><mask id="uniqBFltMaskGc"><rect width="16" height="12" fill="white"/><circle cx="6" cy="6" r="4" fill="black"/></mask></defs><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="10" cy="6" r="4" class="vb-fill" mask="url(#uniqBFltMaskGc)"/></svg>Unique to <span id="gcOfLabelB">Screen B</span></button>
         </div>
         <div id="gcOverlayPlot" style="width:100%; height:580px;"></div>
         <div style="text-align:right; margin-top:4px;"><button onclick="downloadSVG('gcOverlayPlot','crispr_overlay')" class="svg-dl-btn">⬇ Download SVG</button></div>
@@ -1584,20 +1679,20 @@
             <div id="cmpMarkerStyleBar" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:14px;"></div>
 
             <div class="view-toggle" style="margin-bottom: 30px;">
-                <button class="view-btn active" onclick="switchComparisonView('overlay')">Overlay Plot</button>
-                <button class="view-btn" onclick="switchComparisonView('venn')">Venn Diagram</button>
-                <button class="view-btn" onclick="switchComparisonView('correlation')">Correlation</button>
-                <button class="view-btn" onclick="switchComparisonView('unique')">Unique Guides</button>
-                <button class="view-btn" onclick="switchComparisonView('common')">Common Guides</button>
+                <button class="view-btn active" onclick="switchComparisonView('overlay')" title="Overlay Plot"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><circle class="vb-fill" cx="3" cy="9" r="1.3" opacity="0.85"/><circle class="vb-fill" cx="5" cy="6" r="1.3" opacity="0.85"/><circle class="vb-fill" cx="7" cy="3" r="1.3" opacity="0.85"/><circle class="vb-fill" cx="9" cy="9" r="1.3" opacity="0.4"/><circle class="vb-fill" cx="11" cy="6" r="1.3" opacity="0.4"/><circle class="vb-fill" cx="13" cy="3" r="1.3" opacity="0.4"/></svg>Overlay Plot</button>
+                <button class="view-btn" onclick="switchComparisonView('venn')" title="Venn Diagram"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1.2"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1.2"/></svg>Venn Diagram</button>
+                <button class="view-btn" onclick="switchComparisonView('correlation')" title="Correlation"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><line class="vb-stroke" x1="1.5" y1="10.5" x2="14.5" y2="1.5" stroke-width="1" stroke-dasharray="1,1"/><circle class="vb-fill" cx="3" cy="10" r="1.1"/><circle class="vb-fill" cx="6" cy="7.5" r="1.1"/><circle class="vb-fill" cx="9" cy="5" r="1.1"/><circle class="vb-fill" cx="12" cy="3" r="1.1"/><circle class="vb-fill" cx="5" cy="9" r="0.9" opacity="0.6"/><circle class="vb-fill" cx="11" cy="5" r="0.9" opacity="0.6"/></svg>Correlation</button>
+                <button class="view-btn" onclick="switchComparisonView('unique')" title="Unique Guides"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><defs><mask id="uniqMaskGd"><rect width="16" height="12" fill="white"/><circle cx="10" cy="6" r="4" fill="black"/></mask></defs><circle cx="6" cy="6" r="4" class="vb-fill" mask="url(#uniqMaskGd)"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/></svg>Unique Guides</button>
+                <button class="view-btn" onclick="switchComparisonView('common')" title="Common Guides"><svg width="22" height="16" viewBox="0 0 16 12" aria-hidden="true"><defs><clipPath id="commonClipGd"><circle cx="10" cy="6" r="4"/></clipPath></defs><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="6" cy="6" r="4" class="vb-fill" clip-path="url(#commonClipGd)"/></svg>Common Guides</button>
             </div>
 
             <!-- Overlay filter bar -->
             <div id="overlayFilterBar" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
                 <span style="font-size:12px; color:#6b7280; align-self:center; margin-right:4px;">Show:</span>
-                <button id="ofBtn_all"    class="overlay-filter-btn active" onclick="setOverlayFilter('all')">All Guides</button>
-                <button id="ofBtn_common" class="overlay-filter-btn"        onclick="setOverlayFilter('common')">Common (both screens)</button>
-                <button id="ofBtn_a"      class="overlay-filter-btn"        onclick="setOverlayFilter('a')">Unique to <span id="ofLabelA">Screen A</span></button>
-                <button id="ofBtn_b"      class="overlay-filter-btn"        onclick="setOverlayFilter('b')">Unique to <span id="ofLabelB">Screen B</span></button>
+                <button id="ofBtn_all"    class="overlay-filter-btn active" onclick="setOverlayFilter('all')" title="All guides"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1"/><circle cx="10" cy="6" r="4" class="vb-fill" opacity="0.55"/><circle cx="6" cy="6" r="4" class="vb-fill" opacity="0.55"/></svg>All Guides</button>
+                <button id="ofBtn_common" class="overlay-filter-btn"        onclick="setOverlayFilter('common')" title="Common to both"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><clipPath id="comFltClipGd"><circle cx="10" cy="6" r="4"/></clipPath></defs><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="6" cy="6" r="4" class="vb-fill" clip-path="url(#comFltClipGd)"/></svg>Common (both screens)</button>
+                <button id="ofBtn_a"      class="overlay-filter-btn"        onclick="setOverlayFilter('a')" title="Unique to A"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><mask id="uniqAFltMaskGd"><rect width="16" height="12" fill="white"/><circle cx="10" cy="6" r="4" fill="black"/></mask></defs><circle cx="6" cy="6" r="4" class="vb-fill" mask="url(#uniqAFltMaskGd)"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/></svg>Unique to <span id="ofLabelA">Screen A</span></button>
+                <button id="ofBtn_b"      class="overlay-filter-btn"        onclick="setOverlayFilter('b')" title="Unique to B"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><mask id="uniqBFltMaskGd"><rect width="16" height="12" fill="white"/><circle cx="6" cy="6" r="4" fill="black"/></mask></defs><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="10" cy="6" r="4" class="vb-fill" mask="url(#uniqBFltMaskGd)"/></svg>Unique to <span id="ofLabelB">Screen B</span></button>
             </div>
             <div id="overlayPlot" style="width: 100%; height: 600px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 4px;"></div>
             <div style="text-align:right; margin-bottom:10px;"><button onclick="downloadSVG('overlayPlot','be_overlay')" class="svg-dl-btn">⬇ Download SVG</button></div>
@@ -2977,11 +3072,33 @@
                 plotLollipop(filteredData, statIdx, metric, selectedProtein);
             } else if (currentView === 'volcano') {
                 plotVolcano(filteredData, statIdx, selectedProtein);
+            } else if (currentView === 'distribution') {
+                // Distribution view must show ALL guides for the selected gene
+                // (and mutation type), NOT the cutoff-filtered slice. Otherwise
+                // "% above cutoff" is meaningless because everything has
+                // already been pruned to pass the cutoff.
+                // The cutoff appears as a reference line and as the threshold
+                // used by the % columns — but it does not remove points.
+                const distData = rawData.filter(d => {
+                    if (columnMapping.geneName && d.gene !== selectedProtein) return false;
+                    if (mutationType !== 'all' && d.category !== mutationType) return false;
+                    if (highInTreatmentFilter && columnMapping.highInTreatment) {
+                        const hit = String(d.highInTreatment).toLowerCase();
+                        if (highInTreatmentFilter === 'true'  && hit !== 'true')  return false;
+                        if (highInTreatmentFilter === 'false' && hit !== 'false') return false;
+                    }
+                    return true;
+                });
+                const distControls = controlGuides.filter(d => {
+                    if (mutationType !== 'all' && d.category !== mutationType) return false;
+                    return true;
+                });
+                plotDistribution(distData, distControls, statIdx, metric, selectedProtein);
             } else if (currentView === 'table') {
                 renderHitTable(filteredData);
             }
 
-            if (filteredControls.length > 0 && currentView !== 'heatmap') {
+            if (filteredControls.length > 0 && currentView !== 'heatmap' && currentView !== 'distribution') {
                 plotControlGuides(filteredControls, statIdx, metric, false /* compact */);
                 document.getElementById('controlsPlot').classList.remove('hidden');
             } else {
@@ -3405,6 +3522,427 @@
             };
 
             Plotly.newPlot(targetDiv, traces, layout, { responsive: true });
+        }
+
+        // ─── Distribution view ──────────────────────────────────────────────────
+        // Per-category histogram (or ECDF) of the active metric.
+        //
+        // Design notes (read before changing):
+        //  • DO NOT auto-center the data. The whole point is that the user can
+        //    SEE whether their LFCs are centered at zero. We just draw a vertical
+        //    line at x=0 so the eye has a reference.
+        //  • Default bin width = Freedman–Diaconis (2·IQR/n^1/3), robust to
+        //    outliers. Sturges underbins for n>200; Scott assumes Gaussian.
+        //  • Density (probability density) is the default Y so categories with
+        //    very different N can be compared on the same axis. Count is one
+        //    click away if the user prefers absolute scale.
+        //  • NTC ("Controls") is plotted as a separate, gray, hatched-style
+        //    overlay so it reads as the experimental baseline, not "another
+        //    category." If your screen worked, Nonsense should sit clearly to
+        //    one side of NTC.
+        //  • Last-stored params live on window so the control-bar handlers can
+        //    re-render on toggle without re-running the upstream filter pipeline.
+        let _lastDistArgs = null;
+
+        // Freedman–Diaconis bin width. Robust default; falls back to
+        // sqrt-of-n if IQR collapses (all duplicates).
+        function fdBinWidth(values) {
+            if (!values || values.length < 2) return 1;
+            const sorted = [...values].sort((a, b) => a - b);
+            const q = (p) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
+            const iqr = q(0.75) - q(0.25);
+            const range = sorted[sorted.length - 1] - sorted[0];
+            if (iqr === 0) return range > 0 ? range / Math.max(10, Math.sqrt(sorted.length)) : 1;
+            return 2 * iqr / Math.cbrt(sorted.length);
+        }
+
+        // Render the category checkboxes the first time we know which
+        // categories are present in this filtered slice. Idempotent.
+        function ensureDistCategoryToggles(categories) {
+            const host = document.getElementById('distCategoryToggles');
+            if (!host) return;
+            const sig = categories.slice().sort().join(',');
+            if (host.dataset.sig === sig) return;
+            host.dataset.sig = sig;
+            // Keep the leading <span> label, replace the rest
+            host.innerHTML = '<span style="font-weight:600; color:#374151;">Categories:</span>';
+            categories.forEach(cat => {
+                const id = 'distCat_' + cat.replace(/[^A-Za-z0-9]/g, '_');
+                const color = (CATEGORY_COLORS[cat] || CATEGORY_COLORS['Unknown']);
+                host.insertAdjacentHTML('beforeend',
+                    '<label style="cursor:pointer; display:inline-flex; align-items:center; gap:4px;">' +
+                    `<input type="checkbox" id="${id}" data-cat="${cat}" checked onchange="plotDistributionFromControls()">` +
+                    `<span style="display:inline-block; width:10px; height:10px; background:${color}; border-radius:2px; vertical-align:middle;"></span>` +
+                    `<span>${cat}</span></label>`);
+            });
+        }
+
+        // Convenience for control-bar handlers: re-render with last-known args.
+        function plotDistributionFromControls() {
+            if (!_lastDistArgs) return;
+            const { data, controls, statIdx, metric, selectedProtein } = _lastDistArgs;
+            plotDistribution(data, controls, statIdx, metric, selectedProtein);
+        }
+
+        // Map active metric → sidebar cutoff input id. Single source of truth
+        // so we never drift between the two places that need it.
+        function _distCutoffSidebarId(metric) {
+            return ({
+                zscore:     'zcutoffSelect',
+                foldchange: 'fccutoffSelect',
+                logpvalue:  'pcutoffSelect',
+                logfdr:     'fdrcutoffSelect'
+            })[metric];
+        }
+
+        // User typed a value in the Distribution control bar's Cutoff input.
+        // Mirror it into the sidebar input that actually drives the filter
+        // pipeline, then run the standard updatePlot() path so all stats /
+        // line / table cells update through one code path. Two-way sync also
+        // means switching to scatter/lollipop afterwards inherits this value.
+        function onDistCutoffInput(val) {
+            if (!_lastDistArgs) return;
+            const sidebarId = _distCutoffSidebarId(_lastDistArgs.metric);
+            const sidebarEl = sidebarId ? document.getElementById(sidebarId) : null;
+            if (sidebarEl) {
+                sidebarEl.value = val;
+                // Fire input event so any other listeners react too.
+                sidebarEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            // The sidebar input's inline oninput handler runs updatePlotAndHeatmap,
+            // which re-renders the distribution view. No second call needed.
+        }
+
+        // Push the current sidebar cutoff value into the Distribution bar's
+        // input so the user sees the right starting number when they open the
+        // view or change metric. Also updates the small "(metric)" label.
+        function syncDistCutoffInputFromSidebar(metric) {
+            const distInput = document.getElementById('distCutoffInput');
+            const label = document.getElementById('distCutoffMetricLabel');
+            if (!distInput) return;
+            const sidebarId = _distCutoffSidebarId(metric);
+            const sidebarEl = sidebarId ? document.getElementById(sidebarId) : null;
+            distInput.value = sidebarEl ? sidebarEl.value : '';
+            if (label) {
+                const niceName = ({
+                    zscore: 'z-score', foldchange: 'log2 fold change',
+                    logpvalue: 'P-value (raw)', logfdr: 'FDR (raw)'
+                })[metric] || metric;
+                label.textContent = `(${niceName})`;
+            }
+            // For p/FDR the user types raw probability (0–1), not -log10.
+            const oneSided = (metric === 'logpvalue' || metric === 'logfdr');
+            distInput.step = oneSided ? '0.01' : '0.1';
+            distInput.min  = '0';
+            distInput.max  = oneSided ? '1' : '';
+        }
+
+        // Note: cutoff inputs (zcutoffSelect / fccutoffSelect / pcutoffSelect /
+        // fdrcutoffSelect and their *Dir selectors) already have inline
+        // oninput/onchange="updatePlotAndHeatmap()" handlers, which call
+        // updatePlot(), which now dispatches to plotDistribution when the
+        // distribution view is active. So no separate hook is needed —
+        // adding one would just double-render.
+
+        function plotDistribution(data, controls, statIdx, metric, selectedProtein) {
+            _lastDistArgs = { data, controls, statIdx, metric, selectedProtein };
+            // Keep the bar's Cutoff input in sync with the sidebar input that
+            // matches the active metric. Skip the sync if the user is actively
+            // typing in the bar's input (would clobber their keystroke).
+            const distInput = document.getElementById('distCutoffInput');
+            if (distInput && document.activeElement !== distInput) {
+                syncDistCutoffInputFromSidebar(metric);
+            } else if (distInput) {
+                // User is typing — only refresh the metric label / step.
+                const lbl = document.getElementById('distCutoffMetricLabel');
+                if (lbl) {
+                    const nm = ({ zscore: 'z-score', foldchange: 'log2 fold change',
+                                  logpvalue: 'P-value (raw)', logfdr: 'FDR (raw)' })[metric] || metric;
+                    lbl.textContent = `(${nm})`;
+                }
+            }
+
+            const metricKey = `${metric}_${statIdx}`;
+            const metricLabel = getMetricLabel(metric);
+            const isProb = (document.querySelector('input[name="distNorm"]:checked') || {}).value !== 'count';
+            const mode = (document.querySelector('input[name="distMode"]:checked') || {}).value || 'histogram';
+            const showZero = (document.getElementById('distShowZero') || {}).checked;
+            const showCutoff = (document.getElementById('distShowCutoff') || {}).checked;
+            const showNTCMean = (document.getElementById('distShowNTCMean') || {}).checked;
+            const showNTCBand = (document.getElementById('distShowNTCBand') || {}).checked;
+            const userBins = parseInt((document.getElementById('distBins') || {}).value || '0', 10);
+
+            // Group filtered data by category. NTC is handled separately below.
+            const byCat = {};
+            data.forEach(d => {
+                const v = d[metricKey];
+                if (v == null || isNaN(v)) return;
+                const cat = d.category || 'Unknown';
+                (byCat[cat] = byCat[cat] || []).push(v);
+            });
+            const categories = Object.keys(byCat);
+            ensureDistCategoryToggles(categories);
+
+            // Which categories are currently checked in the control bar?
+            const enabled = new Set();
+            categories.forEach(cat => {
+                const id = 'distCat_' + cat.replace(/[^A-Za-z0-9]/g, '_');
+                const cb = document.getElementById(id);
+                if (!cb || cb.checked) enabled.add(cat);
+            });
+
+            // NTC values from the controls slice (already filtered upstream).
+            const ntcValues = (controls || [])
+                .map(d => d[metricKey])
+                .filter(v => v != null && !isNaN(v));
+
+            // ── Compute bin width across the union of all visible values so
+            //    every overlay shares the same x-binning. Mixing per-trace bin
+            //    widths is the classic way to make Plotly histograms lie.
+            const allVisible = [];
+            categories.forEach(cat => { if (enabled.has(cat)) allVisible.push(...byCat[cat]); });
+            if (showNTCBand && ntcValues.length) allVisible.push(...ntcValues);
+            const fdW = fdBinWidth(allVisible);
+            const xMin = allVisible.length ? Math.min(...allVisible) : -1;
+            const xMax = allVisible.length ? Math.max(...allVisible) :  1;
+            const range = xMax - xMin || 1;
+            const binWidth = userBins > 0 ? (range / userBins) : fdW;
+
+            const traces = [];
+
+            if (mode === 'histogram') {
+                // NTC overlay first so it sits behind the category traces.
+                if (showNTCBand && ntcValues.length) {
+                    traces.push({
+                        type: 'histogram',
+                        x: ntcValues,
+                        name: `NTC (${ntcValues.length})`,
+                        marker: { color: '#9ca3af', line: { color: '#6b7280', width: 0.5 } },
+                        opacity: 0.35,
+                        histnorm: isProb ? 'probability density' : '',
+                        xbins: { start: xMin, end: xMax + binWidth, size: binWidth },
+                        autobinx: false,
+                        hovertemplate: 'NTC<br>' + metricLabel + ': %{x}<br>' + (isProb ? 'density' : 'count') + ': %{y:.3f}<extra></extra>'
+                    });
+                }
+                categories.forEach(cat => {
+                    if (!enabled.has(cat)) return;
+                    const vals = byCat[cat];
+                    const color = CATEGORY_COLORS[cat] || CATEGORY_COLORS['Unknown'];
+                    traces.push({
+                        type: 'histogram',
+                        x: vals,
+                        name: `${cat} (${vals.length})`,
+                        marker: { color, line: { color: '#374151', width: 0.5 } },
+                        opacity: 0.6,
+                        histnorm: isProb ? 'probability density' : '',
+                        xbins: { start: xMin, end: xMax + binWidth, size: binWidth },
+                        autobinx: false,
+                        hovertemplate: cat + '<br>' + metricLabel + ': %{x}<br>' + (isProb ? 'density' : 'count') + ': %{y:.3f}<extra></extra>'
+                    });
+                });
+            } else {
+                // ECDF: sort values, y = (i+1)/n, step ('hv') so it reads as a true
+                // empirical CDF instead of a smoothed line.
+                const ecdfTrace = (vals, name, color, opacity) => {
+                    const sorted = [...vals].sort((a, b) => a - b);
+                    const n = sorted.length;
+                    return {
+                        type: 'scatter', mode: 'lines',
+                        x: sorted, y: sorted.map((_, i) => (i + 1) / n),
+                        name: name + ` (${n})`,
+                        line: { color, width: 2, shape: 'hv' },
+                        opacity: opacity != null ? opacity : 1,
+                        hovertemplate: name + '<br>' + metricLabel + ': %{x}<br>F(x): %{y:.3f}<extra></extra>'
+                    };
+                };
+                if (showNTCBand && ntcValues.length) {
+                    traces.push(ecdfTrace(ntcValues, 'NTC', '#6b7280', 0.85));
+                }
+                categories.forEach(cat => {
+                    if (!enabled.has(cat)) return;
+                    traces.push(ecdfTrace(byCat[cat], cat, CATEGORY_COLORS[cat] || CATEGORY_COLORS['Unknown']));
+                });
+            }
+
+            // Reference lines (shapes). Cutoff respects current direction so a
+            // "<= -1" cutoff draws on the negative side, not the positive.
+            const shapes = [];
+            const annotations = [];
+            const yRef = mode === 'ecdf' ? { y0: 0, y1: 1 } : { y0: 0, y1: 1, yref: 'paper' };
+            const addLine = (x, color, label) => {
+                shapes.push({
+                    type: 'line', x0: x, x1: x,
+                    yref: mode === 'ecdf' ? 'paper' : 'paper',
+                    y0: 0, y1: 1,
+                    line: { color, width: 1.5, dash: 'dash' }
+                });
+                annotations.push({
+                    x: x, xref: 'x', y: 1.02, yref: 'paper',
+                    text: label, showarrow: false,
+                    font: { size: 10, color }
+                });
+            };
+            if (showZero) addLine(0, '#111827', 'x=0');
+
+            if (showCutoff) {
+                // Use whichever cutoff matches the active metric.
+                const cutoffMap = {
+                    zscore:    ['zcutoffSelect',  'zcutoffDir'],
+                    foldchange:['fccutoffSelect', 'fccutoffDir'],
+                    logpvalue: ['pcutoffSelect',  'pcutoffDir'],
+                    logfdr:    ['fdrcutoffSelect','fdrcutoffDir']
+                };
+                const pair = cutoffMap[metric];
+                if (pair) {
+                    const cutRaw = parseFloat((document.getElementById(pair[0]) || {}).value || '0');
+                    const cutDir = (document.getElementById(pair[1]) || {}).value || '>=';
+                    const isOneSided = (metric === 'logpvalue' || metric === 'logfdr');
+                    if (cutRaw > 0) {
+                        if (isOneSided) {
+                            // User typed a probability (e.g. 0.05). The plot
+                            // axis is -log10(p). Convert before drawing.
+                            const xOnAxis = (cutRaw < 1) ? -Math.log10(cutRaw) : cutRaw;
+                            addLine(xOnAxis, '#dc2626', `cutoff p≤${cutRaw} (-log10=${xOnAxis.toFixed(2)})`);
+                        } else if (cutDir === '>=' || cutDir === '>') {
+                            addLine(cutRaw, '#dc2626', `cutoff +${cutRaw}`);
+                        } else if (cutDir === '<=' || cutDir === '<') {
+                            addLine(-cutRaw, '#dc2626', `cutoff -${cutRaw}`);
+                        } else {
+                            addLine(cutRaw, '#dc2626', `+${cutRaw}`);
+                            addLine(-cutRaw, '#dc2626', `-${cutRaw}`);
+                        }
+                    }
+                }
+            }
+
+            if (showNTCMean && ntcValues.length) {
+                const m = ntcValues.reduce((a, b) => a + b, 0) / ntcValues.length;
+                addLine(m, '#7c3aed', `NTC μ=${m.toFixed(2)}`);
+            }
+
+            // Honor the user's global font everywhere — title, axes, ticks,
+            // legend. Without applying it explicitly to each font slot, Plotly
+            // falls back to its defaults on re-render, which looks like the
+            // font "resets" whenever the user changes a control.
+            const font = getGlobalFont();
+            const titleFont = { family: font.family, size: Math.max(font.size + 1, 14) };
+            const axisTitleFont = { family: font.family, size: Math.max(font.size, 13) };
+            const tickFont = { family: font.family, size: font.size };
+            const legendFont = { family: font.family, size: font.size };
+
+            const layout = {
+                title: {
+                    text: `Distribution | ${selectedProtein} | ${data.length} guides | ${metricLabel}`,
+                    x: 0.5, xanchor: 'center', font: titleFont
+                },
+                font: font,
+                xaxis: {
+                    title: { text: metricLabel, font: axisTitleFont },
+                    tickfont: tickFont,
+                    zeroline: false,
+                    showline: true, mirror: true, ticks: 'outside',
+                    ticklen: 4, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
+                },
+                yaxis: {
+                    title: { text: mode === 'ecdf' ? 'Cumulative fraction' : (isProb ? 'Density' : 'Count'), font: axisTitleFont },
+                    tickfont: tickFont,
+                    zeroline: true, zerolinewidth: 1, zerolinecolor: '#aaa',
+                    showline: true, mirror: true, ticks: 'outside',
+                    ticklen: 4, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true,
+                    range: mode === 'ecdf' ? [0, 1.02] : undefined
+                },
+                barmode: 'overlay',
+                hovermode: 'x unified',
+                plot_bgcolor: 'white',
+                paper_bgcolor: 'white',
+                showlegend: true,
+                legend: { orientation: 'h', y: -0.18, font: legendFont },
+                shapes, annotations,
+                height: 600,
+                margin: { l: 80, r: 30, t: 70, b: 80 }
+            };
+
+            // Use Plotly.react on repeat renders so axis state / zoom is
+            // preserved across cutoff changes. newPlot is heavier and triggers
+            // a full re-layout on every keystroke.
+            const target = document.getElementById('plotContainer');
+            const plotFn = (target && target.data) ? Plotly.react : Plotly.newPlot;
+            plotFn('plotContainer', traces, layout, { responsive: true })
+                .then(() => window.dispatchEvent(new Event('resize')));
+
+            // ── Summary stats table (one row per category + NTC) ──
+            // Cutoff semantics depend on the metric:
+            //  • zscore, foldchange  → signed, two-tailed: show % ≤ -c AND % ≥ +c
+            //  • logpvalue, logfdr   → stored as -log10(p), so always ≥ 0 and
+            //    only the right tail is meaningful: show one column "% passing
+            //    significance" = % ≥ c. The negative side has no biological
+            //    meaning; showing it would be misleading.
+            const fmt = (x) => (x == null || isNaN(x)) ? '—' : x.toFixed(3);
+            const pct = (n, d) => d ? ((100 * n / d).toFixed(1) + '%') : '—';
+            const cutoffPair = ({ zscore: 'zcutoffSelect', foldchange: 'fccutoffSelect',
+                                  logpvalue: 'pcutoffSelect', logfdr: 'fdrcutoffSelect' })[metric];
+            let cutoffVal = cutoffPair ? parseFloat((document.getElementById(cutoffPair) || {}).value || '0') : 0;
+            if (!isFinite(cutoffVal)) cutoffVal = 0;
+            const oneSided = (metric === 'logpvalue' || metric === 'logfdr');
+            // For p/FDR the user enters the raw threshold (e.g. 0.05); we plot
+            // -log10. Convert so the table column matches what's drawn.
+            let cutoffOnAxis = cutoffVal;
+            if (oneSided && cutoffVal > 0 && cutoffVal < 1) cutoffOnAxis = -Math.log10(cutoffVal);
+
+            const summarize = (vals) => {
+                if (!vals.length) return null;
+                const sorted = [...vals].sort((a, b) => a - b);
+                const q = (p) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
+                const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+                const median = q(0.5);
+                const iqr = q(0.75) - q(0.25);
+                const negFrac = (!oneSided && cutoffVal > 0) ? vals.filter(v => v <= -cutoffVal).length : 0;
+                const posFrac = (cutoffOnAxis > 0) ? vals.filter(v => v >= cutoffOnAxis).length : 0;
+                return { n: vals.length, mean, median, iqr, neg: negFrac, pos: posFrac };
+            };
+            const rows = [];
+            if (showNTCBand && ntcValues.length) rows.push(['NTC', '#6b7280', summarize(ntcValues)]);
+            categories.forEach(cat => {
+                if (!enabled.has(cat)) return;
+                rows.push([cat, CATEGORY_COLORS[cat] || CATEGORY_COLORS['Unknown'], summarize(byCat[cat])]);
+            });
+            const statsHost = document.getElementById('distributionStats');
+            if (statsHost) {
+                // Header labels match metric semantics.
+                const cutoffShown = oneSided ? cutoffOnAxis : cutoffVal;
+                const cutoffLabel = (cutoffShown > 0) ? cutoffShown.toFixed(2) : '·';
+                const posHeader = oneSided
+                    ? `% passing (≥ ${cutoffLabel})`
+                    : `% ≥ +${cutoffLabel}`;
+                const negHeader = `% ≤ -${cutoffLabel}`;
+
+                let h = '<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">';
+                h += '<thead><tr style="background:#f3f4f6; text-align:left;">' +
+                     '<th style="padding:6px 10px;">Category</th>' +
+                     '<th style="padding:6px 10px; text-align:right;">N</th>' +
+                     '<th style="padding:6px 10px; text-align:right;">Mean</th>' +
+                     '<th style="padding:6px 10px; text-align:right;">Median</th>' +
+                     '<th style="padding:6px 10px; text-align:right;">IQR</th>';
+                if (!oneSided) h += `<th style="padding:6px 10px; text-align:right;">${negHeader}</th>`;
+                h += `<th style="padding:6px 10px; text-align:right;">${posHeader}</th>`;
+                h += '</tr></thead><tbody>';
+                rows.forEach(([name, color, s]) => {
+                    if (!s) return;
+                    h += '<tr style="border-top:1px solid #e5e7eb;">' +
+                        `<td style="padding:6px 10px;"><span style="display:inline-block; width:10px; height:10px; background:${color}; border-radius:2px; margin-right:6px; vertical-align:middle;"></span>${name}</td>` +
+                        `<td style="padding:6px 10px; text-align:right;">${s.n}</td>` +
+                        `<td style="padding:6px 10px; text-align:right;">${fmt(s.mean)}</td>` +
+                        `<td style="padding:6px 10px; text-align:right;">${fmt(s.median)}</td>` +
+                        `<td style="padding:6px 10px; text-align:right;">${fmt(s.iqr)}</td>`;
+                    if (!oneSided) h += `<td style="padding:6px 10px; text-align:right;">${cutoffVal > 0 ? pct(s.neg, s.n) : '—'}</td>`;
+                    h += `<td style="padding:6px 10px; text-align:right;">${cutoffOnAxis > 0 ? pct(s.pos, s.n) : '—'}</td>`;
+                    h += '</tr>';
+                });
+                h += '</tbody></table></div>';
+                statsHost.innerHTML = h;
+                statsHost.style.display = 'block';
+            }
         }
 
         // ─── Global font helpers ────────────────────────────────────────────────
@@ -4400,12 +4938,21 @@
         function switchView(view) {
             currentView = view;
             document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            // event.target may be the inner <svg>/<rect> when the user clicks
+            // the icon. Walk up to the actual <button> so .active still lands.
+            const btn = (typeof event !== 'undefined' && event && event.target)
+                ? (event.target.closest ? event.target.closest('.view-btn') : null)
+                : null;
+            if (btn) btn.classList.add('active');
 
             document.getElementById('plotContainer').classList.add('hidden');
             document.getElementById('heatmapContainer').classList.add('hidden');
             document.getElementById('heatmapScaleBar').style.display = 'none';
             document.getElementById('markerStyleBar').style.display = 'none';
+            const distBar = document.getElementById('distributionControlBar');
+            if (distBar) distBar.style.display = (view === 'distribution') ? 'flex' : 'none';
+            const distStats = document.getElementById('distributionStats');
+            if (distStats && view !== 'distribution') distStats.style.display = 'none';
             document.getElementById('controlsPlot').classList.add('hidden');
             const tableContainer = document.getElementById('hitTableContainer');
             if (tableContainer) tableContainer.style.display = 'none';

@@ -459,13 +459,25 @@
             margin-bottom: 8px;
         }
         .heatmap-label {
+            /* Fixed width so the heatmap origin (where the cell grid begins)
+               is identical across rows regardless of label text length. The
+               previous min-width:80px let longer metric names ("log(P-value)",
+               "Log-FoldChange") push the grid right and break alignment with
+               the residue/sequence row. Truncate with ellipsis if needed. */
             display: flex;
             align-items: center;
+            justify-content: flex-end;
             padding-right: 8px;
             font-weight: 500;
             font-size: 11px;
-            min-width: 80px;
+            width: 110px;
+            min-width: 110px;
+            max-width: 110px;
+            flex-shrink: 0;
             text-align: right;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
         }
         .heatmap-cell {
             width: 16px;
@@ -517,9 +529,9 @@
             border-radius: 10px;
             box-shadow: 0 12px 40px rgba(0,0,0,0.25);
             z-index: 10001;
-            width: 420px;
-            max-width: 90vw;
-            max-height: 70vh;
+            width: 720px;
+            max-width: 95vw;
+            max-height: 80vh;
             overflow: hidden;
         }
         .pin-panel.active { display: flex; }
@@ -836,6 +848,35 @@
                         <span id="volcanoMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.70</span>
                     </div>
                 </div>
+                <!-- Volcano / scatter axis range + minor-tick controls. Empty
+                     fields = auto. Used by plotVolcano() and plotScatter().
+                     Note: a true axis BREAK is intentionally NOT implemented —
+                     Plotly does not support it cleanly without spawning
+                     subplots, which breaks the existing cutoff/annotation
+                     pipeline. Use "Compact outliers" instead, which applies
+                     a piecewise log compression beyond a chosen threshold
+                     and is explicitly labeled so readers know the y-axis
+                     is non-linear above the break point. -->
+                <div id="axisRangeRow" class="control-group" style="display:none; grid-column: 1 / -1; flex-direction:row; gap:14px; align-items:flex-end; flex-wrap:wrap; padding:8px 12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; margin-top:6px;">
+                    <span style="font-size:11px; font-weight:700; color:#374151;">Axis range:</span>
+                    <div style="display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:10px; color:#6b7280;">X min</label>
+                        <input type="number" id="axisXMin" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updatePlotAndHeatmap()">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:10px; color:#6b7280;">X max</label>
+                        <input type="number" id="axisXMax" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updatePlotAndHeatmap()">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:10px; color:#6b7280;">Y min</label>
+                        <input type="number" id="axisYMin" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updatePlotAndHeatmap()">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:10px; color:#6b7280;">Y max</label>
+                        <input type="number" id="axisYMax" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updatePlotAndHeatmap()">
+                    </div>
+                    <button onclick="document.querySelectorAll('#axisXMin,#axisXMax,#axisYMin,#axisYMax').forEach(e=>{e.value='';}); updatePlotAndHeatmap();" class="btn-secondary" style="padding:4px 10px; font-size:11px;">Reset</button>
+                </div>
             </div>
 
             <div class="stats">
@@ -856,6 +897,7 @@
             <div id="plotContainer"></div>
             <div id="plotDownloadRow" style="text-align:right; margin-top:4px; margin-bottom:2px;">
                 <button onclick="downloadSVG('plotContainer','editscreen_plot')" class="svg-dl-btn">⬇ Download SVG</button>
+                <button onclick="downloadPlotData()" class="svg-dl-btn" style="margin-left:6px;" title="Download the data behind the current plot. Lollipop exports as .xlsx with two sheets (per-residue + per-edit). Other views export as .csv.">⬇ Download data</button>
             </div>
             <div id="domainLegend" style="display:none; margin:6px 0 10px 0; padding:8px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; flex-wrap:wrap; gap:8px; font-size:12px;"></div>
             <!-- Heatmap scale controls (hidden until heatmap is shown) -->
@@ -887,6 +929,10 @@
                     <span style="font-weight:700; color:#111827;">Bins:</span>
                     <input type="range" id="distBins" min="10" max="200" value="0" step="1" style="width:140px;" oninput="document.getElementById('distBinsLabel').textContent = (this.value === '0' ? 'auto (FD)' : this.value); plotDistributionFromControls();">
                     <span id="distBinsLabel" style="color:#6b7280; min-width:54px;">auto (FD)</span>
+                    <!-- Live bin-width readout. Set by plotDistribution() after
+                         it computes binWidth, so the user can see the actual
+                         resolution at the current slider value. -->
+                    <span id="distBinWidthLabel" style="color:#6b7280; font-size:12px;" title="Current bin width on the metric axis">width: —</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-weight:700; color:#111827;">Y:</span>
@@ -919,6 +965,7 @@
               </div>
               <button onclick="resetHeatmapScale()" style="padding:4px 12px; font-size:12px; border:1px solid #d1d5db; border-radius:5px; background:white; cursor:pointer; color:#374151;">Auto-scale</button>
               <button onclick="downloadHeatmapSVG()" class="svg-dl-btn" style="margin-left:auto;">⬇ Download SVG</button>
+              <button onclick="downloadPlotData()" class="svg-dl-btn" title="Download per-residue heatmap values as CSV.">⬇ Download data</button>
             </div>
             <div id="heatmapContainer"></div>
             <div id="controlsPlot" class="hidden"></div>
@@ -1022,14 +1069,24 @@
     <div id="proteinModal" class="modal">
         <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
             <h2>Step 3: Configure proteins & domains</h2>
-            <p style="color: #666; margin-bottom: 20px; font-size: 13px;">Select proteins to analyze and configure each</p>
+            <!-- Short three-step instruction. Users were confused that the
+                 "Step 1" sub-section stayed active after adding a protein,
+                 so we explicitly say "repeat for each gene" and call out
+                 that the protein appears in the list below. -->
+            <p style="color: #4b5563; margin-bottom: 16px; font-size: 13px; line-height:1.55;">
+                <b>How to add a protein:</b>
+                (1) Pick a gene from your data.
+                (2) Choose <i>Library</i> (preset proteins with domains) or <i>Custom</i> (your own sequence).
+                (3) Click <b>Add Protein</b> — it appears in the list below.
+                Repeat for each gene you want to analyze, then click <b>Load Data</b>.
+            </p>
 
             <div class="mapping-group">
                 <div class="mapping-label">Step 1: Select Gene</div>
                 <select id="geneSelectDropdown" onchange="showProteinOptions()">
                     <option value="">-- Select gene --</option>
                 </select>
-                <p style="font-size: 11px; color: #999; margin-top: 4px;">Select detected gene first</p>
+                <p style="font-size: 11px; color: #999; margin-top: 4px;">Pick a gene; the source options will appear below.</p>
             </div>
 
             <div id="proteinOptionsSection" class="mapping-group hidden">
@@ -1145,7 +1202,7 @@
           <div style="font-size:12px; color:#374151; font-weight:600;">Color by:</div>
           <select id="pdbColorScheme" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:12px;" onchange="applyStructureColoring()">
             <option value="category">Mutation Category</option>
-            <option value="hit">Hit (red) / Background (gray)</option>
+            <option value="hit">Above cutoff (red) / Background (gray)</option>
             <option value="metric">Metric value (blue → red gradient)</option>
           </select>
         </div>
@@ -1266,7 +1323,7 @@
         <!-- Stats bar -->
         <div class="stats-bar" style="margin-bottom:20px;">
             <div class="stat-card"><div class="stat-label">Total Genes</div><div class="stat-value" id="gTotalGenes">—</div></div>
-            <div class="stat-card"><div class="stat-label">Hits (cutoff)</div><div class="stat-value" id="gHitGenes">—</div></div>
+            <div class="stat-card"><div class="stat-label">Above cutoff</div><div class="stat-value" id="gHitGenes">—</div></div>
         </div>
         <!-- Sheet selector — shown only when multiple Excel tabs were imported.
              Each tab is treated as an independent screen / condition. -->
@@ -1329,8 +1386,10 @@
                 <input type="number" id="gFDRcutoff" value="1" step="0.01" min="0" max="1" placeholder="1 = off" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:100%;" oninput="updateGenomeView()">
             </div>
             <div class="control-group">
-                <label>Label top N hits</label>
-                <input type="number" id="gLabelTop" value="10" min="0" max="50" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:100%;" oninput="updateGenomeView()">
+                <label>Label top N (above cutoff)</label>
+                <!-- #17: default to 0 (no labels) so a fresh chart opens
+                     uncluttered. User can opt-in by typing a number. -->
+                <input type="number" id="gLabelTop" value="0" min="0" max="50" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:100%;" oninput="updateGenomeView()">
             </div>
             <div class="control-group">
                 <label>Graph Font</label>
@@ -1375,6 +1434,8 @@
                 <input type="range" id="gMarkerOpacity" min="0.2" max="1" step="0.05" value="0.85" oninput="document.getElementById('gMarkerOpacityVal').textContent=parseFloat(this.value).toFixed(2); updateGenomeView();" style="width:80px;">
                 <span id="gMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.85</span>
             </div>
+            <span style="font-size:11px; color:#6b7280; font-style:italic;" title="Click any point to pin/unpin its gene name on the plot.">Tip: click points to pin gene names</span>
+            <button type="button" onclick="window._gPinnedLabels = new Set(); updateGenomeView();" class="btn-secondary" style="padding:3px 9px; font-size:11px;" title="Remove all pinned gene labels.">Clear pins</button>
         </div>
         <div id="genomeVolcanoPlot" style="width:100%; height:600px;"></div>
             <div style="text-align:right; margin-top:4px;"><button onclick="downloadSVG('genomeVolcanoPlot','crispr_volcano')" class="svg-dl-btn">⬇ Download SVG</button></div>
@@ -1417,8 +1478,12 @@
                 </div>
             </div>
         </div>
+        <!-- #22: Axis/font + per-screen marker style live side-by-side now,
+             not stacked. Each child gets ~50% width on wide screens; both
+             collapse below each other naturally on narrow screens. -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:14px; margin-bottom:14px;">
         <!-- Axis + font controls -->
-        <div style="display:flex; gap:14px; margin-bottom:14px; flex-wrap:wrap; align-items:flex-end; padding:12px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; padding:12px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
             <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">X Axis</div>
                 <select id="gcXMetric" onchange="updateGenomeComparisonView()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
                     <option value="foldchange">Fold Change</option>
@@ -1448,7 +1513,7 @@
         </div>
 
         <!-- Per-screen marker style for the CRISPR comparison overlay -->
-        <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:14px;">
+        <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
             <div style="display:flex; align-items:center; gap:6px;">
                 <span style="font-size:12px; font-weight:600; color:#374151;">Symbol size:</span>
                 <input type="range" id="gcSymbolSize" min="4" max="24" step="1" value="9" oninput="document.getElementById('gcSymbolSizeVal').textContent=this.value; updateGenomeComparisonView()" style="width:100px;">
@@ -1459,10 +1524,19 @@
                 <input type="range" id="gcMarkerOpacity" min="0.2" max="1" step="0.05" value="0.85" oninput="document.getElementById('gcMarkerOpacityVal').textContent=parseFloat(this.value).toFixed(2); updateGenomeComparisonView()" style="width:80px;">
                 <span id="gcMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.85</span>
             </div>
-            <div style="display:flex; align-items:center; gap:6px;" title="Label this many top-ranked hits (by −log10 P) on the overlay and correlation plots. Only labels above-cutoff genes. 0 = no labels.">
-                <span style="font-size:12px; font-weight:600; color:#374151;">Label top N hits:</span>
-                <input type="number" id="gcLabelTop" value="10" min="0" max="50" step="1" oninput="updateGenomeComparisonView()" style="width:60px; padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;">
+            <div style="display:flex; align-items:center; gap:6px;" title="Label this many top-ranked above-cutoff genes (ranked by −log10 P) on the overlay and correlation plots. 0 = no labels.">
+                <span style="font-size:12px; font-weight:600; color:#374151;">Label top N (above cutoff):</span>
+                <!-- #20: default to 0 (no labels) so the chart opens uncluttered. -->
+                <input type="number" id="gcLabelTop" value="0" min="0" max="50" step="1" oninput="updateGenomeComparisonView()" style="width:60px; padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;">
             </div>
+            <!-- F8: Click any point on the overlay or correlation plot to
+                 pin its gene name as an on-plot label. Click again to remove.
+                 Works alongside Label top N, so users can manually highlight
+                 a few genes without clicking through every label. -->
+            <span style="font-size:11px; color:#6b7280; font-style:italic;" title="Click any point to pin/unpin its gene name on the plot.">
+                Tip: click points to pin gene names
+            </span>
+            <button type="button" onclick="window._gcPinnedLabels = new Set(); updateGenomeComparisonView();" class="btn-secondary" style="padding:3px 9px; font-size:11px;" title="Remove all pinned gene labels.">Clear pins</button>
             <div style="display:flex; flex-basis:100%; gap:24px; flex-wrap:wrap; padding-top:6px; border-top:1px dashed #e5e7eb;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span id="gcStyleLabelA" style="font-size:12px; font-weight:700; color:#1d4ed8;">Screen A:</span>
@@ -1490,6 +1564,7 @@
                 </div>
             </div>
         </div>
+        </div><!-- /#22 side-by-side wrapper -->
 
         <!-- View toggle -->
         <div style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;">
@@ -1648,11 +1723,15 @@
                 </div>
             </div>
 
-            <!-- Per-screen significance cutoffs -->
+            <!-- Per-screen significance cutoffs.
+                 #15: split-color box matching the CRISPR comparison styling so
+                 the user can tell at a glance which inputs belong to which
+                 screen. Left column gets a blue accent (Screen A), right gets
+                 a red accent (Screen B), with a divider between. -->
             <div style="background:#f8fafc; border:1px solid #d1d5db; border-radius:8px; padding:16px 20px; margin-bottom:20px;">
-                <div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:12px;">Significance Cutoffs &nbsp;<span style="font-weight:400; color:#6b7280; font-size:12px;">— guides must pass to count as hits in Venn / Unique / Correlation</span></div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
-                    <div>
+                <div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:12px;">Significance Cutoffs &nbsp;<span style="font-weight:400; color:#6b7280; font-size:12px;">— guides must pass these to be counted as above-cutoff in Venn / Unique / Correlation</span></div>
+                <div style="display:grid; grid-template-columns:1fr 1px 1fr; gap:18px;">
+                    <div style="background:rgba(37,99,235,0.06); border-left:3px solid #2563eb; padding:10px 14px; border-radius:6px;">
                         <div id="cutoffLabelA" style="font-size:12px; font-weight:600; color:#2563eb; margin-bottom:8px;">Screen A</div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;" data-score-label="{label}">Z-score</div><div style="display:flex;gap:3px;"><select id="cmpZcutoffDirA" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpZcutoffA" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
@@ -1662,7 +1741,9 @@
                             <div style="grid-column:span 2;"><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">High in Treatment</div><select id="cmpHitFilterA" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" onchange="updateComparisonView()"><option value="">All</option><option value="true">True only</option><option value="false">False only</option></select></div>
                         </div>
                     </div>
-                    <div>
+                    <!-- Vertical divider between the two screens. -->
+                    <div style="background:#d1d5db; width:1px; align-self:stretch;"></div>
+                    <div style="background:rgba(231,76,60,0.06); border-left:3px solid #e74c3c; padding:10px 14px; border-radius:6px;">
                         <div id="cutoffLabelB" style="font-size:12px; font-weight:600; color:#e74c3c; margin-bottom:8px;">Screen B</div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;" data-score-label="{label}">Z-score</div><div style="display:flex;gap:3px;"><select id="cmpZcutoffDirB" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpZcutoffB" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
@@ -1695,11 +1776,11 @@
                 <button id="ofBtn_b"      class="overlay-filter-btn"        onclick="setOverlayFilter('b')" title="Unique to B"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><mask id="uniqBFltMaskGd"><rect width="16" height="12" fill="white"/><circle cx="6" cy="6" r="4" fill="black"/></mask></defs><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="10" cy="6" r="4" class="vb-fill" mask="url(#uniqBFltMaskGd)"/></svg>Unique to <span id="ofLabelB">Screen B</span></button>
             </div>
             <div id="overlayPlot" style="width: 100%; height: 600px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 4px;"></div>
-            <div style="text-align:right; margin-bottom:10px;"><button onclick="downloadSVG('overlayPlot','be_overlay')" class="svg-dl-btn">⬇ Download SVG</button></div>
+            <div style="text-align:right; margin-bottom:10px;"><button onclick="downloadSVG('overlayPlot','be_overlay')" class="svg-dl-btn">⬇ Download SVG</button> <button onclick="downloadBEComparisonData('overlay')" class="svg-dl-btn" title="Download per-guide data for the overlay plot.">⬇ Download data</button></div>
             <div id="overlayDomainLegend" style="display:none; margin-bottom:20px; padding:8px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; flex-wrap:wrap; gap:8px; font-size:12px;"></div>
             <div id="vennContainer" style="width: 100%; height: 400px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 30px; display: none;"></div>
             <div id="correlationPlot" style="width: 100%; height: 500px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 4px; display: none;"></div>
-            <div id="correlationDownloadRow" style="text-align:right; margin-bottom:30px; display:none;"><button onclick="downloadSVG('correlationPlot','be_correlation')" class="svg-dl-btn">⬇ Download SVG</button></div>
+            <div id="correlationDownloadRow" style="text-align:right; margin-bottom:30px; display:none;"><button onclick="downloadSVG('correlationPlot','be_correlation')" class="svg-dl-btn">⬇ Download SVG</button> <button onclick="downloadBEComparisonData('correlation')" class="svg-dl-btn" title="Download per-common-guide data for the correlation plot.">⬇ Download data</button></div>
             <div id="uniqueGuidesPanel" style="display: none; margin-bottom: 30px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
                     <div>
@@ -2666,6 +2747,7 @@
                 };
             }
 
+            const addedGene = currentGene;
             currentGene = null;
             currentProteinSource = null;
             document.getElementById('geneSelectDropdown').value = '';
@@ -2675,6 +2757,20 @@
             document.getElementById('custProteinSeq').value = '';
             document.getElementById('proteinOptionsSection').classList.add('hidden');
             renderProteinConfigurations();
+
+            // Visual confirmation. Users were re-clicking Add because nothing
+            // visibly changed — the source section just collapses. Show a
+            // short banner above the list and scroll it into view.
+            const list = document.getElementById('proteinList');
+            if (list) {
+                const flash = document.createElement('div');
+                flash.style.cssText = 'background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:8px 12px; border-radius:6px; font-size:12px; margin-bottom:10px; transition:opacity 0.4s;';
+                flash.textContent = `✓ Added ${addedGene}. To add another protein, pick another gene above. Click "Load Data →" when done.`;
+                list.parentNode.insertBefore(flash, list);
+                list.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                setTimeout(function() { flash.style.opacity = '0'; }, 3500);
+                setTimeout(function() { flash.remove(); }, 4000);
+            }
         }
 
         function renderProteinConfigurations() {
@@ -3066,6 +3162,15 @@
                 return true;
             });
 
+            // F2: keep the axis-range bar in sync every render. switchView()
+            // also handles this, but on initial load the user starts on
+            // scatter without ever calling switchView, so the bar stayed
+            // hidden. Explicitly toggle here so the bar appears the moment
+            // there's a scatter or volcano on screen.
+            const _axisRangeBar = document.getElementById('axisRangeRow');
+            if (_axisRangeBar) {
+                _axisRangeBar.style.display = (currentView === 'scatter' || currentView === 'volcano') ? 'flex' : 'none';
+            }
             if (currentView === 'scatter') {
                 plotScatter(filteredData, statIdx, metric, selectedProtein);
             } else if (currentView === 'lollipop') {
@@ -3216,6 +3321,14 @@
                 yMax += yPadding;
             }
 
+            // Scatter X is always residue position (fixed by the protein),
+            // so we only honor the user's Y range / minor-ticks overrides
+            // here. X-range overrides are silently dropped — this matches the
+            // user's spec: "not when plotting protein residue".
+            const userAxes_s = getUserAxisOverrides();
+            const scatterYOverride = userAxes_s.yaxis || {};
+            const scatterMinor = userAxes_s.xaxis && userAxes_s.xaxis.minor
+                ? userAxes_s.xaxis.minor : null;
             const layout = {
                 title: {
                     text: `Scatter plot | ${selectedProtein} | ${data.length} guides | ${metricLabel}`,
@@ -3223,22 +3336,22 @@
                     xanchor: 'center',
                     font: { size: getGlobalFont().size + 1, family: getGlobalFont().family }
                 },
-                xaxis: {
+                xaxis: _mergeAxis({
                     title: { text: 'Amino acid residue', font: { size: getGlobalFont().size, family: getGlobalFont().family } },
                     tickfont: { size: getGlobalFont().size, family: getGlobalFont().family },
                     zeroline: false,
                     range: [0, protein.length],
                     showline: true, mirror: true, ticks: 'outside',
                     ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
-                },
-                yaxis: {
+                }, scatterMinor ? { minor: scatterMinor } : null),
+                yaxis: _mergeAxis({
                     title: { text: metricLabel, font: { size: getGlobalFont().size, family: getGlobalFont().family } },
                     tickfont: { size: getGlobalFont().size, family: getGlobalFont().family },
                     zeroline: true, zerolinewidth: 1.5, zerolinecolor: '#aaa',
                     range: [yMin, yMax],
                     showline: true, mirror: true, ticks: 'outside',
                     ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
-                },
+                }, scatterYOverride),
                 hovermode: 'closest',
                 plot_bgcolor: 'white',
                 paper_bgcolor: 'white',
@@ -3263,38 +3376,122 @@
             const metricLabel = getMetricLabel(metric);
             const metricKey = `${metric}_${statIdx}`;
 
+            // ──────────────────────────────────────────────────────────────────
+            // Lollipop data model: per-RESIDUE, per-MUTATION (not per-guide).
+            //
+            // For each residue r of the protein:
+            //   • Y axis = number of UNIQUE guides whose predicted mutations
+            //     touch r (a guide editing S45F + G46G + A47V counts at 45,
+            //     46, AND 47).
+            //   • Mutation types at r are derived from the actual mutation
+            //     tokens at that residue (via parseAllMutations), NOT from
+            //     the guide's category label. The guide-level category can
+            //     be Missense even when the edit at r happens to be Silent.
+            //   • Hover and click panel list each (guide, mutation@r, score
+            //     in the active metric) tuple.
+            //   • Cutoffs are already applied upstream — `data` is the
+            //     already-filtered slice.
+            // ──────────────────────────────────────────────────────────────────
             const residueStats = {};
 
-            data.forEach(d => {
-                if (!residueStats[d.residue]) {
-                    // guideRefs holds full guide objects so the pin panel can show each guide's edits.
-                    // guides[] (string ids) is kept for back-compat with hover/template code.
-                    residueStats[d.residue] = { count: 0, guides: [], guideRefs: [], categories: [] };
-                }
-                residueStats[d.residue].count++;
-                residueStats[d.residue].guides.push(d.guideID || d.guide || 'Guide');
-                residueStats[d.residue].guideRefs.push(d);
-                residueStats[d.residue].categories.push(d.category || 'Unknown');
+            // mut.type is set by parseAllMutations using _classifyMut.
+            // For position-mutations (Missense / Nonsense / Silent), include them
+            // here. Splice-site mutations have residue=null and are skipped — they
+            // don't belong on a residue-axis lollipop.
+            data.forEach(guide => {
+                let muts = Array.isArray(guide.mutations) ? guide.mutations : null;
+                if (!muts) muts = parseAllMutations(guide.rawMutations);
+
+                // Track which residues this guide already contributed to so a
+                // duplicate token (rare but possible) doesn't double-count.
+                const seenResidues = new Set();
+                muts.forEach(mut => {
+                    if (mut.residue == null) return; // splice-only — no residue
+                    const r = Math.floor(mut.residue);
+                    if (r <= 0) return;
+                    if (!residueStats[r]) {
+                        residueStats[r] = {
+                            count: 0,                    // unique guides at r
+                            guideRefs: [],               // unique guide objects
+                            seenGuideKeys: new Set(),    // dedupe set
+                            mutationEntries: [],         // {guide, mut, score, type}
+                            mutationTypes: []            // ['Missense', 'Silent', ...]
+                        };
+                    }
+                    // Local key (intentionally not the global guideKey()
+                    // function — different semantics; this one only needs
+                    // to be unique enough to dedupe within a single residue's
+                    // guide list).
+                    const localGuideKey = guide.guideID || guide.guide || ('row_' + (guide._rowIdx || JSON.stringify(guide).slice(0, 24)));
+                    if (!residueStats[r].seenGuideKeys.has(localGuideKey)) {
+                        residueStats[r].seenGuideKeys.add(localGuideKey);
+                        residueStats[r].guideRefs.push(guide);
+                        residueStats[r].count++;
+                    }
+                    if (!seenResidues.has(r + '|' + mut.raw)) {
+                        seenResidues.add(r + '|' + mut.raw);
+                        const score = guide[metricKey];
+                        residueStats[r].mutationEntries.push({
+                            guide: guide,
+                            // Use the smart fallback so a numeric-only guideID
+                            // column (often a misclick at column-mapping time)
+                            // doesn't masquerade as a real ID and end up
+                            // duplicating the score column visually.
+                            guideID: displayGuideLabel(guide, residueStats[r].mutationEntries.length + 1),
+                            mut: mut.raw,
+                            type: mut.type || 'Unknown',
+                            score: (score == null || isNaN(score)) ? null : score
+                        });
+                        residueStats[r].mutationTypes.push(mut.type || 'Unknown');
+                    }
+                });
             });
 
             const residues = Object.keys(residueStats).map(Number).filter(r => !isNaN(r)).sort((a, b) => a - b);
             
             const traces = [];
 
-            // Add lollipop sticks (vertical lines)
+            // Add lollipop sticks (vertical lines). Color is shared with the
+            // distribution / volcano baseline via getStemColor() so users only
+            // pick once.
+            const stemColor = getStemColor();
             residues.forEach(r => {
                 traces.push({
                     x: [r, r],
                     y: [0, residueStats[r].count],
                     mode: 'lines',
-                    line: { color: '#cbd5e0', width: 1 },
+                    line: { color: stemColor, width: 1 },
                     hoverinfo: 'skip',
                     showlegend: false
                 });
             });
 
-            // Add lollipop heads (circles) with user-configurable category colors/shapes
+            // Add lollipop heads (circles) with user-configurable category colors/shapes.
+            // The previous hardcoded `(5 + log(n+1)*2) * 1.5` ignored both the
+            // master size slider and the per-category Size dropdown. Now the
+            // base size comes from getMarkerStyle() (which already applies the
+            // master multiplier and per-category override), and we add a small
+            // count-driven bonus so dense residues still pop.
             const lms = getMarkerStyle();
+            // Dominant category at residue r is the most common MUTATION TYPE
+            // across the actual mutations at r — NOT the guides' categories.
+            // Tie-break order: Nonsense > Missense > Silent > Splice-site, so
+            // a residue with one nonsense and one missense gets the more
+            // severe color, matching how a biologist would visually classify
+            // it.
+            const SEVERITY = { 'Nonsense': 4, 'Missense': 3, 'Splice-site': 2, 'Silent': 1, 'Unknown': 0 };
+            const dominantCat = residues.map(r => {
+                const types = residueStats[r].mutationTypes;
+                const counts = {};
+                types.forEach(t => counts[t] = (counts[t] || 0) + 1);
+                const keys = Object.keys(counts);
+                if (!keys.length) return 'Unknown';
+                keys.sort((a, b) => {
+                    if (counts[a] !== counts[b]) return counts[b] - counts[a];
+                    return (SEVERITY[b] || 0) - (SEVERITY[a] || 0);
+                });
+                return keys[0];
+            });
             traces.push({
                 x: residues,
                 y: residues.map(r => residueStats[r].count),
@@ -3303,29 +3500,37 @@
                 name: 'Residues',
                 showlegend: false,
                 marker: {
-                    size: residues.map(r => (5 + Math.log(residueStats[r].count + 1) * 2) * 1.5),
-                    symbol: residues.map(r => {
-                        const cats = residueStats[r].categories;
-                        const counts = {};
-                        cats.forEach(c => counts[c] = (counts[c] || 0) + 1);
-                        const mostCommon = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-                        return lms.shapes[mostCommon] || 'circle';
+                    size: residues.map((r, i) => {
+                        const cat = dominantCat[i];
+                        const base = (lms.sizes && lms.sizes[cat]) || 9; // already master-scaled
+                        const countBonus = Math.log(residueStats[r].count + 1) * 1.5;
+                        return Math.max(4, Math.min(32, base + countBonus));
                     }),
-                    color: residues.map(r => {
-                        const cats = residueStats[r].categories;
-                        const counts = {};
-                        cats.forEach(c => counts[c] = (counts[c] || 0) + 1);
-                        const mostCommon = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-                        return lms.colors[mostCommon] || CATEGORY_COLORS[mostCommon] || '#95a5a6';
-                    }),
+                    symbol: residues.map((r, i) => lms.shapes[dominantCat[i]] || 'circle'),
+                    color:  residues.map((r, i) => lms.colors[dominantCat[i]] || CATEGORY_COLORS[dominantCat[i]] || '#95a5a6'),
                     opacity: lms.opacity,
                     line: { color: '#64748b', width: 1 }
                 },
                 text: residues.map(r => {
+                    const stats = residueStats[r];
                     let text = `<b>Residue ${r}</b><br>`;
-                    text += `Guides: ${residueStats[r].count}<br>`;
-                    // Keep hover concise — full list is in the click-to-pin panel
-                    text += `Top: ${residueStats[r].guides.slice(0, 2).join(', ')}<br>`;
+                    text += `Guides: ${stats.count}<br>`;
+                    // Per-residue mutation type breakdown — derived from the
+                    // actual edits at r, not from the guides' overall categories.
+                    const typeCounts = {};
+                    stats.mutationTypes.forEach(t => typeCounts[t] = (typeCounts[t] || 0) + 1);
+                    const typesStr = Object.entries(typeCounts)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([t, n]) => `${t}: ${n}`)
+                        .join(', ');
+                    if (typesStr) text += `Types at residue: ${typesStr}<br>`;
+                    // Show up to 2 (mutation, score) examples in the hover; the
+                    // pin panel below has the full list with all scores.
+                    const sample = stats.mutationEntries.slice(0, 2).map(e => {
+                        const s = (e.score == null) ? 'N/A' : (Math.abs(e.score) >= 0.01 ? e.score.toFixed(2) : e.score.toExponential(1));
+                        return `${e.mut} (${s})`;
+                    }).join(', ');
+                    if (sample) text += `Top: ${sample}<br>`;
                     text += `<i>Click for full list ▸</i>`;
                     return text;
                 }),
@@ -3346,6 +3551,17 @@
                 opacity: 0.08,
                 line: { width: 0 }
             })) : [];
+
+            // Baseline rule along the protein at y=0. Same color as the sticks
+            // so the whole "skeleton" reads as one element.
+            shapes.push({
+                type: 'line',
+                xref: 'x',
+                yref: 'y',
+                x0: 0, x1: protein ? protein.length : (residues.length ? Math.max(...residues) : 1),
+                y0: 0, y1: 0,
+                line: { color: stemColor, width: 1.5 }
+            });
 
             const counts = residues.map(r => residueStats[r].count);
             const yMax = Math.max(...counts);
@@ -3385,7 +3601,9 @@
 
             Plotly.newPlot('plotContainer', traces, layout, { responsive: true }).then((gd) => {
                 window.dispatchEvent(new Event('resize'));
-                // Click-to-pin: show ALL guides at the clicked residue in the pin panel
+                // Click-to-pin: show ALL guides at the clicked residue in the
+                // pin panel, with the actual mutation outcome at that residue
+                // and the score in the user's currently-selected metric.
                 gd.removeAllListeners && gd.removeAllListeners('plotly_click');
                 gd.on('plotly_click', function(ev) {
                     if (!ev || !ev.points || !ev.points.length) return;
@@ -3395,30 +3613,74 @@
                     const stats = residueStats[r];
                     if (!stats) return;
                     let html = `<div><strong>Residue ${r}</strong></div>`;
-                    html += `<div style="margin-top:4px;">Total guides: <strong>${stats.count}</strong></div>`;
-                    // Category breakdown
-                    const catCounts = {};
-                    stats.categories.forEach(c => { catCounts[c] = (catCounts[c] || 0) + 1; });
-                    if (Object.keys(catCounts).length) {
-                        html += '<div style="margin-top:8px;"><strong>By category</strong></div>';
+                    html += `<div style="margin-top:4px;">Unique guides hitting this residue: <strong>${stats.count}</strong></div>`;
+                    html += `<div style="margin-top:2px; color:#6b7280; font-size:11px;">Y axis = unique guides; one guide can edit multiple residues.</div>`;
+
+                    // Per-residue mutation TYPE breakdown — based on the actual
+                    // edit at this residue (parsed from the mutation token),
+                    // not the guide's overall category.
+                    const typeCounts = {};
+                    stats.mutationTypes.forEach(t => typeCounts[t] = (typeCounts[t] || 0) + 1);
+                    const typeKeys = Object.keys(typeCounts);
+                    if (typeKeys.length) {
+                        html += `<div style="margin-top:10px;"><strong>Mutation types at this residue</strong> <span style="color:#6b7280; font-weight:400; font-size:11px;">(per-edit, not per-guide)</span></div>`;
                         html += '<ul style="margin:4px 0 0 18px; padding:0;">';
-                        Object.entries(catCounts).forEach(([c, n]) => {
-                            html += `<li>${c}: ${n}</li>`;
+                        typeKeys.sort((a, b) => typeCounts[b] - typeCounts[a]).forEach(t => {
+                            const color = CATEGORY_COLORS[t] || '#95a5a6';
+                            html += `<li><span style="display:inline-block; width:9px; height:9px; background:${color}; border-radius:2px; margin-right:5px; vertical-align:middle;"></span>${t}: ${typeCounts[t]}</li>`;
                         });
                         html += '</ul>';
                     }
-                    // ALL guides with their user-provided edits — no slicing
-                    html += `<div style="margin-top:10px;"><strong>All guides (${stats.guideRefs.length})</strong></div>`;
-                    html += '<ul style="margin:4px 0 0 18px; padding:0;">';
-                    stats.guideRefs.forEach(g => {
-                        const gid = g.guideID || g.guide || 'Guide';
-                        const edits = g.rawMutations && String(g.rawMutations).trim();
-                        const editsHtml = edits
-                            ? ` — <span style="color:#374151;">${String(edits).trim()}</span>`
-                            : '';
-                        html += `<li><span style="color:#6b7280;">${gid}</span>${editsHtml}</li>`;
+
+                    // One row per unique guide. Predicted-mutations column
+                    // shows the FULL rawMutations string with the tokens at
+                    // residue r highlighted bold red.
+                    html += `<div style="margin-top:12px;"><strong>Guides editing residue ${r}</strong></div>`;
+                    const seenG = new Set();
+                    const guideRows = [];
+                    stats.mutationEntries.forEach(e => {
+                        const g = e.guide || {};
+                        const key = g.guideID || g.guide || JSON.stringify(g).slice(0,30);
+                        if (seenG.has(key)) return;
+                        seenG.add(key);
+                        guideRows.push(g);
                     });
-                    html += '</ul>';
+                    guideRows.sort((a, b) => {
+                        const sa = a[`zscore_${statIdx}`]; const sb = b[`zscore_${statIdx}`];
+                        const va = (sa == null || isNaN(sa)) ? -Infinity : sa;
+                        const vb = (sb == null || isNaN(sb)) ? -Infinity : sb;
+                        return vb - va;
+                    });
+                    const fmtN = v => (v == null || isNaN(v)) ? '—' : (Math.abs(v) >= 0.01 ? Number(v).toFixed(3) : Number(v).toExponential(2));
+                    const scoreLbl = getScoreLabel();
+                    const highlightAtR = (raw, residue) => {
+                        if (!raw) return '—';
+                        const esc = String(raw).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+                        const re = new RegExp('((?:p\\.)?[A-Z][a-z]{2}' + residue + '(?:[A-Z][a-z]{2}|Ter|TER|\\*)|[ARNDCQEGHILKMFPSTWYV]' + residue + '[ARNDCQEGHILKMFPSTWYV*X])', 'g');
+                        return esc.replace(re, '<strong style="color:#dc2626;">$1</strong>');
+                    };
+                    html += '<div style="margin-top:6px; overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:11px; table-layout:auto;">';
+                    html += '<thead><tr style="background:#f3f4f6; text-align:left;">'
+                         + '<th style="padding:5px 8px; white-space:nowrap;">Guide ID</th>'
+                         + '<th style="padding:5px 8px;">Predicted mutations</th>'
+                         + `<th style="padding:5px 8px; text-align:right; white-space:nowrap;">${scoreLbl}</th>`
+                         + '<th style="padding:5px 8px; text-align:right; white-space:nowrap;">LFC</th>'
+                         + '<th style="padding:5px 8px; text-align:right; white-space:nowrap;">-log10P</th>'
+                         + '<th style="padding:5px 8px; text-align:right; white-space:nowrap;">-log10FDR</th>'
+                         + '</tr></thead><tbody>';
+                    guideRows.forEach((g, idx) => {
+                        const gid = displayGuideLabel(g, idx + 1);
+                        const muts = highlightAtR(g.rawMutations, r);
+                        html += '<tr style="border-top:1px solid #e5e7eb;">'
+                             + `<td style="padding:5px 8px; color:#374151; white-space:nowrap;">${gid}</td>`
+                             + `<td style="padding:5px 8px; color:#374151;">${muts}</td>`
+                             + `<td style="padding:5px 8px; text-align:right; white-space:nowrap;">${fmtN(g[`zscore_${statIdx}`])}</td>`
+                             + `<td style="padding:5px 8px; text-align:right; white-space:nowrap;">${fmtN(g[`foldchange_${statIdx}`])}</td>`
+                             + `<td style="padding:5px 8px; text-align:right; white-space:nowrap;">${fmtN(g[`logpvalue_${statIdx}`])}</td>`
+                             + `<td style="padding:5px 8px; text-align:right; white-space:nowrap;">${fmtN(g[`logfdr_${statIdx}`])}</td>`
+                             + '</tr>';
+                    });
+                    html += '</tbody></table></div>';
                     document.getElementById('pinPanel').dataset.justOpened = '1';
                     openPinPanel(ev.event, `Residue ${r}`, html);
                 });
@@ -3601,16 +3863,18 @@
         // line / table cells update through one code path. Two-way sync also
         // means switching to scatter/lollipop afterwards inherits this value.
         function onDistCutoffInput(val) {
-            if (!_lastDistArgs) return;
-            const sidebarId = _distCutoffSidebarId(_lastDistArgs.metric);
-            const sidebarEl = sidebarId ? document.getElementById(sidebarId) : null;
-            if (sidebarEl) {
-                sidebarEl.value = val;
-                // Fire input event so any other listeners react too.
-                sidebarEl.dispatchEvent(new Event('input', { bubbles: true }));
+            // F4: do NOT propagate the histogram cutoff back to the global
+            // sidebar inputs. The user expects the distribution-view cutoff
+            // to be local to that view (a reference line + the % column),
+            // not a global filter. Pushing it to zcutoffSelect/fccutoffSelect
+            // caused the same dashed line to render on the volcano next time
+            // the user switched views.
+            //
+            // We just re-render the distribution; plotDistribution reads the
+            // local input value directly (see _readDistCutoffOnAxis below).
+            if (typeof plotDistributionFromControls === 'function') {
+                plotDistributionFromControls();
             }
-            // The sidebar input's inline oninput handler runs updatePlotAndHeatmap,
-            // which re-renders the distribution view. No second call needed.
         }
 
         // Push the current sidebar cutoff value into the Distribution bar's
@@ -3707,6 +3971,14 @@
             const xMax = allVisible.length ? Math.max(...allVisible) :  1;
             const range = xMax - xMin || 1;
             const binWidth = userBins > 0 ? (range / userBins) : fdW;
+            // Live bin-width readout. Show 3 sig figs for small widths; let
+            // the user know the units match the active metric.
+            const bwLbl = document.getElementById('distBinWidthLabel');
+            if (bwLbl) {
+                const w = binWidth;
+                const txt = (w >= 1) ? w.toFixed(2) : (w >= 0.01 ? w.toFixed(3) : w.toExponential(2));
+                bwLbl.textContent = 'width: ' + txt;
+            }
 
             const traces = [];
 
@@ -3777,16 +4049,29 @@
                     y0: 0, y1: 1,
                     line: { color, width: 1.5, dash: 'dash' }
                 });
+                // Place the label INSIDE the plot, just below the top frame,
+                // and to the right of the dotted line. Putting it at y=1.02
+                // (above the frame) collides with the plot title; using
+                // y=0.98 with yanchor:top + xshift keeps it fully inside the
+                // visible area and beside (not on top of) the line.
                 annotations.push({
-                    x: x, xref: 'x', y: 1.02, yref: 'paper',
+                    x: x, xref: 'x', y: 0.98, yref: 'paper',
+                    xshift: 5, yshift: -2,
+                    xanchor: 'left', yanchor: 'top',
                     text: label, showarrow: false,
-                    font: { size: 10, color }
+                    font: { size: 10, color },
+                    bgcolor: 'rgba(255,255,255,0.85)', borderpad: 1
                 });
             };
             if (showZero) addLine(0, '#111827', 'x=0');
 
             if (showCutoff) {
                 // Use whichever cutoff matches the active metric.
+                // F4: prefer the distribution-local input (#distCutoffInput);
+                // fall back to the global sidebar input only if the user hasn't
+                // typed a local value. This keeps the histogram cutoff visual
+                // separate from global filtering — so it doesn't bleed into
+                // the volcano / scatter on the next view-switch.
                 const cutoffMap = {
                     zscore:    ['zcutoffSelect',  'zcutoffDir'],
                     foldchange:['fccutoffSelect', 'fccutoffDir'],
@@ -3795,7 +4080,12 @@
                 };
                 const pair = cutoffMap[metric];
                 if (pair) {
-                    const cutRaw = parseFloat((document.getElementById(pair[0]) || {}).value || '0');
+                    const distLocal = (document.getElementById('distCutoffInput') || {}).value;
+                    const distLocalNum = parseFloat(distLocal);
+                    const sidebarRaw = parseFloat((document.getElementById(pair[0]) || {}).value || '0');
+                    const cutRaw = (distLocal != null && distLocal !== '' && !isNaN(distLocalNum))
+                        ? distLocalNum
+                        : sidebarRaw;
                     const cutDir = (document.getElementById(pair[1]) || {}).value || '>=';
                     const isOneSided = (metric === 'logpvalue' || metric === 'logfdr');
                     if (cutRaw > 0) {
@@ -3804,13 +4094,14 @@
                             // axis is -log10(p). Convert before drawing.
                             const xOnAxis = (cutRaw < 1) ? -Math.log10(cutRaw) : cutRaw;
                             addLine(xOnAxis, '#dc2626', `cutoff p≤${cutRaw} (-log10=${xOnAxis.toFixed(2)})`);
-                        } else if (cutDir === '>=' || cutDir === '>') {
-                            addLine(cutRaw, '#dc2626', `cutoff +${cutRaw}`);
                         } else if (cutDir === '<=' || cutDir === '<') {
+                            // User explicitly asked for a negative-direction
+                            // cutoff — draw it on the negative side.
                             addLine(-cutRaw, '#dc2626', `cutoff -${cutRaw}`);
                         } else {
-                            addLine(cutRaw, '#dc2626', `+${cutRaw}`);
-                            addLine(-cutRaw, '#dc2626', `-${cutRaw}`);
+                            // Default / "≥" direction. Per #11, we no longer
+                            // draw the mirror line on the negative side.
+                            addLine(cutRaw, '#dc2626', `cutoff +${cutRaw}`);
                         }
                     }
                 }
@@ -3880,9 +4171,19 @@
             //    meaning; showing it would be misleading.
             const fmt = (x) => (x == null || isNaN(x)) ? '—' : x.toFixed(3);
             const pct = (n, d) => d ? ((100 * n / d).toFixed(1) + '%') : '—';
+            // F4: prefer the distribution-local cutoff value over the sidebar
+            // so the % column reflects what the user typed in this view, not
+            // a stale global filter from earlier.
             const cutoffPair = ({ zscore: 'zcutoffSelect', foldchange: 'fccutoffSelect',
                                   logpvalue: 'pcutoffSelect', logfdr: 'fdrcutoffSelect' })[metric];
-            let cutoffVal = cutoffPair ? parseFloat((document.getElementById(cutoffPair) || {}).value || '0') : 0;
+            const _distLocalRaw = (document.getElementById('distCutoffInput') || {}).value;
+            const _distLocalNum = parseFloat(_distLocalRaw);
+            let cutoffVal;
+            if (_distLocalRaw != null && _distLocalRaw !== '' && !isNaN(_distLocalNum)) {
+                cutoffVal = _distLocalNum;
+            } else {
+                cutoffVal = cutoffPair ? parseFloat((document.getElementById(cutoffPair) || {}).value || '0') : 0;
+            }
             if (!isFinite(cutoffVal)) cutoffVal = 0;
             const oneSided = (metric === 'logpvalue' || metric === 'logfdr');
             // For p/FDR the user enters the raw threshold (e.g. 0.05); we plot
@@ -3897,9 +4198,11 @@
                 const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
                 const median = q(0.5);
                 const iqr = q(0.75) - q(0.25);
-                const negFrac = (!oneSided && cutoffVal > 0) ? vals.filter(v => v <= -cutoffVal).length : 0;
+                // Per #11: histogram only needs the "> cutoff" tail. The negFrac
+                // column was clutter for typical use; biologists checking a
+                // positive cutoff don't also want the mirror tail by default.
                 const posFrac = (cutoffOnAxis > 0) ? vals.filter(v => v >= cutoffOnAxis).length : 0;
-                return { n: vals.length, mean, median, iqr, neg: negFrac, pos: posFrac };
+                return { n: vals.length, mean, median, iqr, neg: 0, pos: posFrac };
             };
             const rows = [];
             if (showNTCBand && ntcValues.length) rows.push(['NTC', '#6b7280', summarize(ntcValues)]);
@@ -3915,7 +4218,7 @@
                 const posHeader = oneSided
                     ? `% passing (≥ ${cutoffLabel})`
                     : `% ≥ +${cutoffLabel}`;
-                const negHeader = `% ≤ -${cutoffLabel}`;
+                // #11: dropped the symmetric "% ≤ -cutoff" column.
 
                 let h = '<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">';
                 h += '<thead><tr style="background:#f3f4f6; text-align:left;">' +
@@ -3924,7 +4227,6 @@
                      '<th style="padding:6px 10px; text-align:right;">Mean</th>' +
                      '<th style="padding:6px 10px; text-align:right;">Median</th>' +
                      '<th style="padding:6px 10px; text-align:right;">IQR</th>';
-                if (!oneSided) h += `<th style="padding:6px 10px; text-align:right;">${negHeader}</th>`;
                 h += `<th style="padding:6px 10px; text-align:right;">${posHeader}</th>`;
                 h += '</tr></thead><tbody>';
                 rows.forEach(([name, color, s]) => {
@@ -3935,7 +4237,6 @@
                         `<td style="padding:6px 10px; text-align:right;">${fmt(s.mean)}</td>` +
                         `<td style="padding:6px 10px; text-align:right;">${fmt(s.median)}</td>` +
                         `<td style="padding:6px 10px; text-align:right;">${fmt(s.iqr)}</td>`;
-                    if (!oneSided) h += `<td style="padding:6px 10px; text-align:right;">${cutoffVal > 0 ? pct(s.neg, s.n) : '—'}</td>`;
                     h += `<td style="padding:6px 10px; text-align:right;">${cutoffOnAxis > 0 ? pct(s.pos, s.n) : '—'}</td>`;
                     h += '</tr>';
                 });
@@ -3943,6 +4244,36 @@
                 statsHost.innerHTML = h;
                 statsHost.style.display = 'block';
             }
+        }
+
+        // ─── Axis override helper (#10) ─────────────────────────────────────────
+        // Reads the four range inputs + the minor-ticks toggle from the
+        // axis-range bar and returns a partial axis object to merge into
+        // Plotly layout.xaxis / yaxis. Empty inputs leave Plotly's auto
+        // ranging in place. Used by plotScatter and plotVolcano.
+        function getUserAxisOverrides() {
+            const num = id => {
+                const el = document.getElementById(id);
+                if (!el) return null;
+                const v = parseFloat(el.value);
+                return isFinite(v) ? v : null;
+            };
+            const xMin = num('axisXMin'),  xMax = num('axisXMax');
+            const yMin = num('axisYMin'),  yMax = num('axisYMax');
+            const out = { xaxis: {}, yaxis: {} };
+            if (xMin !== null || xMax !== null) {
+                out.xaxis.range = [xMin !== null ? xMin : undefined, xMax !== null ? xMax : undefined];
+                out.xaxis.autorange = false;
+            }
+            if (yMin !== null || yMax !== null) {
+                out.yaxis.range = [yMin !== null ? yMin : undefined, yMax !== null ? yMax : undefined];
+                out.yaxis.autorange = false;
+            }
+            return out;
+        }
+        // Shallow-merge two axis specs without mutating the original.
+        function _mergeAxis(base, override) {
+            return Object.assign({}, base, override || {});
         }
 
         // ─── Global font helpers ────────────────────────────────────────────────
@@ -4203,6 +4534,14 @@
                 + '<span id="markerMasterSizeVal" style="font-size:11px; color:#6b7280; min-width:34px;">1.00×</span>';
             bar.appendChild(szWrap);
 
+            // ── Stem / baseline color (lollipop sticks, distribution rules,
+            //    volcano control-band line). One picker, all three views.
+            const stemWrap = document.createElement('div');
+            stemWrap.style.cssText = 'display:flex; align-items:center; gap:6px;';
+            stemWrap.innerHTML = '<span style="font-size:11px; color:#6b7280;" title="Color of the lollipop sticks and the baseline rule across lollipop, volcano, distribution.">Stem color:</span>'
+                + '<input type="color" id="markerStemColor" value="#cbd5e0" title="Stem color — baseline rule across lollipop, volcano, distribution" style="width:28px; height:24px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;">';
+            bar.appendChild(stemWrap);
+
             // ── Customize toggle ───────────────────────────
             const customWrap = document.createElement('label');
             customWrap.style.cssText = 'display:flex; align-items:center; gap:5px; font-size:11px; color:#374151; cursor:pointer; user-select:none;';
@@ -4212,9 +4551,25 @@
             // ── Custom panel (initially hidden) ────────────
             const custom = document.createElement('div');
             custom.id = 'markerCustomPanel';
-            custom.style.cssText = 'display:none; flex-basis:100%; padding:10px; margin-top:6px; background:white; border:1px solid #e5e7eb; border-radius:6px;';
+            custom.style.cssText = 'display:none; flex-basis:100%; padding:10px; margin-top:6px; background:white; border:1px solid #e5e7eb; border-radius:6px; position:relative;';
+            // Minimize button — once the user has set colors, they typically
+            // want the panel out of the way without un-checking the toggle
+            // (which would also reset the visual state on next open).
+            const minBtn = document.createElement('button');
+            minBtn.type = 'button';
+            minBtn.title = 'Minimize this panel (settings are kept)';
+            minBtn.textContent = 'Minimize ▴';
+            minBtn.style.cssText = 'position:absolute; top:6px; right:8px; padding:2px 8px; font-size:10px; border:1px solid #d1d5db; border-radius:4px; background:white; cursor:pointer; color:#6b7280;';
+            minBtn.addEventListener('click', () => {
+                custom.style.display = 'none';
+                // Keep the toggle checkbox in sync with the visible state so
+                // the user can re-open by re-checking it.
+                const tg = document.getElementById('markerCustomToggle');
+                if (tg) tg.checked = false;
+            });
+            custom.appendChild(minBtn);
             const grid = document.createElement('div');
-            grid.style.cssText = 'display:grid; grid-template-columns: 100px 1fr 1fr 1fr; gap:8px 10px; align-items:center; font-size:11px;';
+            grid.style.cssText = 'display:grid; grid-template-columns: 100px 1fr 1fr 1fr; gap:8px 10px; align-items:center; font-size:11px; margin-top:8px;';
             // Header row
             ['', 'Shape', 'Color', 'Size'].forEach((h, i) => {
                 const cell = document.createElement('div');
@@ -4295,6 +4650,16 @@
                 custom.style.display = togg.checked ? 'block' : 'none';
                 updatePlot();
             });
+
+            // Stem color → re-render. 'change' (not 'input') so we don't replot
+            // on every pixel of the OS color-picker drag.
+            const stemInp = document.getElementById('markerStemColor');
+            if (stemInp) stemInp.addEventListener('change', updatePlot);
+        }
+        // Helper used by lollipop / distribution / volcano rules.
+        function getStemColor() {
+            const el = document.getElementById('markerStemColor');
+            return (el && el.value) || '#cbd5e0';
         }
 
         // When the user picks a different preset, mirror its values into the per-category
@@ -4389,7 +4754,22 @@
             // Custom panel — TWO screens stacked
             const custom = document.createElement('div');
             custom.id = 'cmpCustomPanel';
-            custom.style.cssText = 'display:none; flex-basis:100%; padding:10px; margin-top:6px; background:white; border:1px solid #e5e7eb; border-radius:6px;';
+            custom.style.cssText = 'display:none; flex-basis:100%; padding:10px; margin-top:6px; background:white; border:1px solid #e5e7eb; border-radius:6px; position:relative;';
+
+            // F5: Minimize button — same affordance as the BE single-mode
+            // panel so users on either side of the app behave consistently.
+            const cmpMinBtn = document.createElement('button');
+            cmpMinBtn.type = 'button';
+            cmpMinBtn.title = 'Minimize this panel (settings are kept)';
+            cmpMinBtn.textContent = 'Minimize ▴';
+            cmpMinBtn.style.cssText = 'position:absolute; top:6px; right:8px; padding:2px 8px; font-size:10px; border:1px solid #d1d5db; border-radius:4px; background:white; cursor:pointer; color:#6b7280;';
+            cmpMinBtn.addEventListener('click', () => {
+                custom.style.display = 'none';
+                const tg = document.getElementById('cmpCustomToggle');
+                if (tg) tg.checked = false;
+            });
+            custom.appendChild(cmpMinBtn);
+
             const nameA = (screenConfigs && screenConfigs.A && screenConfigs.A.name) || 'Screen A';
             const nameB = (screenConfigs && screenConfigs.B && screenConfigs.B.name) || 'Screen B';
             ['A','B'].forEach((s, idx) => {
@@ -4530,6 +4910,303 @@
             Plotly.downloadImage(divId, { format: 'svg', filename: filename || divId, width: 1400, height: 700 });
         }
 
+        // Save an array of row objects as CSV.
+        function _csvDownload(rows, filename) {
+            if (!rows || !rows.length) { alert('No data to export.'); return; }
+            const cols = Object.keys(rows[0]);
+            const esc = v => {
+                if (v == null) return '';
+                const s = String(v);
+                return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+            };
+            const csv = [cols.join(',')]
+                .concat(rows.map(r => cols.map(c => esc(r[c])).join(',')))
+                .join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url  = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+        }
+
+        // Save multiple row arrays as a single .xlsx with named sheets.
+        function _xlsxDownload(sheets, filename) {
+            const wb = XLSX.utils.book_new();
+            sheets.forEach(({ name, rows }) => {
+                const ws = XLSX.utils.json_to_sheet(rows || []);
+                XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+            });
+            XLSX.writeFile(wb, filename);
+        }
+
+        // Export the data behind the current main-plot view.
+        //  • lollipop: .xlsx with two sheets — per-residue (one row each,
+        //              the lollipop itself) + per-edit detail.
+        //  • distribution: one row per bin per category (or per ECDF point).
+        //  • scatter / volcano: one row per guide with active stats.
+        //  • heatmap: one row per residue with the aggregated metric value.
+        //  • table: one row per guide (already filtered).
+        // BE comparison data export.
+        function downloadBEComparisonData(which) {
+            const selectedGene = (document.getElementById('comparisonProteinSelect') || {}).value || '';
+            const statIdxA = 0, statIdxB = 0;
+            const metric = (document.getElementById('comparisonMetricSelect') || {}).value || 'zscore';
+            const mutationType = (document.getElementById('comparisonMutationSelect') || {}).value || 'all';
+            const sheetA = (document.getElementById('comparisonSheetSelectA') || {}).value || '';
+            const sheetB = (document.getElementById('comparisonSheetSelectB') || {}).value || '';
+            const rawA = (screenConfigs.A.allProcessedSheets?.[sheetA] || { data: screenConfigs.A.processedData }).data;
+            const rawB = (screenConfigs.B.allProcessedSheets?.[sheetB] || { data: screenConfigs.B.processedData }).data;
+            const dataA = filterDataForComparison(rawA, selectedGene, mutationType, screenConfigs.A.columnMapping);
+            const dataB = filterDataForComparison(rawB, selectedGene, mutationType, screenConfigs.B.columnMapping);
+            const cutsA = readCutoffs('A'); const cutsB = readCutoffs('B');
+            const passA = applyComparisonCutoffs(dataA, statIdxA, cutsA.z, cutsA.fc, cutsA.p, cutsA.fdr, cutsA.hit, cutsA.zDir, cutsA.fcDir, cutsA.pDir, cutsA.fdrDir);
+            const passB = applyComparisonCutoffs(dataB, statIdxB, cutsB.z, cutsB.fc, cutsB.p, cutsB.fdr, cutsB.hit, cutsB.zDir, cutsB.fcDir, cutsB.pDir, cutsB.fdrDir);
+            const nameA = screenConfigs.A.name || 'Screen A';
+            const nameB = screenConfigs.B.name || 'Screen B';
+            const scoreLbl = getScoreLabel();
+            const base = 'editscreen_be_' + (which || 'comparison') + '_' + (selectedGene || 'data');
+
+            if (which === 'overlay') {
+                const { common, aOnly, bOnly } = matchGuides(passA, passB);
+                const rows = [];
+                const pushRow = (group, screen, g) => {
+                    rows.push({
+                        group: group,
+                        screen: screen,
+                        guide_id: displayGuideLabel(g, 0),
+                        guide_sequence: g.guide || '',
+                        residue: g.residue,
+                        category: g.category || '',
+                        predicted_mutations: g.rawMutations || '',
+                        [scoreLbl]: g[`zscore_${statIdxA}`],
+                        log2_foldchange: g[`foldchange_${statIdxA}`],
+                        neg_log10_pvalue: g[`logpvalue_${statIdxA}`],
+                        neg_log10_fdr:    g[`logfdr_${statIdxA}`]
+                    });
+                };
+                common.forEach(p => { pushRow('common', nameA, p.A); pushRow('common', nameB, p.B); });
+                aOnly.forEach(g => pushRow(nameA + ' only', nameA, g));
+                bOnly.forEach(g => pushRow(nameB + ' only', nameB, g));
+                _csvDownload(rows, base + '_data.csv');
+                return;
+            }
+
+            if (which === 'correlation') {
+                const { common } = matchGuides(passA, passB);
+                const rows = common.map(p => ({
+                    guide_id: displayGuideLabel(p.A, 0),
+                    guide_sequence: p.A.guide || p.B.guide || '',
+                    residue: p.A.residue,
+                    category: p.A.category || '',
+                    predicted_mutations: p.A.rawMutations || '',
+                    [`${scoreLbl} (${nameA})`]: p.A[`zscore_${statIdxA}`],
+                    [`${scoreLbl} (${nameB})`]: p.B[`zscore_${statIdxB}`],
+                    [`log2_foldchange (${nameA})`]: p.A[`foldchange_${statIdxA}`],
+                    [`log2_foldchange (${nameB})`]: p.B[`foldchange_${statIdxB}`],
+                    [`neg_log10_pvalue (${nameA})`]: p.A[`logpvalue_${statIdxA}`],
+                    [`neg_log10_pvalue (${nameB})`]: p.B[`logpvalue_${statIdxB}`],
+                    [`neg_log10_fdr (${nameA})`]: p.A[`logfdr_${statIdxA}`],
+                    [`neg_log10_fdr (${nameB})`]: p.B[`logfdr_${statIdxB}`]
+                }));
+                _csvDownload(rows, base + '_data.csv');
+                return;
+            }
+        }
+
+        function downloadPlotData() {
+            const view = (typeof currentView !== 'undefined') ? currentView : 'scatter';
+            const protein = (document.getElementById('proteinSelect') || {}).value || '';
+            const metric  = (document.getElementById('metricSelect')  || {}).value || 'zscore';
+            const statIdx = 0;
+            const fnameBase = 'editscreen_' + (view || 'plot') + '_' + (protein || 'data');
+            const data = (typeof filteredData !== 'undefined' && filteredData) ? filteredData : [];
+
+            if (view === 'lollipop') {
+                const SEVERITY = { 'Nonsense': 4, 'Missense': 3, 'Splice-site': 2, 'Silent': 1, 'Unknown': 0 };
+                const stats = {};
+                data.forEach(g => {
+                    const muts = Array.isArray(g.mutations) ? g.mutations : parseAllMutations(g.rawMutations);
+                    const seen = new Set();
+                    muts.forEach(m => {
+                        if (m.residue == null) return;
+                        const r = Math.floor(m.residue);
+                        if (r <= 0) return;
+                        if (!stats[r]) stats[r] = { residue: r, guides: new Set(), types: {}, edits: [] };
+                        const k = g.guideID || g.guide || '_';
+                        stats[r].guides.add(k);
+                        stats[r].types[m.type] = (stats[r].types[m.type] || 0) + 1;
+                        if (!seen.has(r + '|' + m.raw)) {
+                            seen.add(r + '|' + m.raw);
+                            stats[r].edits.push({
+                                guide_id: displayGuideLabel(g, 0),
+                                mutation: m.raw,
+                                type: m.type,
+                                zscore: g[`zscore_${statIdx}`],
+                                foldchange: g[`foldchange_${statIdx}`],
+                                logpvalue: g[`logpvalue_${statIdx}`],
+                                logfdr: g[`logfdr_${statIdx}`]
+                            });
+                        }
+                    });
+                });
+                const sortedRes = Object.keys(stats).map(Number).sort((a,b) => a-b);
+                const scoreLbl = getScoreLabel();
+                const perResidue = sortedRes.map(r => {
+                    const s = stats[r];
+                    const keys = Object.keys(s.types);
+                    keys.sort((a,b) => {
+                        if (s.types[a] !== s.types[b]) return s.types[b] - s.types[a];
+                        return (SEVERITY[b] || 0) - (SEVERITY[a] || 0);
+                    });
+                    return {
+                        residue: r,
+                        unique_guides: s.guides.size,
+                        dominant_type: keys[0] || '',
+                        Missense:    s.types['Missense']    || 0,
+                        Nonsense:    s.types['Nonsense']    || 0,
+                        Silent:      s.types['Silent']      || 0,
+                        'Splice-site': s.types['Splice-site'] || 0,
+                        mutations_at_residue: s.edits.map(e => e.mutation).join(';')
+                    };
+                });
+                const perEdit = [];
+                sortedRes.forEach(r => {
+                    stats[r].edits.forEach(e => {
+                        perEdit.push({
+                            residue: r,
+                            guide_id: e.guide_id,
+                            mutation_at_residue: e.mutation,
+                            mutation_type: e.type,
+                            [scoreLbl]: e.zscore,
+                            log2_foldchange: e.foldchange,
+                            neg_log10_pvalue: e.logpvalue,
+                            neg_log10_fdr: e.logfdr
+                        });
+                    });
+                });
+                _xlsxDownload(
+                    [{ name: 'Per residue (plot)', rows: perResidue },
+                     { name: 'Per edit (detail)',   rows: perEdit }],
+                    fnameBase + '_lollipop_data.xlsx'
+                );
+                return;
+            }
+
+            if (view === 'distribution') {
+                const args = (typeof _lastDistArgs !== 'undefined') ? _lastDistArgs : null;
+                if (!args) { alert('Render the distribution view first.'); return; }
+                const distData = args.data || [];
+                const ntcVals = (args.controls || []).map(d => d[`${args.metric}_${args.statIdx}`]).filter(v => v != null && !isNaN(v));
+                const isProb = (document.querySelector('input[name="distNorm"]:checked') || {}).value !== 'count';
+                const mode   = (document.querySelector('input[name="distMode"]:checked') || {}).value || 'histogram';
+                const userBins = parseInt((document.getElementById('distBins') || {}).value || '0', 10);
+                const metricKey = `${args.metric}_${args.statIdx}`;
+
+                // Group by category (NTC handled separately).
+                const byCat = {};
+                distData.forEach(d => {
+                    const v = d[metricKey];
+                    if (v == null || isNaN(v)) return;
+                    const cat = d.category || 'Unknown';
+                    (byCat[cat] = byCat[cat] || []).push(v);
+                });
+                const enabled = new Set();
+                Object.keys(byCat).forEach(cat => {
+                    const id = 'distCat_' + cat.replace(/[^A-Za-z0-9]/g, '_');
+                    const cb = document.getElementById(id);
+                    if (!cb || cb.checked) enabled.add(cat);
+                });
+
+                if (mode === 'ecdf') {
+                    const rows = [];
+                    const writeECDF = (vals, name) => {
+                        const sorted = vals.slice().sort((a,b) => a-b);
+                        const n = sorted.length;
+                        sorted.forEach((v,i) => rows.push({ category: name, x: v, F_x: (i+1)/n }));
+                    };
+                    if ((document.getElementById('distShowNTCBand')||{}).checked && ntcVals.length) writeECDF(ntcVals, 'NTC');
+                    Object.keys(byCat).forEach(cat => { if (enabled.has(cat)) writeECDF(byCat[cat], cat); });
+                    _csvDownload(rows, fnameBase + '_distribution_ecdf.csv');
+                    return;
+                }
+
+                // Histogram: replicate the bin math used in plotDistribution.
+                const allVisible = [];
+                Object.keys(byCat).forEach(cat => { if (enabled.has(cat)) allVisible.push(...byCat[cat]); });
+                if ((document.getElementById('distShowNTCBand')||{}).checked && ntcVals.length) allVisible.push(...ntcVals);
+                if (!allVisible.length) { alert('No values to export.'); return; }
+                const xMin = Math.min(...allVisible);
+                const xMax = Math.max(...allVisible);
+                const range = (xMax - xMin) || 1;
+                const fdW = fdBinWidth(allVisible);
+                const binWidth = userBins > 0 ? (range / userBins) : fdW;
+                const nBins = Math.max(1, Math.ceil(range / binWidth));
+                const edges = Array.from({ length: nBins + 1 }, (_, i) => xMin + i * binWidth);
+                const binnedRows = [];
+                const binVals = (vals, name) => {
+                    const counts = new Array(nBins).fill(0);
+                    vals.forEach(v => {
+                        let i = Math.floor((v - xMin) / binWidth);
+                        if (i < 0) i = 0;
+                        if (i >= nBins) i = nBins - 1;
+                        counts[i]++;
+                    });
+                    const total = vals.length;
+                    counts.forEach((c, i) => {
+                        binnedRows.push({
+                            category: name,
+                            bin_index: i,
+                            bin_start: edges[i],
+                            bin_end:   edges[i+1],
+                            bin_center: (edges[i] + edges[i+1]) / 2,
+                            count: c,
+                            density: isProb && total > 0 ? c / (total * binWidth) : ''
+                        });
+                    });
+                };
+                if ((document.getElementById('distShowNTCBand')||{}).checked && ntcVals.length) binVals(ntcVals, 'NTC');
+                Object.keys(byCat).forEach(cat => { if (enabled.has(cat)) binVals(byCat[cat], cat); });
+                _csvDownload(binnedRows, fnameBase + '_distribution_histogram.csv');
+                return;
+            }
+
+            if (view === 'heatmap') {
+                const seq = ((typeof proteins !== 'undefined') && proteins[protein] && proteins[protein].sequence) || '';
+                const cells = document.querySelectorAll('#heatmapContainer .heatmap-cell');
+                const rows = [];
+                let pos = 0;
+                cells.forEach(cell => {
+                    pos++;
+                    const raw = cell.dataset.rawValue;
+                    rows.push({
+                        residue: pos,
+                        amino_acid: seq[pos-1] || '',
+                        metric: (typeof getMetricLabel === 'function') ? getMetricLabel(metric) : metric,
+                        value: (raw === '' || raw == null) ? '' : raw
+                    });
+                });
+                _csvDownload(rows, fnameBase + '_heatmap_data.csv');
+                return;
+            }
+
+            // scatter / volcano / table — one row per guide.
+            const rows = data.map(g => ({
+                guide_id: displayGuideLabel(g, 0),
+                guide_sequence: g.guide || '',
+                gene: g.gene || '',
+                residue: g.residue,
+                category: g.category || '',
+                predicted_mutations: g.rawMutations || '',
+                high_in_treatment: g.highInTreatment || '',
+                [`${getScoreLabel()}`]: g[`zscore_${statIdx}`],
+                'log2_foldchange': g[`foldchange_${statIdx}`],
+                'neg_log10_pvalue': g[`logpvalue_${statIdx}`],
+                'neg_log10_fdr':    g[`logfdr_${statIdx}`]
+            }));
+            _csvDownload(rows, fnameBase + '_' + view + '_data.csv');
+        }
+
         // Heatmap is rendered as DOM cells (not Plotly), so it can't go through
         // Plotly.downloadImage. Walk the rendered cells and build an SVG by hand.
         function downloadHeatmapSVG() {
@@ -4539,7 +5216,9 @@
                 return;
             }
             const cellW = 16, cellH = 16, gap = 1;
-            const labelW = 90, posRowH = 14, aaRowH = 16, valRowH = 16;
+            // labelW must match the on-screen .heatmap-label width so the
+            // exported SVG aligns identically to what the user sees.
+            const labelW = 110, posRowH = 14, aaRowH = 16, valRowH = 16;
             const rowsPerChunk = posRowH + aaRowH + valRowH + 2 * gap + 6;
             // Total width = label + 50 cells + padding
             const totalW = labelW + 50 * (cellW + gap) + 30;
@@ -4729,16 +5408,22 @@
                 });
             }
 
-            // Control guides trace (optional toggle)
+            // Control guides trace (optional toggle). Size and opacity track
+            // the user's volcano marker controls — previously hardcoded to 7,
+            // which is why the slider had no effect on controls. We use a
+            // slightly smaller size (controls aren't usually the focus) by
+            // multiplying by 0.8 and clamping to a sensible minimum.
             const showControls = document.getElementById('volcanoShowControls') && document.getElementById('volcanoShowControls').checked;
             if (showControls && controlGuides && controlGuides.length > 0) {
+                const ctrlSize = Math.max(3, Math.round(vSize * 0.8));
+                const ctrlOpacity = Math.max(0.2, vOpacity * 0.85);
                 traces.push({
                     x: controlGuides.map(d => d[xKey]),
                     y: controlGuides.map(d => d[yKey]),
                     mode: 'markers', type: 'scatter',
                     name: 'Controls',
                     showlegend: true,
-                    marker: { size: 7, color: '#d1d5db', opacity: 0.6, line: { color: '#9ca3af', width: 0.5 } },
+                    marker: { size: ctrlSize, color: '#d1d5db', opacity: ctrlOpacity, line: { color: '#9ca3af', width: 0.5 } },
                     text: controlGuides.map(function(d) {
                         return '<b>' + (d.guideID || d.guide || 'Control') + '</b><br>Control guide<br>'
                             + xLabel + ': ' + (isNaN(d[xKey]) ? 'N/A' : d[xKey].toFixed(3)) + '<br>'
@@ -4784,16 +5469,17 @@
             // hover ("at floor — true value below numerical precision") already convey this.
             const annotations = [];
 
+            const userAxes = getUserAxisOverrides();
             const layout = {
                 title: { text: 'Volcano — ' + selectedProtein + ' | ' + data.length + ' guides', x: 0.5, xanchor:'center',
                     font: { size: gf.size + 1, family: gf.family } },
-                xaxis: { title: { text: xLabel, font: { size: gf.size, family: gf.family } },
+                xaxis: _mergeAxis({ title: { text: xLabel, font: { size: gf.size, family: gf.family } },
                     tickfont: { size: gf.size, family: gf.family },
                     showline:true, mirror:true, ticks:'outside', ticklen:5, tickwidth:1.5, linewidth:1.5, linecolor:'#333', automargin:true,
-                    zeroline:true, zerolinewidth:1, zerolinecolor:'#aaa' },
-                yaxis: { title: { text: yLabel, font: { size: gf.size, family: gf.family } },
+                    zeroline:true, zerolinewidth:1, zerolinecolor:'#aaa' }, userAxes.xaxis),
+                yaxis: _mergeAxis({ title: { text: yLabel, font: { size: gf.size, family: gf.family } },
                     tickfont: { size: gf.size, family: gf.family },
-                    showline:true, mirror:true, ticks:'outside', ticklen:5, tickwidth:1.5, linewidth:1.5, linecolor:'#333', automargin:true },
+                    showline:true, mirror:true, ticks:'outside', ticklen:5, tickwidth:1.5, linewidth:1.5, linecolor:'#333', automargin:true }, userAxes.yaxis),
                 hovermode: 'closest',
                 plot_bgcolor: 'white', paper_bgcolor: 'white',
                 shapes: shapes.concat(cutoffLines),
@@ -4817,6 +5503,13 @@
             const gf = getGlobalFont();
 
             const hasSequence = data.some(function(d) { return d.guide && d.guide.trim() !== ''; });
+            // Only show "High in Treatment" when the user actually mapped that
+            // column. Two checks: (a) columnMapping has the key, (b) at least
+            // one row in the slice carries a non-empty value (defends against
+            // an empty mapping where the column was selected but every cell
+            // is blank).
+            const hasHighInTreatment = !!(columnMapping && columnMapping.highInTreatment) &&
+                data.some(function(d) { return d.highInTreatment != null && String(d.highInTreatment).trim() !== ''; });
 
             const allCols = [
                 { key: 'guideID',        label: 'Guide ID',            w: 130 },
@@ -4825,7 +5518,7 @@
                 { key: 'category',       label: 'Category',             w: 110 },
                 { key: 'rawMutations',   label: 'Predicted Mutations',  w: 180 },
                 { key: 'gene',           label: 'Gene',                 w: 90 },
-                { key: 'highInTreatment',label: 'High in Treatment',    w: 130 },
+                { key: 'highInTreatment',label: 'High in Treatment',    w: 130, hide: !hasHighInTreatment },
                 { key: 'zscore_0',       label: getScoreLabel(),         w: 90,  num: true },
                 { key: 'foldchange_0',   label: 'Log-FoldChange',       w: 115, num: true },
                 { key: 'logpvalue_0',    label: 'log(P-value)',         w: 105, num: true },
@@ -4836,12 +5529,34 @@
             let sorted = data.slice();
             if (_tableSort.col) {
                 const colDef = cols.find(function(c) { return c.key === _tableSort.col; });
+                const isNumeric = !!(colDef && (colDef.num || colDef.int));
                 sorted.sort(function(a, b) {
                     let va = a[_tableSort.col], vb = b[_tableSort.col];
-                    if (colDef && (colDef.num || colDef.int)) { va = parseFloat(va); vb = parseFloat(vb); }
-                    if (va == null || va === '' || isNaN(va)) return 1;
-                    if (vb == null || vb === '' || isNaN(vb)) return -1;
-                    return _tableSort.asc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+                    // #13: previous code used isNaN() as an "is missing" test
+                    // for ALL columns, which makes any string column (Category,
+                    // Predicted Mutations, Gene, etc.) sort as if every cell
+                    // were missing. Branch on the column type instead.
+                    if (isNumeric) {
+                        va = parseFloat(va); vb = parseFloat(vb);
+                        const aMissing = (va == null || isNaN(va));
+                        const bMissing = (vb == null || isNaN(vb));
+                        if (aMissing && bMissing) return 0;
+                        if (aMissing) return 1;
+                        if (bMissing) return -1;
+                        return _tableSort.asc ? (va - vb) : (vb - va);
+                    } else {
+                        // String / category sort. Treat null/empty as "after"
+                        // any real value regardless of direction so empty cells
+                        // bubble down. Use locale-aware compare so Á sorts
+                        // sensibly next to A.
+                        const aEmpty = (va == null || String(va).trim() === '');
+                        const bEmpty = (vb == null || String(vb).trim() === '');
+                        if (aEmpty && bEmpty) return 0;
+                        if (aEmpty) return 1;
+                        if (bEmpty) return -1;
+                        const cmp = String(va).localeCompare(String(vb), undefined, { sensitivity: 'base', numeric: true });
+                        return _tableSort.asc ? cmp : -cmp;
+                    }
                 });
             }
 
@@ -4922,7 +5637,18 @@
                 _tableSort.col = col;
                 _tableSort.asc = true;
             }
+            // #12: capture scroll position before re-render so the user
+            // doesn't get yanked back to column 1 after sorting on a column
+            // far to the right.
+            const prevScrollEl = document.getElementById('hitTableScroll');
+            const prevLeft = prevScrollEl ? prevScrollEl.scrollLeft : 0;
+            const prevTop  = prevScrollEl ? prevScrollEl.scrollTop  : 0;
             renderHitTable(filteredData);
+            const newScrollEl = document.getElementById('hitTableScroll');
+            if (newScrollEl) {
+                newScrollEl.scrollLeft = prevLeft;
+                newScrollEl.scrollTop  = prevTop;
+            }
         }
 
         function getMetricLabel(metric) {
@@ -4933,6 +5659,71 @@
                 'logfdr': '-log10(FDR)'
             };
             return labels[metric];
+        }
+
+        // Display label for a guide. Some users map a numeric column (e.g. raw
+        // p-value) into the Guide ID slot by accident, which makes the pin
+        // panel and heatmap hover show two near-identical numbers — the raw
+        // value and -log10 of it. Real guide IDs essentially always contain
+        // letters (sg_*, guide_*, IDT-* etc.). When the mapped guideID is
+        // numeric-only we fall back to the guide sequence (if mapped) and
+        // finally to a "Guide #N" placeholder built from the row index, so
+        // the user always sees something distinguishable from the score.
+        function displayGuideLabel(guide, fallbackIndex) {
+            const looksLikeId = (s) => {
+                if (s == null) return false;
+                const str = String(s).trim();
+                if (!str) return false;
+                // A real ID has at least one non-digit, non-decimal-point,
+                // non-sign, non-exponent character.
+                return /[A-Za-z_]/.test(str);
+            };
+            if (looksLikeId(guide && guide.guideID)) return String(guide.guideID).trim();
+            if (looksLikeId(guide && guide.guide))   return String(guide.guide).trim();
+            if (guide && guide.guideID != null && String(guide.guideID).trim() !== '') {
+                // Numeric-only guide ID — keep the value visible but tag it so
+                // the user notices the column mapping is off.
+                return `[#${String(guide.guideID).trim()}]`;
+            }
+            return (fallbackIndex != null) ? `Guide ${fallbackIndex}` : 'Guide';
+        }
+
+        // 6-col stats table used by heatmap + lollipop pin panels.
+        // residue (optional): if provided, residue-specific mutation tokens
+        // inside Predicted mutations are highlighted bold red.
+        function renderGuideStatsTable(guides, statIdx, residue) {
+            const fmt = v => (v == null || isNaN(v)) ? '—' : (Math.abs(v) >= 0.01 ? Number(v).toFixed(3) : Number(v).toExponential(2));
+            const scoreLbl = (typeof getScoreLabel === 'function') ? getScoreLabel() : 'Score';
+            const highlight = (raw) => {
+                if (!raw) return '—';
+                const esc = String(raw).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+                if (residue == null) return esc;
+                const re = new RegExp('((?:p\\.)?[A-Z][a-z]{2}' + residue + '(?:[A-Z][a-z]{2}|Ter|TER|\\*)|[ARNDCQEGHILKMFPSTWYV]' + residue + '[ARNDCQEGHILKMFPSTWYV*X])', 'g');
+                return esc.replace(re, '<strong style="color:#dc2626;">$1</strong>');
+            };
+            let h = '<div style="margin-top:6px; overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:11px; table-layout:auto;">';
+            h += '<thead><tr style="background:#f3f4f6; text-align:left;">'
+              + '<th style="padding:5px 8px; white-space:nowrap;">Guide ID</th>'
+              + '<th style="padding:5px 8px;">Predicted mutations</th>'
+              + '<th style="padding:5px 8px; text-align:right; white-space:nowrap;">' + scoreLbl + '</th>'
+              + '<th style="padding:5px 8px; text-align:right; white-space:nowrap;">LFC</th>'
+              + '<th style="padding:5px 8px; text-align:right; white-space:nowrap;">-log10P</th>'
+              + '<th style="padding:5px 8px; text-align:right; white-space:nowrap;">-log10FDR</th>'
+              + '</tr></thead><tbody>';
+            guides.forEach((g, i) => {
+                const gid = displayGuideLabel(g, i + 1);
+                const muts = highlight(g.rawMutations);
+                h += '<tr style="border-top:1px solid #e5e7eb;">'
+                  + `<td style="padding:5px 8px; color:#374151; white-space:nowrap;">${gid}</td>`
+                  + `<td style="padding:5px 8px; color:#374151;">${muts}</td>`
+                  + `<td style="padding:5px 8px; text-align:right; white-space:nowrap;">${fmt(g[`zscore_${statIdx}`])}</td>`
+                  + `<td style="padding:5px 8px; text-align:right; white-space:nowrap;">${fmt(g[`foldchange_${statIdx}`])}</td>`
+                  + `<td style="padding:5px 8px; text-align:right; white-space:nowrap;">${fmt(g[`logpvalue_${statIdx}`])}</td>`
+                  + `<td style="padding:5px 8px; text-align:right; white-space:nowrap;">${fmt(g[`logfdr_${statIdx}`])}</td>`
+                  + '</tr>';
+            });
+            h += '</tbody></table></div>';
+            return h;
         }
 
         function switchView(view) {
@@ -4958,6 +5749,12 @@
             if (tableContainer) tableContainer.style.display = 'none';
             const axisRow = document.getElementById('volcanoAxisRow');
             if (axisRow) axisRow.style.display = view === 'volcano' ? 'flex' : 'none';
+            // Range / minor-ticks panel applies to scatter and volcano (the
+            // only views with both axes coming from user-chosen statistics).
+            // Lollipop x-axis is residue position — fixed by the protein —
+            // and distribution Y is auto-density, so we hide it there.
+            const axisRange = document.getElementById('axisRangeRow');
+            if (axisRange) axisRange.style.display = (view === 'volcano' || view === 'scatter') ? 'flex' : 'none';
             const plotDlRow = document.getElementById('plotDownloadRow');
             if (plotDlRow) plotDlRow.style.display = (view === 'heatmap' || view === 'table') ? 'none' : '';
 
@@ -5394,20 +6191,7 @@
                                     if (!seenIds.has(id)) { seenIds.add(id); uniqueGuides.push(g); }
                                 });
                                 html += `<div style="margin-top:10px;"><strong>Guides editing this residue (${uniqueGuides.length})</strong></div>`;
-                                html += '<ul style="margin:4px 0 0 18px; padding:0;">';
-                                uniqueGuides.forEach(guide => {
-                                    const z = guide[`zscore_${statIdx}`];
-                                    const zStr = (z != null && !isNaN(z)) ? z.toFixed(2) : 'N/A';
-                                    const gid = guide.guideID || guide.guide || 'Guide';
-                                    // Show the full predicted-mutations string for this guide so the user can see
-                                    // every edit it makes (not only the one at the current residue).
-                                    const edits = guide.rawMutations && String(guide.rawMutations).trim();
-                                    const editsHtml = edits
-                                        ? ` — <span style="color:#374151;">${String(edits).trim()}</span>`
-                                        : '';
-                                    html += `<li>${gid} <span style="color:#6b7280;">(Z=${zStr})</span>${editsHtml}</li>`;
-                                });
-                                html += '</ul>';
+                                html += renderGuideStatsTable(uniqueGuides, statIdx, pos);
                             }
                             return html;
                         };
@@ -5643,6 +6427,15 @@
     
         function setAnalysisMode(mode) {
             analysisMode = mode;
+            // F7: keep the genome (CRISPR) analysis mode in lockstep with the
+            // BE analysis mode. Previously genomeAnalysisMode only updated
+            // when the user re-clicked "Genome Mode" via setScreenType, so
+            // toggling the radio while on the CRISPR page silently no-op'd
+            // — until the user round-tripped through single mode and back.
+            if (typeof genomeAnalysisMode !== 'undefined') {
+                genomeAnalysisMode = mode;
+            }
+
             const screenBUpload  = document.getElementById('screenBUploadSection');
             const screenALabel   = document.getElementById('screenUploadLabel');
             const screenBLabel   = document.getElementById('screenBLabel');
@@ -6604,57 +7397,65 @@
             const cxA = cx - dist / 2;
             const cxB = cx + dist / 2;
 
+            // ──────────────────────────────────────────────────────────────
+            // F6: All count labels live in a side panel to the right of the
+            // circles. Per user request, we no longer place numbers inside
+            // the circles or near the lobes — text was overlapping in dense
+            // overlap regimes. The circles still encode set sizes and overlap
+            // visually; the panel reads them off cleanly.
+            // ──────────────────────────────────────────────────────────────
+            const layoutWrap = document.createElement('div');
+            layoutWrap.style.cssText = 'display:flex; gap:24px; align-items:center; justify-content:center; flex-wrap:wrap; font-family:' + fontFam + ';';
+
+            // Left: SVG circles only.
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('width', '100%');
-            svg.setAttribute('height', '380');
+            svg.setAttribute('height', '340');
             svg.setAttribute('viewBox', '0 0 ' + VBW + ' ' + VBH);
-            svg.style.maxWidth = '760px';
-            svg.style.margin = '0 auto';
+            svg.style.maxWidth = '460px';
+            svg.style.flex = '1 1 320px';
             svg.style.display = 'block';
             svg.style.fontFamily = fontFam;
-
-            const maxNameLen = 22;
-            const trim = s => (s && s.length > maxNameLen) ? (s.slice(0, maxNameLen - 1) + '…') : (s || '');
-            const dispA = trim(nameA);
-            const dispB = trim(nameB);
-
-            // Mid-lobe x positions (geometric, not heuristic)
-            const aLobeX = (cxA - rA + (cxA + rA - dist / 2)) / 2;
-            const bLobeX = (cxB + rB + (cxB - rB + dist / 2)) / 2;
-
-            const big   = fontSz + 8;
-            const small = fontSz - 1;
 
             svg.innerHTML = `
               <defs>
                 <clipPath id="clipA"><circle cx="${cxA}" cy="${cy}" r="${rA}"/></clipPath>
               </defs>
-              <circle cx="${cxA}" cy="${cy}" r="${rA}" fill="#2563eb" fill-opacity="0.28" stroke="#1d4ed8" stroke-width="1.5"/>
-              <circle cx="${cxB}" cy="${cy}" r="${rB}" fill="#e74c3c" fill-opacity="0.28" stroke="#b91c1c" stroke-width="1.5"/>
+              <circle cx="${cxA}" cy="${cy}" r="${rA}" fill="#2563eb" fill-opacity="0.30" stroke="#1d4ed8" stroke-width="1.5"/>
+              <circle cx="${cxB}" cy="${cy}" r="${rB}" fill="#e74c3c" fill-opacity="0.30" stroke="#b91c1c" stroke-width="1.5"/>
               <circle cx="${cxB}" cy="${cy}" r="${rB}" fill="#7c3aed" fill-opacity="0.22" clip-path="url(#clipA)"/>
-
-              <!-- Header labels above circles -->
-              <text x="${cxA}" y="${cy - rA - 14}" text-anchor="middle" font-size="${fontSz + 1}" font-weight="700" fill="#1d4ed8"><title>${nameA.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</title>${dispA}</text>
-              <text x="${cxB}" y="${cy - rB - 14}" text-anchor="middle" font-size="${fontSz + 1}" font-weight="700" fill="#b91c1c"><title>${nameB.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</title>${dispB}</text>
-
-              <!-- Lobe-only counts -->
-              <text x="${aLobeX}" y="${cy + 4}" text-anchor="middle" font-size="${big}" font-weight="700" fill="#1d4ed8">${aOnly.length}</text>
-              <text x="${aLobeX}" y="${cy + fontSz + 14}" text-anchor="middle" font-size="${small}" font-weight="600" fill="#6b7280">only</text>
-              <text x="${bLobeX}" y="${cy + 4}" text-anchor="middle" font-size="${big}" font-weight="700" fill="#b91c1c">${bOnly.length}</text>
-              <text x="${bLobeX}" y="${cy + fontSz + 14}" text-anchor="middle" font-size="${small}" font-weight="600" fill="#6b7280">only</text>
-
-              ${sizeCommon > 0 && dist < rA + rB
-                ? `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="${big}" font-weight="700" fill="#7c3aed">${sizeCommon}</text>
-                   <text x="${cx}" y="${cy + fontSz + 14}" text-anchor="middle" font-size="${small}" font-weight="600" fill="#6b7280">common</text>`
-                : `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="${big}" font-weight="700" fill="#9ca3af">0</text>
-                   <text x="${cx}" y="${cy + fontSz + 14}" text-anchor="middle" font-size="${small}" font-weight="600" fill="#9ca3af">common</text>`}
-
-              <!-- Footer totals -->
-              <text x="${cxA}" y="${VBH - 18}" text-anchor="middle" font-size="${small}" font-weight="500" fill="#6b7280">total: ${sizeA}</text>
-              <text x="${cxB}" y="${VBH - 18}" text-anchor="middle" font-size="${small}" font-weight="500" fill="#6b7280">total: ${sizeB}</text>
             `;
+            layoutWrap.appendChild(svg);
 
-            container.appendChild(svg);
+            // Right: numeric side panel.
+            const panel = document.createElement('div');
+            panel.style.cssText = 'flex:0 0 240px; min-width:200px; padding:14px 18px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; font-size:' + fontSz + 'px;';
+            const escName = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+            panel.innerHTML = `
+              <div style="font-weight:700; color:#374151; margin-bottom:10px; font-size:${fontSz + 1}px;">Counts</div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="display:inline-block; width:14px; height:14px; background:#2563eb; opacity:0.6; border-radius:3px;"></span>
+                <span style="flex:1; color:#374151;">${escName(nameA)} only</span>
+                <strong style="color:#1d4ed8;">${aOnly.length}</strong>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="display:inline-block; width:14px; height:14px; background:#7c3aed; opacity:0.7; border-radius:3px;"></span>
+                <span style="flex:1; color:#374151;">Common</span>
+                <strong style="color:#7c3aed;">${sizeCommon}</strong>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                <span style="display:inline-block; width:14px; height:14px; background:#e74c3c; opacity:0.6; border-radius:3px;"></span>
+                <span style="flex:1; color:#374151;">${escName(nameB)} only</span>
+                <strong style="color:#b91c1c;">${bOnly.length}</strong>
+              </div>
+              <div style="border-top:1px solid #e5e7eb; padding-top:10px; font-size:${fontSz - 1}px; color:#6b7280;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>${escName(nameA)} total</span><span>${sizeA}</span></div>
+                <div style="display:flex; justify-content:space-between;"><span>${escName(nameB)} total</span><span>${sizeB}</span></div>
+              </div>
+            `;
+            layoutWrap.appendChild(panel);
+
+            container.appendChild(layoutWrap);
         }
 
         function plotCorrelationComparison(dataA, dataB, statIdxA, statIdxB, metric) {
@@ -7354,7 +8155,7 @@
             const gf = { family: document.getElementById('gFontFamily')?.value || getGlobalFont().family, size: parseInt(document.getElementById('gFontSize')?.value || getGlobalFont().size) };
             const hitSet = new Set(hitGenes.map(g => g.gene));
             const _ltRaw = document.getElementById('gLabelTop')?.value;
-            const labelTop = (_ltRaw === '' || _ltRaw === undefined || _ltRaw === null) ? 10 : Math.max(0, parseInt(_ltRaw) || 0);
+            const labelTop = (_ltRaw === '' || _ltRaw === undefined || _ltRaw === null) ? 0 : Math.max(0, parseInt(_ltRaw) || 0);
 
             // Ceiling detection (raw p=0 / FDR=0 floored at min-nonzero/10 during aggregation)
             const yCeilKey = (yMetric === 'logpvalue' || yMetric === 'logfdr') ? (yMetric + 'Ceiling') : null;
@@ -7405,10 +8206,10 @@
             const hitOpacity = parseFloat(document.getElementById('gMarkerOpacity')?.value || 0.85);
 
             const traces = [
-                makeTrace(bgGenes,   'Non-hit genes', '#d1d5db', Math.max(4, hitSize - 2),  0.6,  false)
+                makeTrace(bgGenes,   'Below cutoff', '#d1d5db', Math.max(4, hitSize - 2),  0.6,  false)
             ];
-            if (hitNormal.length)  traces.push(makeTrace(hitNormal,  'Hit genes',        hitColor, hitSize,  hitOpacity, true, hitShape));
-            if (hitCeiling.length) traces.push(makeTrace(hitCeiling, 'Hit genes (⚑ at floor)', hitColor, hitSize, Math.min(1, hitOpacity + 0.1), true, 'triangle-up', '#000', 2));
+            if (hitNormal.length)  traces.push(makeTrace(hitNormal,  'Above cutoff',        hitColor, hitSize,  hitOpacity, true, hitShape));
+            if (hitCeiling.length) traces.push(makeTrace(hitCeiling, 'Above cutoff (⚑ at floor)', hitColor, hitSize, Math.min(1, hitOpacity + 0.1), true, 'triangle-up', '#000', 2));
 
             // Arrow annotations for top hits
             const annotations = hitsSorted.slice(0, Math.min(labelTop, hitsSorted.length))
@@ -7436,6 +8237,33 @@
                 });
             }
 
+            // Click-to-pin labels (CRISPR single).
+            window._gPinnedLabels = window._gPinnedLabels || new Set();
+            const _gByGene = new Map();
+            allGenes.forEach(g => {
+                const xv = g[xMetric], yv = g[yMetric];
+                if (xv == null || yv == null || isNaN(xv) || isNaN(yv)) return;
+                _gByGene.set(g.gene, { x: xv, y: yv });
+            });
+            const _gPinDirs = [
+                [ 36, -32], [-36, -32], [ 36,  32], [-36,  32],
+                [ 48,   0], [-48,   0], [  0, -42], [  0,  42]
+            ];
+            let _gPinIdx = 0;
+            window._gPinnedLabels.forEach(gene => {
+                const xy = _gByGene.get(gene);
+                if (!xy) return;
+                const [_ax, _ay] = _gPinDirs[_gPinIdx++ % _gPinDirs.length];
+                annotations.push({
+                    x: xy.x, y: xy.y, xref:'x', yref:'y',
+                    text: '<b>' + gene + '</b>',
+                    showarrow: true, arrowhead: 2, arrowsize: 0.8, arrowwidth: 1.2, arrowcolor:'#0f766e',
+                    ax: _ax, ay: _ay,
+                    font: { size: Math.max(11, gf.size), family: gf.family, color:'#0f766e' },
+                    bgcolor:'rgba(236,253,245,0.95)', bordercolor:'#5eead4', borderwidth:1, borderpad:3
+                });
+            });
+
             Plotly.newPlot('genomeVolcanoPlot', traces, {
                 title: { text: 'Genome-Wide Volcano — ' + allGenes.length + ' genes (' + hitGenesArr.length + ' hits)',
                     x:0.5, xanchor:'center', font:{size:gf.size+2, family:gf.family} },
@@ -7449,7 +8277,18 @@
                 height:600, margin:{l:80,r:30,t:90,b:70},
                 legend:{orientation:'h',x:0,y:-0.12},
                 annotations: annotations
-            }, {responsive:true});
+            }, {responsive:true}).then(function(gd) {
+                gd.removeAllListeners && gd.removeAllListeners('plotly_click');
+                gd.on('plotly_click', function(ev) {
+                    if (!ev || !ev.points || !ev.points.length) return;
+                    const cd = ev.points[0].customdata;
+                    const gene = Array.isArray(cd) ? cd[0] : cd;
+                    if (!gene) return;
+                    if (window._gPinnedLabels.has(gene)) window._gPinnedLabels.delete(gene);
+                    else window._gPinnedLabels.add(gene);
+                    updateGenomeView();
+                });
+            });
         }
 
         function renderGenomeTable(data) {
@@ -7459,7 +8298,13 @@
             let _sort = renderGenomeTable._sort || { col: 'logpvalue', asc: false };
             renderGenomeTable._sort = _sort;
 
-            const hasIGTIOB = genomeGeneData.some(function(g) { return !isNaN(g.zscore) && g.zscore !== 0; });
+            // Only show the IGTIOB column when the user actually mapped it.
+            // Previous heuristic ("any non-zero numeric value present") would
+            // show the column even when no column was mapped, then fill it
+            // with parseFloat() coercions. Gate on the explicit mapping.
+            const igtiobMapped = !!(typeof genomeColMap !== 'undefined' && genomeColMap && genomeColMap.zscore);
+            const hasIGTIOB = igtiobMapped &&
+                genomeGeneData.some(function(g) { return g.zscore != null && !isNaN(g.zscore); });
             const baseCols = [
                 {key:'gene',label:'Gene',w:130},
                 {key:'foldchange',label:'Fold Change',w:110,num:true},
@@ -7631,7 +8476,7 @@
             // (sum of −log10 P from both screens, falling back to Z-score magnitude).
             // Only label genes whose data point we actually plotted.
             const _ltRaw = document.getElementById('gcLabelTop')?.value;
-            const labelTop = (_ltRaw === '' || _ltRaw === undefined || _ltRaw === null) ? 10 : Math.max(0, parseInt(_ltRaw) || 0);
+            const labelTop = (_ltRaw === '' || _ltRaw === undefined || _ltRaw === null) ? 0 : Math.max(0, parseInt(_ltRaw) || 0);
             const hitGenes = [].concat(groups.common.genes, groups.a.genes, groups.b.genes);
             function rankScore(g) {
                 const a = mapA.get(g) || {}, b = mapB.get(g) || {};
@@ -7645,9 +8490,9 @@
             const topLabelGenes = hitGenes.slice().sort((x,y) => rankScore(y) - rankScore(x)).slice(0, labelTop);
             const labelSet = new Set(topLabelGenes);
 
-            // Build traces in a specific order so above-cutoff points (a, b, common) sit
-            // ON TOP of the below-cutoff "none" cloud. Below-cutoff is darker now so
-            // users can actually see it, but still recedes vs. the colored hits.
+            // R4: respect the per-screen marker style controls in correlation too.
+            const _gcSize = parseInt((document.getElementById('gcSymbolSize') || {}).value || 9);
+            const _gcOp   = parseFloat((document.getElementById('gcMarkerOpacity') || {}).value || 0.85);
             function makeTrace(k) {
                 const d = groups[k];
                 if (!d.x.length) return null;
@@ -7658,16 +8503,16 @@
                     type:'scatter',
                     name: labels[k],
                     marker: {
-                        size: isBg ? 5 : 8,
+                        size: isBg ? Math.max(3, _gcSize - 4) : _gcSize,
                         color: colors[k],
-                        opacity: isBg ? 0.55 : 0.9, // darker gray (was 0.18)
+                        opacity: isBg ? Math.min(_gcOp, 0.55) : _gcOp,
                         line: { color: isBg ? '#6b7280' : '#1f2937', width: isBg ? 0.3 : 0.5 }
                     },
                     text: d.genes.map(g => labelSet.has(g) ? g : ''),
                     textposition: 'top center',
                     textfont: { size: Math.max(9, gf.size - 2), family: gf.family, color: '#111827' },
-                    customdata: d.genes,
-                    hovertemplate: '<b>%{customdata}</b><br>' + xLabel + ': %{x:.3f}<br>' + yLabel + ': %{y:.3f}<extra></extra>'
+                    customdata: d.genes.map((g, i) => [g, nameA, d.x[i], nameB, d.y[i]]),
+                    hovertemplate: '<b>%{customdata[0]}</b><br>%{customdata[1]}: %{customdata[2]:.3f}<br>%{customdata[3]}: %{customdata[4]:.3f}<extra></extra>'
                 };
             }
             // Order: none → a → b → common (common drawn last = highest layer)
@@ -7708,12 +8553,59 @@
             if (xRange) xAxis.range = xRange;
             if (yRange) yAxis.range = yRange;
 
+            // F8: Build pinned-label annotations for whatever genes the
+            // user has clicked. Each annotation lives at the gene's (x, y)
+            // and uses a plus-sized, bordered text so it stands out from
+            // the auto Top-N labels.
+            window._gcPinnedLabels = window._gcPinnedLabels || new Set();
+            const pinnedAnnotationsCorr = [];
+            const groupsByGene = new Map();
+            ['common','a','b','none'].forEach(k => {
+                (groups[k]?.genes || []).forEach((g, i) => {
+                    if (!groupsByGene.has(g)) {
+                        groupsByGene.set(g, { x: groups[k].x[i], y: groups[k].y[i] });
+                    }
+                });
+            });
+            const _pinDirs = [
+                [ 36, -32], [-36, -32], [ 36,  32], [-36,  32],
+                [ 48,   0], [-48,   0], [  0, -42], [  0,  42]
+            ];
+            let _pinIdx = 0;
+            window._gcPinnedLabels.forEach(g => {
+                const xy = groupsByGene.get(g);
+                if (!xy) return;
+                const [_pinAx, _pinAy] = _pinDirs[_pinIdx++ % _pinDirs.length];
+                pinnedAnnotationsCorr.push({
+                    x: xy.x, y: xy.y, xref:'x', yref:'y',
+                    text: '<b>' + g + '</b>',
+                    showarrow: true, arrowhead: 2, arrowsize: 0.8, arrowwidth: 1.2, arrowcolor:'#0f766e',
+                    ax: _pinAx, ay: _pinAy,
+                    font: { size: Math.max(11, gf.size), family: gf.family, color:'#0f766e' },
+                    bgcolor:'rgba(236,253,245,0.95)', bordercolor:'#5eead4', borderwidth:1, borderpad:3
+                });
+            });
+
             Plotly.newPlot('gcCorrelationPlot', traces, {
                 title:{text:'Gene Correlation: '+nameA+' ('+xLabel+') vs '+nameB+' ('+yLabel+')',x:0.5,xanchor:'center',font:{size:gf.size+2,family:gf.family}},
                 xaxis: xAxis,
                 yaxis: yAxis,
-                hovermode:'closest',plot_bgcolor:'white',paper_bgcolor:'white',height:520,margin:{l:80,r:30,t:70,b:70}
-            },{responsive:true});
+                hovermode:'closest',plot_bgcolor:'white',paper_bgcolor:'white',height:520,margin:{l:80,r:30,t:70,b:70},
+                hoverlabel: { font: { size: gf.size, family: gf.family, color: '#fff' }, bgcolor: '#1a1a1a', bordercolor: '#1a1a1a' },
+                annotations: pinnedAnnotationsCorr
+            },{responsive:true}).then(function(gd) {
+                gd.removeAllListeners && gd.removeAllListeners('plotly_click');
+                gd.on('plotly_click', function(ev) {
+                    if (!ev || !ev.points || !ev.points.length) return;
+                    const pt = ev.points[0];
+                    const cd = pt.customdata;
+                    const gene = Array.isArray(cd) ? cd[0] : cd;
+                    if (!gene) return;
+                    if (window._gcPinnedLabels.has(gene)) window._gcPinnedLabels.delete(gene);
+                    else window._gcPinnedLabels.add(gene);
+                    updateGenomeComparisonView();
+                });
+            });
         }
 
         function plotGenomeVenn(sizeA, sizeB, nCommon, nameA, nameB, cutsActiveA, cutsActiveB) {
@@ -7742,7 +8634,7 @@
             if (sizeA === 0 && sizeB === 0) {
                 container.innerHTML = '<div style="text-align:center; padding:60px 20px; color:#9ca3af; font-size:13px; font-family:' + fontFam + ';">'
                     + '<div style="font-size:32px; margin-bottom:10px;">∅</div>'
-                    + 'No hits in either screen at the current cutoffs — try loosening them.'
+                    + 'No genes above cutoff in either screen — try loosening the cutoffs.'
                     + '</div>';
                 return;
             }
@@ -7769,82 +8661,55 @@
             const cxA = cx - dist / 2;
             const cxB = cx + dist / 2;
 
+            const aOnly = sizeA - nCommon;
+            const bOnly = sizeB - nCommon;
+
+            const layoutWrap = document.createElement('div');
+            layoutWrap.style.cssText = 'display:flex; gap:24px; align-items:center; justify-content:center; flex-wrap:wrap; font-family:' + fontFam + ';';
+
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('viewBox', '0 0 ' + VBW + ' ' + VBH);
             svg.setAttribute('width', '100%');
-            svg.setAttribute('height', '100%');
+            svg.setAttribute('height', '320');
+            svg.style.maxWidth = '460px';
+            svg.style.flex = '1 1 320px';
             svg.style.fontFamily = fontFam;
+            svg.innerHTML = `
+              <defs><clipPath id="gcClipA"><circle cx="${cxA}" cy="${cy}" r="${rA}"/></clipPath></defs>
+              <circle cx="${cxA}" cy="${cy}" r="${rA}" fill="#2563eb" fill-opacity="0.30" stroke="#1d4ed8" stroke-width="1.5"/>
+              <circle cx="${cxB}" cy="${cy}" r="${rB}" fill="#e74c3c" fill-opacity="0.30" stroke="#b91c1c" stroke-width="1.5"/>
+              <circle cx="${cxB}" cy="${cy}" r="${rB}" fill="#7c3aed" fill-opacity="0.22" clip-path="url(#gcClipA)"/>
+            `;
+            layoutWrap.appendChild(svg);
 
-            // Truncate very long names so headers don't wrap into the circles.
-            const maxNameLen = 22;
-            const trim = s => (s && s.length > maxNameLen) ? (s.slice(0, maxNameLen - 1) + '…') : (s || '');
-            const dispA = trim(nameA);
-            const dispB = trim(nameB);
+            const escName = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+            const panel = document.createElement('div');
+            panel.style.cssText = 'flex:0 0 240px; min-width:200px; padding:14px 18px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; font-size:' + fontSz + 'px;';
+            panel.innerHTML = `
+              <div style="font-weight:700; color:#374151; margin-bottom:10px; font-size:${fontSz + 1}px;">Counts</div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="display:inline-block; width:14px; height:14px; background:#2563eb; opacity:0.6; border-radius:3px;"></span>
+                <span style="flex:1; color:#374151;">${escName(nameA)} only</span>
+                <strong style="color:#1d4ed8;">${aOnly}</strong>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="display:inline-block; width:14px; height:14px; background:#7c3aed; opacity:0.7; border-radius:3px;"></span>
+                <span style="flex:1; color:#374151;">Common</span>
+                <strong style="color:#7c3aed;">${nCommon}</strong>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                <span style="display:inline-block; width:14px; height:14px; background:#e74c3c; opacity:0.6; border-radius:3px;"></span>
+                <span style="flex:1; color:#374151;">${escName(nameB)} only</span>
+                <strong style="color:#b91c1c;">${bOnly}</strong>
+              </div>
+              <div style="border-top:1px solid #e5e7eb; padding-top:10px; font-size:${fontSz - 1}px; color:#6b7280;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>${escName(nameA)} total</span><span>${sizeA}</span></div>
+                <div style="display:flex; justify-content:space-between;"><span>${escName(nameB)} total</span><span>${sizeB}</span></div>
+              </div>
+            `;
+            layoutWrap.appendChild(panel);
 
-            function makeText(x, y, txt, opts) {
-                const o = opts || {};
-                const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                t.setAttribute('x', x); t.setAttribute('y', y);
-                t.setAttribute('text-anchor', o.anchor || 'middle');
-                t.setAttribute('font-size', o.size || fontSz);
-                t.setAttribute('font-weight', o.weight || '600');
-                t.setAttribute('fill', o.color || '#1a1a1a');
-                if (o.title) {
-                    const ti = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-                    ti.textContent = o.title; t.appendChild(ti);
-                }
-                t.textContent = txt;
-                return t;
-            }
-
-            // Circles
-            const ca = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            ca.setAttribute('cx', cxA); ca.setAttribute('cy', cy); ca.setAttribute('r', rA);
-            ca.setAttribute('fill', '#2563eb'); ca.setAttribute('opacity', 0.32);
-            ca.setAttribute('stroke', '#1d4ed8'); ca.setAttribute('stroke-width', 1);
-            svg.appendChild(ca);
-            const cb = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            cb.setAttribute('cx', cxB); cb.setAttribute('cy', cy); cb.setAttribute('r', rB);
-            cb.setAttribute('fill', '#e74c3c'); cb.setAttribute('opacity', 0.32);
-            cb.setAttribute('stroke', '#b91c1c'); cb.setAttribute('stroke-width', 1);
-            svg.appendChild(cb);
-
-            // Header labels — placed ABOVE the circles, color-matched, never overlapping the shapes.
-            svg.appendChild(makeText(cxA, cy - rA - 14, dispA, {
-                size: fontSz + 1, weight: 700, color: '#1d4ed8', title: nameA
-            }));
-            svg.appendChild(makeText(cxB, cy - rB - 14, dispB, {
-                size: fontSz + 1, weight: 700, color: '#b91c1c', title: nameB
-            }));
-
-            // Counts: place "A only" and "B only" in the non-overlapping lobes.
-            // Center each label between the inner edge of the lens and the outer edge of the circle.
-            const aOnly = sizeA - nCommon;
-            const bOnly = sizeB - nCommon;
-            const aLobeX = (cxA - rA + (cxA + rA - dist / 2)) / 2;   // mid of left lobe
-            const bLobeX = (cxB + rB + (cxB - rB + dist / 2)) / 2;   // mid of right lobe
-
-            // Big number = lobe-only count; small caption underneath.
-            svg.appendChild(makeText(aLobeX, cy + 4, String(aOnly), { size: fontSz + 7, weight: 700, color: '#1d4ed8' }));
-            svg.appendChild(makeText(aLobeX, cy + fontSz + 14, 'only', { size: fontSz - 2, weight: 600, color: '#6b7280' }));
-            svg.appendChild(makeText(bLobeX, cy + 4, String(bOnly), { size: fontSz + 7, weight: 700, color: '#b91c1c' }));
-            svg.appendChild(makeText(bLobeX, cy + fontSz + 14, 'only', { size: fontSz - 2, weight: 600, color: '#6b7280' }));
-
-            // Common count in the lens (only if circles actually overlap and there's something to show)
-            if (nCommon > 0 && dist < rA + rB) {
-                svg.appendChild(makeText(cx, cy + 4, String(nCommon), { size: fontSz + 7, weight: 700, color: '#7c3aed' }));
-                svg.appendChild(makeText(cx, cy + fontSz + 14, 'common', { size: fontSz - 2, weight: 600, color: '#6b7280' }));
-            } else if (nCommon === 0) {
-                // Disjoint circles — say so explicitly between them.
-                svg.appendChild(makeText(cx, cy + 4, '0', { size: fontSz + 7, weight: 700, color: '#9ca3af' }));
-                svg.appendChild(makeText(cx, cy + fontSz + 14, 'common', { size: fontSz - 2, weight: 600, color: '#9ca3af' }));
-            }
-
-            // Footer totals — small, neutral.
-            svg.appendChild(makeText(cxA, VBH - 18, 'total: ' + sizeA, { size: fontSz - 2, weight: 500, color: '#6b7280' }));
-            svg.appendChild(makeText(cxB, VBH - 18, 'total: ' + sizeB, { size: fontSz - 2, weight: 500, color: '#6b7280' }));
-
-            container.appendChild(svg);
+            container.appendChild(layoutWrap);
         }
 
         function renderGenomeUnique(onlyAGenes, allA, nameA, onlyBGenes, allB, nameB) {
@@ -8030,7 +8895,10 @@
                         opacity: symOpacity,
                         line:{ color: genes.map(g => isCeil(g) ? '#000' : '#333'), width: genes.map(g => isCeil(g) ? 2 : 0.4) }
                     },
-                    text: genes.map(g=>makeHover(g, screen)), hovertemplate:'%{text}<extra></extra>' };
+                    text: genes.map(g=>makeHover(g, screen)), hovertemplate:'%{text}<extra></extra>',
+                    // F8: per-point gene name so the click handler can pin/unpin.
+                    customdata: genes.map(g => g.gene)
+                };
             }
 
             const traces = [];
@@ -8056,7 +8924,8 @@
                         symbol:'square', size:symSize, color:colHit, opacity:symOpacity,
                         line:{ color: combined.map(g => isCeil(g) ? '#000' : '#333'), width: combined.map(g => isCeil(g) ? 2 : 0.4) }
                     },
-                    text: combined.map((g,i)=>makeHover(g, screens[i])), hovertemplate:'%{text}<extra></extra>'
+                    text: combined.map((g,i)=>makeHover(g, screens[i])), hovertemplate:'%{text}<extra></extra>',
+                    customdata: combined.map(g => g.gene)
                 });
             }
 
@@ -8082,7 +8951,7 @@
             // gene ONCE (on whichever of its two points has the higher Y value), to
             // avoid double-labelling the same gene across screens.
             const _ltRaw = document.getElementById('gcLabelTop')?.value;
-            const labelTop = (_ltRaw === '' || _ltRaw === undefined || _ltRaw === null) ? 10 : Math.max(0, parseInt(_ltRaw) || 0);
+            const labelTop = (_ltRaw === '' || _ltRaw === undefined || _ltRaw === null) ? 0 : Math.max(0, parseInt(_ltRaw) || 0);
             if (labelTop > 0) {
                 // Build a map of gene → best (x, y) point across the hit/own buckets
                 const hitBuckets = aBoth.concat(bBoth, aOwn, bOwn);
@@ -8121,7 +8990,7 @@
             // Empty-state hint when a sub-filter is selected but its prerequisites aren't met.
             if (traces.length === 0 && overlayFilter !== 'all') {
                 let hint = '';
-                if (overlayFilter === 'common') hint = 'No common hits — set a cutoff in BOTH screens to see common-hit genes.';
+                if (overlayFilter === 'common') hint = 'No common above-cutoff genes — set a cutoff in BOTH screens to see overlap.';
                 else if (overlayFilter === 'a') hint = 'No '+nameA+'-unique hits — set a cutoff in '+nameA+' to filter unique hits.';
                 else if (overlayFilter === 'b') hint = 'No '+nameB+'-unique hits — set a cutoff in '+nameB+' to filter unique hits.';
                 annotations.push({
@@ -8131,6 +9000,37 @@
                 });
             }
 
+            // F8: pinned gene labels on the overlay. Build (x, y) per gene
+            // by preferring the bucket where the gene actually has a higher
+            // y-value, so the label sits on the more visually important point.
+            window._gcPinnedLabels = window._gcPinnedLabels || new Set();
+            const overlayBuckets = aBoth.concat(bBoth, aOwn, bOwn, aBg, bBg);
+            const overlayBest = new Map();
+            overlayBuckets.forEach(function(g) {
+                const xv = g[xMetric], yv = g[yMetric];
+                if (xv == null || yv == null || isNaN(xv) || isNaN(yv)) return;
+                const prev = overlayBest.get(g.gene);
+                if (!prev || yv > prev.y) overlayBest.set(g.gene, { x: xv, y: yv });
+            });
+            const _pinDirsOL = [
+                [ 36, -32], [-36, -32], [ 36,  32], [-36,  32],
+                [ 48,   0], [-48,   0], [  0, -42], [  0,  42]
+            ];
+            let _pinIdxOL = 0;
+            window._gcPinnedLabels.forEach(function(gene) {
+                const xy = overlayBest.get(gene);
+                if (!xy) return;
+                const [_pinAx, _pinAy] = _pinDirsOL[_pinIdxOL++ % _pinDirsOL.length];
+                annotations.push({
+                    x: xy.x, y: xy.y, xref:'x', yref:'y',
+                    text: '<b>' + gene + '</b>',
+                    showarrow: true, arrowhead: 2, arrowsize: 0.8, arrowwidth: 1.2, arrowcolor:'#0f766e',
+                    ax: _pinAx, ay: _pinAy,
+                    font: { size: Math.max(11, gf.size), family: gf.family, color:'#0f766e' },
+                    bgcolor:'rgba(236,253,245,0.95)', bordercolor:'#5eead4', borderwidth:1, borderpad:3
+                });
+            });
+
             Plotly.newPlot('gcOverlayPlot', traces, {
                 title:{text:'Overlay: '+nameA+' (● blue) vs '+nameB+' (● red) | Below cutoff: ● gray | Common hit: ■ violet',x:0.5,xanchor:'center',font:{size:gf.size+2,family:gf.family}},
                 xaxis:{title:{text:xLabel,font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},
@@ -8139,8 +9039,21 @@
                     showline:true,mirror:true,ticks:'outside',ticklen:5,linewidth:1.5,linecolor:'#333',automargin:true},
                 hovermode:'closest',plot_bgcolor:'white',paper_bgcolor:'white',
                 height:580,margin:{l:80,r:30,t:90,b:70},legend:{orientation:'v',x:1.01,y:1},
-                annotations: annotations
-            },{responsive:true});
+                annotations: annotations,
+                hoverlabel: { font: { size: gf.size, family: gf.family, color: '#fff' }, bgcolor: '#1a1a1a', bordercolor: '#1a1a1a' }
+            },{responsive:true}).then(function(gd) {
+                gd.removeAllListeners && gd.removeAllListeners('plotly_click');
+                gd.on('plotly_click', function(ev) {
+                    if (!ev || !ev.points || !ev.points.length) return;
+                    const pt = ev.points[0];
+                    const cd = pt.customdata;
+                    const gene = Array.isArray(cd) ? cd[0] : cd;
+                    if (!gene) return;
+                    if (window._gcPinnedLabels.has(gene)) window._gcPinnedLabels.delete(gene);
+                    else window._gcPinnedLabels.add(gene);
+                    updateGenomeComparisonView();
+                });
+            });
         }
 
         // ─── GO / Pathway Analysis ──────────────────────────────────────────────
@@ -8910,7 +9823,7 @@
             } else if (scheme === 'hit') {
                 leg.innerHTML = '<div style="font-weight:600; margin-bottom:10px; font-size:13px;">Hit Status</div>'
                     + '<div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">'
-                    + '<div style="width:14px;height:14px;border-radius:3px;background:#e74c3c;"></div><span>Hit (passes cutoffs)</span></div>'
+                    + '<div style="width:14px;height:14px;border-radius:3px;background:#e74c3c;"></div><span>Above cutoff</span></div>'
                     + '<div style="display:flex;align-items:center;gap:7px;">'
                     + '<div style="width:14px;height:14px;border-radius:3px;background:#cccccc;"></div><span>Background</span></div>';
             } else {

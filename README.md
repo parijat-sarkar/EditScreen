@@ -1,4 +1,4 @@
-# EditScreen
+# EditScreen https://parijat-sarkar.github.io/EditScreen/
 Universal base editing and CRISPR screen analysis tool.
 
 EditScreen is a browser-based interactive tool for analyzing base editing and CRISPR screening data. It supports both residue-level base editing datasets and genome-wide CRISPR or insertional mutagenesis screens, enabling flexible exploration of functional genomics results without requiring coding.

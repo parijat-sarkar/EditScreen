@@ -633,7 +633,7 @@
             <!-- Saved Session Configuration -->
             <div style="display:flex; gap:10px; margin-bottom:16px; padding:12px 16px; background:#fefce8; border:1px solid #fde68a; border-radius:10px; align-items:center;">
                 <div style="flex:1; font-size:13px; color:#713f12;">
-                    <b>Saved session configuration:</b> import a previously exported <code>.editscreen.json</code> to auto-fill sheets, column mappings, stats, proteins, and controls. You will still upload the Excel file — only settings are saved, not data.
+                    <b>Import saved settings;</b> upload Excel separately.
                 </div>
                 <button onclick="document.getElementById('importConfigInput').click()"
                     style="padding:8px 14px; background:#ca8a04; color:white; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;">
@@ -704,7 +704,6 @@
                     title="Download current sheet selection, column mapping, stats, proteins, and control guides as a reusable .editscreen.json file.">
                     💾 Export Configuration
                 </button>
-                <span style="font-size:12px; color:#666;">Saves settings only — not the Excel data.</span>
             </div>
 
             <div class="controls">
@@ -927,8 +926,8 @@
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;" id="distBinsRow">
                     <span style="font-weight:700; color:#111827;">Bins:</span>
-                    <input type="range" id="distBins" min="10" max="200" value="0" step="1" style="width:140px;" oninput="document.getElementById('distBinsLabel').textContent = (this.value === '0' ? 'auto (FD)' : this.value); plotDistributionFromControls();">
-                    <span id="distBinsLabel" style="color:#6b7280; min-width:54px;">auto (FD)</span>
+                    <input type="range" id="distBins" min="10" max="200" value="50" step="1" style="width:140px;" oninput="document.getElementById('distBinsLabel').textContent = (this.value === '0' ? 'auto (FD)' : this.value); plotDistributionFromControls();">
+                    <span id="distBinsLabel" style="color:#6b7280; min-width:54px;">50</span>
                     <!-- Live bin-width readout. Set by plotDistribution() after
                          it computes binWidth, so the user can see the actual
                          resolution at the current slider value. -->
@@ -936,8 +935,8 @@
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-weight:700; color:#111827;">Y:</span>
-                    <label style="cursor:pointer;"><input type="radio" name="distNorm" value="density" checked onchange="plotDistributionFromControls()"> Density</label>
-                    <label style="cursor:pointer;"><input type="radio" name="distNorm" value="count" onchange="plotDistributionFromControls()"> Count</label>
+                    <label style="cursor:pointer;"><input type="radio" name="distNorm" value="density" onchange="plotDistributionFromControls()"> Density</label>
+                    <label style="cursor:pointer;"><input type="radio" name="distNorm" value="count" checked onchange="plotDistributionFromControls()"> Count</label>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;" id="distCategoryToggles">
                     <span style="font-weight:700; color:#111827;">Categories:</span>
@@ -945,10 +944,10 @@
                 </div>
                 <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                     <span style="font-weight:700; color:#111827;">Overlay:</span>
-                    <label style="cursor:pointer;"><input type="checkbox" id="distShowZero" checked onchange="plotDistributionFromControls()"> x=0</label>
-                    <label style="cursor:pointer;"><input type="checkbox" id="distShowCutoff" checked onchange="plotDistributionFromControls()"> Cutoff</label>
-                    <label style="cursor:pointer;"><input type="checkbox" id="distShowNTCMean" checked onchange="plotDistributionFromControls()"> NTC mean</label>
-                    <label style="cursor:pointer;"><input type="checkbox" id="distShowNTCBand" checked onchange="plotDistributionFromControls()"> NTC distribution</label>
+                    <label style="cursor:pointer;"><input type="checkbox" id="distShowZero" onchange="plotDistributionFromControls()"> x=0</label>
+                    <label style="cursor:pointer;"><input type="checkbox" id="distShowCutoff" onchange="plotDistributionFromControls()"> Cutoff</label>
+                    <label style="cursor:pointer;"><input type="checkbox" id="distShowNTCMean" onchange="plotDistributionFromControls()"> NTC mean</label>
+                    <label style="cursor:pointer;"><input type="checkbox" id="distShowNTCBand" onchange="plotDistributionFromControls()"> NTC distribution</label>
                 </div>
             </div>
             <!-- Distribution summary stats table (rendered under the plot) -->
@@ -1022,7 +1021,7 @@
                 <div class="mapping-label">Mutation Category — ALL <span style="color:#e74c3c;">(required if SINGLE not provided)</span></div>
                 <select id="colMutationAll"></select>
                 <p style="font-size: 11px; color: #999; margin-top: 4px;">
-                    Expected format: <code>Missense;Nonsense;Silent</code> — semi-colon separated list per guide.<br>
+                    Expected format: <code>Missense;Nonsense;Silent</code><br>
                     <b>Priority logic:</b> Nonsense or Splice-site wins if present → then Missense → then Silent. Silent is only assigned when it is the only mutation type for that guide.
                 </p>
             </div>
@@ -1317,7 +1316,6 @@
             <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
                 <button class="btn-secondary" onclick="backToGenomeStart()" style="background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.3);">← New Analysis</button>
                 <button onclick="exportConfig()" style="padding:8px 16px; background:white; color:#065f46; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;" title="Download current sheet selection and column mapping as a reusable .editscreen.json file.">💾 Export Configuration</button>
-                <span style="font-size:12px; opacity:0.85;">Saves settings only — not the Excel data.</span>
             </div>
         </div>
         <!-- Stats bar -->
@@ -1436,6 +1434,36 @@
             </div>
             <span style="font-size:11px; color:#6b7280; font-style:italic;" title="Click any point to pin/unpin its gene name on the plot.">Tip: click points to pin gene names</span>
             <button type="button" onclick="window._gPinnedLabels = new Set(); updateGenomeView();" class="btn-secondary" style="padding:3px 9px; font-size:11px;" title="Remove all pinned gene labels.">Clear pins</button>
+            <!-- Gene-name search → add pin label -->
+            <span style="display:flex; align-items:center; gap:6px; margin-left:8px; padding-left:10px; border-left:1px dashed #d1d5db;" title="Type a gene name and click Add to pin its label on the plot.">
+                <span style="font-size:11px; color:#6b7280;">Find gene</span>
+                <input type="text" id="gPinSearch" list="gPinGeneList" placeholder="e.g. TP53"
+                    onkeydown="if(event.key==='Enter'){addGenomePinFromSearch();event.preventDefault();}"
+                    style="padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; width:130px;">
+                <datalist id="gPinGeneList"></datalist>
+                <button type="button" onclick="addGenomePinFromSearch()" class="btn-secondary" style="padding:3px 9px; font-size:11px;">+ Add pin</button>
+            </span>
+        </div>
+        <!-- Custom axis range bar (mirror of BE single's axisRangeRow) -->
+        <div id="gAxisRangeRow" style="display:flex; flex-direction:row; gap:14px; align-items:flex-end; flex-wrap:wrap; padding:8px 12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; margin-bottom:10px;">
+            <span style="font-size:11px; font-weight:700; color:#374151;">Axis range:</span>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+                <label style="font-size:10px; color:#6b7280;">X min</label>
+                <input type="number" id="gAxisXMin" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateGenomeView()">
+            </div>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+                <label style="font-size:10px; color:#6b7280;">X max</label>
+                <input type="number" id="gAxisXMax" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateGenomeView()">
+            </div>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+                <label style="font-size:10px; color:#6b7280;">Y min</label>
+                <input type="number" id="gAxisYMin" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateGenomeView()">
+            </div>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+                <label style="font-size:10px; color:#6b7280;">Y max</label>
+                <input type="number" id="gAxisYMax" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateGenomeView()">
+            </div>
+            <button onclick="document.querySelectorAll('#gAxisXMin,#gAxisXMax,#gAxisYMin,#gAxisYMax').forEach(e=>{e.value='';}); updateGenomeView();" class="btn-secondary" style="padding:4px 10px; font-size:11px;">Reset</button>
         </div>
         <div id="genomeVolcanoPlot" style="width:100%; height:600px;"></div>
             <div style="text-align:right; margin-top:4px;"><button onclick="downloadSVG('genomeVolcanoPlot','crispr_volcano')" class="svg-dl-btn">⬇ Download SVG</button></div>
@@ -1454,7 +1482,6 @@
             <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
                 <button class="btn-secondary" onclick="backToGenomeStart()" style="background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.3);">← New Analysis</button>
                 <button onclick="exportConfig()" style="padding:8px 16px; background:white; color:#5b21b6; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;" title="Download current sheet selection and column mappings (Screen A + Screen B) as a reusable .editscreen.json file.">💾 Export Configuration</button>
-                <span style="font-size:12px; opacity:0.85;">Saves settings only — not the Excel data.</span>
             </div>
         </div>
         <!-- Per-screen cutoff panels -->
@@ -1537,6 +1564,22 @@
                 Tip: click points to pin gene names
             </span>
             <button type="button" onclick="window._gcPinnedLabels = new Set(); updateGenomeComparisonView();" class="btn-secondary" style="padding:3px 9px; font-size:11px;" title="Remove all pinned gene labels.">Clear pins</button>
+            <!-- Gene-name search → add pin label. The Screen toggle controls
+                 which screen(s) the pin is added to (so the same gene can
+                 sit on Screen A only, Screen B only, or both). -->
+            <span style="display:flex; align-items:center; gap:6px; margin-left:8px; padding-left:10px; border-left:1px dashed #d1d5db;" title="Type a gene name, choose a screen, and click Add to pin its label.">
+                <span style="font-size:11px; color:#6b7280;">Find gene</span>
+                <input type="text" id="gcPinSearch" list="gcPinGeneList" placeholder="e.g. TP53"
+                    onkeydown="if(event.key==='Enter'){addGenomeComparisonPinFromSearch();event.preventDefault();}"
+                    style="padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; width:130px;">
+                <datalist id="gcPinGeneList"></datalist>
+                <select id="gcPinScreen" style="padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" title="Which screen to attach the pin to.">
+                    <option value="both" selected>Both</option>
+                    <option value="A">Screen A only</option>
+                    <option value="B">Screen B only</option>
+                </select>
+                <button type="button" onclick="addGenomeComparisonPinFromSearch()" class="btn-secondary" style="padding:3px 9px; font-size:11px;">+ Add pin</button>
+            </span>
             <div style="display:flex; flex-basis:100%; gap:24px; flex-wrap:wrap; padding-top:6px; border-top:1px dashed #e5e7eb;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span id="gcStyleLabelA" style="font-size:12px; font-weight:700; color:#1d4ed8;">Screen A:</span>
@@ -1685,8 +1728,7 @@
                 <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
                     <button class="btn-secondary" onclick="backToSingleView()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">← Back to Single View</button>
                     <button onclick="exportConfig()" style="padding:8px 16px; background:white; color:#1d4ed8; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;" title="Download current sheet selections and column mappings (Screen A + Screen B) as a reusable .editscreen.json file.">💾 Export Configuration</button>
-                    <span style="font-size:12px; opacity:0.85;">Saves settings only — not the Excel data.</span>
-                </div>
+                    </div>
             </div>
 
             <div class="controls">
@@ -1729,7 +1771,7 @@
                  screen. Left column gets a blue accent (Screen A), right gets
                  a red accent (Screen B), with a divider between. -->
             <div style="background:#f8fafc; border:1px solid #d1d5db; border-radius:8px; padding:16px 20px; margin-bottom:20px;">
-                <div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:12px;">Significance Cutoffs &nbsp;<span style="font-weight:400; color:#6b7280; font-size:12px;">— guides must pass these to be counted as above-cutoff in Venn / Unique / Correlation</span></div>
+                <div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:12px;">Significance Cutoffs</div>
                 <div style="display:grid; grid-template-columns:1fr 1px 1fr; gap:18px;">
                     <div style="background:rgba(37,99,235,0.06); border-left:3px solid #2563eb; padding:10px 14px; border-radius:6px;">
                         <div id="cutoffLabelA" style="font-size:12px; font-weight:600; color:#2563eb; margin-bottom:8px;">Screen A</div>
@@ -1774,6 +1816,15 @@
                 <button id="ofBtn_common" class="overlay-filter-btn"        onclick="setOverlayFilter('common')" title="Common to both"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><clipPath id="comFltClipGd"><circle cx="10" cy="6" r="4"/></clipPath></defs><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="6" cy="6" r="4" class="vb-fill" clip-path="url(#comFltClipGd)"/></svg>Common (both screens)</button>
                 <button id="ofBtn_a"      class="overlay-filter-btn"        onclick="setOverlayFilter('a')" title="Unique to A"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><mask id="uniqAFltMaskGd"><rect width="16" height="12" fill="white"/><circle cx="10" cy="6" r="4" fill="black"/></mask></defs><circle cx="6" cy="6" r="4" class="vb-fill" mask="url(#uniqAFltMaskGd)"/><circle cx="10" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/></svg>Unique to <span id="ofLabelA">Screen A</span></button>
                 <button id="ofBtn_b"      class="overlay-filter-btn"        onclick="setOverlayFilter('b')" title="Unique to B"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><mask id="uniqBFltMaskGd"><rect width="16" height="12" fill="white"/><circle cx="6" cy="6" r="4" fill="black"/></mask></defs><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="10" cy="6" r="4" class="vb-fill" mask="url(#uniqBFltMaskGd)"/></svg>Unique to <span id="ofLabelB">Screen B</span></button>
+            </div>
+            <!-- Custom axis range bar for BE Comparison overlay + correlation -->
+            <div id="cmpAxisRangeRow" style="display:flex; flex-direction:row; gap:14px; align-items:flex-end; flex-wrap:wrap; padding:8px 12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; margin-bottom:10px;">
+                <span style="font-size:11px; font-weight:700; color:#374151;">Axis range:</span>
+                <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280;">X min</label><input type="number" id="cmpAxisXMin" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateComparisonView()"></div>
+                <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280;">X max</label><input type="number" id="cmpAxisXMax" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateComparisonView()"></div>
+                <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280;">Y min</label><input type="number" id="cmpAxisYMin" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateComparisonView()"></div>
+                <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280;">Y max</label><input type="number" id="cmpAxisYMax" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateComparisonView()"></div>
+                <button onclick="document.querySelectorAll('#cmpAxisXMin,#cmpAxisXMax,#cmpAxisYMin,#cmpAxisYMax').forEach(e=>{e.value='';}); updateComparisonView();" class="btn-secondary" style="padding:4px 10px; font-size:11px;">Reset</button>
             </div>
             <div id="overlayPlot" style="width: 100%; height: 600px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 4px;"></div>
             <div style="text-align:right; margin-bottom:10px;"><button onclick="downloadSVG('overlayPlot','be_overlay')" class="svg-dl-btn">⬇ Download SVG</button> <button onclick="downloadBEComparisonData('overlay')" class="svg-dl-btn" title="Download per-guide data for the overlay plot.">⬇ Download data</button></div>
@@ -2043,8 +2094,10 @@
             } else if (cfg.comparison) {
                 const a = cfg.comparison.A || {};
                 const b = cfg.comparison.B || {};
-                parts.push('A="' + (a.name||'A') + '"/' + (a.selectedSheets||[]).length + 'sh');
-                parts.push('B="' + (b.name||'B') + '"/' + (b.selectedSheets||[]).length + 'sh');
+                const _nA = (a.selectedSheets||[]).length;
+                const _nB = (b.selectedSheets||[]).length;
+                parts.push('A="' + (a.name||'A') + '" (' + _nA + ' sheet' + (_nA === 1 ? '' : 's') + ')');
+                parts.push('B="' + (b.name||'B') + '" (' + _nB + ' sheet' + (_nB === 1 ? '' : 's') + ')');
             }
             return parts.join(' · ');
         }
@@ -4401,7 +4454,7 @@
         // Keeps Screen A's palette identical to single-screen, while Screen B gets a clearly
         // distinguishable second-screen palette out of the box.
         const CMP_DEFAULT_COLORS_B = {
-            'Missense':   '#8da0cb',
+            'Missense':   '#cb5435',
             'Nonsense':   '#b3b3b3',
             'Silent':     '#ffd92f',
             'Splice-site':'#a6d854'
@@ -4410,7 +4463,7 @@
             default: {
                 shapes: { 'Missense':'circle', 'Nonsense':'circle', 'Silent':'circle', 'Splice-site':'circle' },
                 colors: { 'Missense':'#66c2a5', 'Nonsense':'#e78ac3', 'Silent':'#fc8d62', 'Splice-site':'#8da0cb' },
-                sizes:  { 'Missense':9, 'Nonsense':9, 'Silent':9, 'Splice-site':9 }
+                sizes:  { 'Missense':13, 'Nonsense':13, 'Silent':13, 'Splice-site':13 }
             },
             impact: {
                 shapes: { 'Missense':'circle', 'Nonsense':'triangle-up', 'Silent':'circle', 'Splice-site':'diamond' },
@@ -6999,6 +7052,9 @@
             if (corrDl) corrDl.style.display = view === 'correlation' ? '' : 'none';
             document.getElementById('uniqueGuidesPanel').style.display = view === 'unique' ? '' : 'none';
             document.getElementById('commonGuidesPanel').style.display = view === 'common' ? '' : 'none';
+            // Axis range bar only makes sense on overlay & correlation views.
+            const _cmpAxis = document.getElementById('cmpAxisRangeRow');
+            if (_cmpAxis) _cmpAxis.style.display = (view === 'overlay' || view === 'correlation') ? 'flex' : 'none';
 
             document.querySelectorAll('.view-toggle .view-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
@@ -7164,6 +7220,12 @@
             updateComparisonView();
         }
 
+        // Pull custom axis range overrides for BE Comparison plots.
+        function _getCmpAxisOverrides() {
+            const num = id => { const el = document.getElementById(id); if (!el) return null; const v = parseFloat(el.value); return isFinite(v) ? v : null; };
+            return { xMin: num('cmpAxisXMin'), xMax: num('cmpAxisXMax'), yMin: num('cmpAxisYMin'), yMax: num('cmpAxisYMax') };
+        }
+
         function plotComparisonOverlay(dataA, dataB, statIdxA, statIdxB, metric, proteinName, proteinDisplayName) {
             const nameA = screenConfigs.A.name || 'Screen A';
             const nameB = screenConfigs.B.name || 'Screen B';
@@ -7272,7 +7334,13 @@
 
             // Fix X-axis to protein length so range doesn't shift with cutoffs
             const proteinLength = protein ? protein.length : null;
-            const xRange = proteinLength ? [0, proteinLength + Math.ceil(proteinLength * 0.02)] : undefined;
+            let xRange = proteinLength ? [0, proteinLength + Math.ceil(proteinLength * 0.02)] : undefined;
+            // Apply user axis overrides if set (overlay).
+            const _cmpOv = _getCmpAxisOverrides();
+            if (_cmpOv.xMin !== null || _cmpOv.xMax !== null) {
+                xRange = [_cmpOv.xMin !== null ? _cmpOv.xMin : (xRange ? xRange[0] : undefined),
+                          _cmpOv.xMax !== null ? _cmpOv.xMax : (xRange ? xRange[1] : undefined)];
+            }
 
             const annotations = [];
             if (isLogMetric && (nCeilA + nCeilB) > 0) {
@@ -7296,14 +7364,22 @@
                     showline: true, mirror: true, ticks: 'outside',
                     ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
                 },
-                yaxis: {
-                    title: { text: metricLabel, font: { family: cmpStyle.family, size: cmpStyle.size + 1 } },
-                    tickfont: { family: cmpStyle.family, size: cmpStyle.size },
-                    autorange: true,
-                    zeroline: true, zerolinewidth: 1.5, zerolinecolor: '#aaa',
-                    showline: true, mirror: true, ticks: 'outside',
-                    ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
-                },
+                yaxis: (function(){
+                    const ya = {
+                        title: { text: metricLabel, font: { family: cmpStyle.family, size: cmpStyle.size + 1 } },
+                        tickfont: { family: cmpStyle.family, size: cmpStyle.size },
+                        autorange: true,
+                        zeroline: true, zerolinewidth: 1.5, zerolinecolor: '#aaa',
+                        showline: true, mirror: true, ticks: 'outside',
+                        ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
+                    };
+                    if (_cmpOv.yMin !== null || _cmpOv.yMax !== null) {
+                        ya.range = [_cmpOv.yMin !== null ? _cmpOv.yMin : undefined,
+                                    _cmpOv.yMax !== null ? _cmpOv.yMax : undefined];
+                        ya.autorange = false;
+                    }
+                    return ya;
+                })(),
                 legend: { font: { family: cmpStyle.family, size: cmpStyle.size } },
                 hovermode: 'closest',
                 plot_bgcolor: 'white',
@@ -7518,21 +7594,34 @@
                 });
             }
 
+            const _cmpOvCorr = _getCmpAxisOverrides();
+            const _xa = {
+                title: { text: `${nameA}: ${metricLabel}`, font: { family: cmpStyle.family, size: cmpStyle.size + 1 } },
+                tickfont: { family: cmpStyle.family, size: cmpStyle.size },
+                showline: true, mirror: true, ticks: 'outside',
+                ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
+            };
+            const _ya = {
+                title: { text: `${nameB}: ${metricLabel}`, font: { family: cmpStyle.family, size: cmpStyle.size + 1 } },
+                tickfont: { family: cmpStyle.family, size: cmpStyle.size },
+                showline: true, mirror: true, ticks: 'outside',
+                ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
+            };
+            if (_cmpOvCorr.xMin !== null || _cmpOvCorr.xMax !== null) {
+                _xa.range = [_cmpOvCorr.xMin !== null ? _cmpOvCorr.xMin : undefined,
+                             _cmpOvCorr.xMax !== null ? _cmpOvCorr.xMax : undefined];
+                _xa.autorange = false;
+            }
+            if (_cmpOvCorr.yMin !== null || _cmpOvCorr.yMax !== null) {
+                _ya.range = [_cmpOvCorr.yMin !== null ? _cmpOvCorr.yMin : undefined,
+                             _cmpOvCorr.yMax !== null ? _cmpOvCorr.yMax : undefined];
+                _ya.autorange = false;
+            }
             const layout = {
                 font: { family: cmpStyle.family, size: cmpStyle.size },
                 title: { text: `Correlation: ${nameA} vs ${nameB} (r = ${r.toFixed(3)})`, font: { family: cmpStyle.family, size: cmpStyle.size + 2 } },
-                xaxis: {
-                    title: { text: `${nameA}: ${metricLabel}`, font: { family: cmpStyle.family, size: cmpStyle.size + 1 } },
-                    tickfont: { family: cmpStyle.family, size: cmpStyle.size },
-                    showline: true, mirror: true, ticks: 'outside',
-                    ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
-                },
-                yaxis: {
-                    title: { text: `${nameB}: ${metricLabel}`, font: { family: cmpStyle.family, size: cmpStyle.size + 1 } },
-                    tickfont: { family: cmpStyle.family, size: cmpStyle.size },
-                    showline: true, mirror: true, ticks: 'outside',
-                    ticklen: 5, tickwidth: 1.5, linewidth: 1.5, linecolor: '#333', automargin: true
-                },
+                xaxis: _xa,
+                yaxis: _ya,
                 hovermode: 'closest',
                 plot_bgcolor: 'white',
                 paper_bgcolor: 'white',
@@ -8136,8 +8225,55 @@
             };
             genomeFilteredGenes = applyGenomeCutoffs(genomeGeneData, cuts.z, cuts.zDir, cuts.fc, cuts.fcDir, cuts.p, cuts.fdr, cuts.pDir, cuts.fdrDir);
             document.getElementById('gHitGenes').textContent = genomeFilteredGenes.length;
+            // Refresh gene-name autocomplete for the search-pin input.
+            try { refreshGenomePinDatalist(); } catch (_) {}
             if (genomeCurrentView === 'volcano') plotGenomeVolcano(genomeGeneData, genomeFilteredGenes);
             else renderGenomeTable(genomeFilteredGenes);
+        }
+
+        // Populate the search-pin <datalist> for the CRISPR Single view with
+        // every gene name in the active dataset, so the user gets typeahead
+        // suggestions when adding a pin by name.
+        function refreshGenomePinDatalist() {
+            const dl = document.getElementById('gPinGeneList');
+            if (!dl || !genomeGeneData) return;
+            // Cap to first ~3000 names to avoid massive DOM.
+            const names = [];
+            const seen = new Set();
+            for (let i = 0; i < genomeGeneData.length && names.length < 3000; i++) {
+                const g = genomeGeneData[i].gene;
+                if (g && !seen.has(g)) { seen.add(g); names.push(g); }
+            }
+            dl.innerHTML = names.map(n => '<option value="' + String(n).replace(/"/g,'&quot;') + '">').join('');
+        }
+
+        // Add a pin label by typed gene name (CRISPR Single).
+        // Case-insensitive lookup against the active gene list. If the name
+        // doesn't match anything, surface a small inline warning instead of
+        // silently failing.
+        function addGenomePinFromSearch() {
+            const inp = document.getElementById('gPinSearch');
+            if (!inp) return;
+            const raw = (inp.value || '').trim();
+            if (!raw) return;
+            window._gPinnedLabels = window._gPinnedLabels || new Set();
+            // Resolve to canonical case from the dataset so the pin label
+            // matches the data exactly (e.g. "tp53" → "TP53").
+            const upper = raw.toUpperCase();
+            let canonical = null;
+            for (let i = 0; i < genomeGeneData.length; i++) {
+                const g = genomeGeneData[i].gene;
+                if (g && String(g).toUpperCase() === upper) { canonical = g; break; }
+            }
+            if (!canonical) {
+                inp.style.borderColor = '#dc2626';
+                inp.title = 'Gene "' + raw + '" not found in this screen.';
+                setTimeout(() => { inp.style.borderColor = '#d1d5db'; inp.title = ''; }, 1800);
+                return;
+            }
+            window._gPinnedLabels.add(canonical);
+            inp.value = '';
+            updateGenomeView();
         }
 
         function switchGenomeView(view, evt) {
@@ -8264,15 +8400,50 @@
                 });
             });
 
+            // Pull custom axis range overrides (CRISPR-specific inputs).
+            const _gNumAxis = (id) => {
+                const el = document.getElementById(id);
+                if (!el) return null;
+                const v = parseFloat(el.value);
+                return isFinite(v) ? v : null;
+            };
+            const _gXMin = _gNumAxis('gAxisXMin'), _gXMax = _gNumAxis('gAxisXMax');
+            const _gYMin = _gNumAxis('gAxisYMin'), _gYMax = _gNumAxis('gAxisYMax');
+            const _gXAxis = { title:{text:getGenomeMetricLabel(xMetric),font:{size:gf.size,family:gf.family}},
+                tickfont:{size:gf.size,family:gf.family},
+                showline:true,mirror:true,ticks:'outside',ticklen:5,linewidth:1.5,linecolor:'#333',automargin:true,zeroline:true,zerolinewidth:1,zerolinecolor:'#aaa'};
+            const _gYAxis = { title:{text:getGenomeMetricLabel(yMetric),font:{size:gf.size,family:gf.family}},
+                tickfont:{size:gf.size,family:gf.family},
+                showline:true,mirror:true,ticks:'outside',ticklen:5,linewidth:1.5,linecolor:'#333',automargin:true};
+            if (_gXMin !== null || _gXMax !== null) {
+                _gXAxis.range = [_gXMin !== null ? _gXMin : undefined, _gXMax !== null ? _gXMax : undefined];
+                _gXAxis.autorange = false;
+            }
+            if (_gYMin !== null || _gYMax !== null) {
+                _gYAxis.range = [_gYMin !== null ? _gYMin : undefined, _gYMax !== null ? _gYMax : undefined];
+                _gYAxis.autorange = false;
+            }
+            // Restore zoom state if a click-to-pin re-plot was just triggered.
+            // The custom inputs above take precedence; this only fills in when
+            // those inputs are empty, so the user's saved zoom isn't clobbered.
+            if (window._gZoomRestore) {
+                if (window._gZoomRestore.x && _gXMin === null && _gXMax === null) {
+                    _gXAxis.range = window._gZoomRestore.x.slice();
+                    _gXAxis.autorange = false;
+                }
+                if (window._gZoomRestore.y && _gYMin === null && _gYMax === null) {
+                    _gYAxis.range = window._gZoomRestore.y.slice();
+                    _gYAxis.autorange = false;
+                }
+                // Consume it — only restore once per click.
+                window._gZoomRestore = null;
+            }
+
             Plotly.newPlot('genomeVolcanoPlot', traces, {
                 title: { text: 'Genome-Wide Volcano — ' + allGenes.length + ' genes (' + hitGenesArr.length + ' hits)',
                     x:0.5, xanchor:'center', font:{size:gf.size+2, family:gf.family} },
-                xaxis: { title:{text:getGenomeMetricLabel(xMetric),font:{size:gf.size,family:gf.family}},
-                    tickfont:{size:gf.size,family:gf.family},
-                    showline:true,mirror:true,ticks:'outside',ticklen:5,linewidth:1.5,linecolor:'#333',automargin:true,zeroline:true,zerolinewidth:1,zerolinecolor:'#aaa'},
-                yaxis: { title:{text:getGenomeMetricLabel(yMetric),font:{size:gf.size,family:gf.family}},
-                    tickfont:{size:gf.size,family:gf.family},
-                    showline:true,mirror:true,ticks:'outside',ticklen:5,linewidth:1.5,linecolor:'#333',automargin:true},
+                xaxis: _gXAxis,
+                yaxis: _gYAxis,
                 hovermode:'closest', plot_bgcolor:'white', paper_bgcolor:'white',
                 height:600, margin:{l:80,r:30,t:90,b:70},
                 legend:{orientation:'h',x:0,y:-0.12},
@@ -8284,6 +8455,24 @@
                     const cd = ev.points[0].customdata;
                     const gene = Array.isArray(cd) ? cd[0] : cd;
                     if (!gene) return;
+                    // Preserve the current zoom range across the re-plot so
+                    // clicking to label/unlabel doesn't reset the view.
+                    // Plotly tracks the user's zoom in gd.layout.xaxis.range
+                    // (with .autorange === false once the user has zoomed).
+                    try {
+                        const xa = gd.layout && gd.layout.xaxis;
+                        const ya = gd.layout && gd.layout.yaxis;
+                        const xZoomed = xa && xa.autorange === false && Array.isArray(xa.range);
+                        const yZoomed = ya && ya.autorange === false && Array.isArray(ya.range);
+                        if (xZoomed || yZoomed) {
+                            window._gZoomRestore = {
+                                x: xZoomed ? xa.range.slice() : null,
+                                y: yZoomed ? ya.range.slice() : null
+                            };
+                        } else {
+                            window._gZoomRestore = null;
+                        }
+                    } catch (_) { window._gZoomRestore = null; }
                     if (window._gPinnedLabels.has(gene)) window._gPinnedLabels.delete(gene);
                     else window._gPinnedLabels.add(gene);
                     updateGenomeView();
@@ -8383,12 +8572,92 @@
             const common = [...passSetA].filter(g=>passSetB.has(g));
             const onlyA  = [...passSetA].filter(g=>!passSetB.has(g));
             const onlyB  = [...passSetB].filter(g=>!passSetA.has(g));
+            // Refresh gene-name autocomplete (union of both screens) for the
+            // search-pin input on the comparison view.
+            try { refreshGenomeComparisonPinDatalist(); } catch (_) {}
             if (gcCurrentView==='overlay') plotGenomeOverlay(gcConfigs.A.geneData, gcConfigs.B.geneData, passSetA, passSetB, nameA, nameB, cutsActiveA, cutsActiveB);
             else if (gcCurrentView==='correlation') plotGenomeCorrelation(gcConfigs.A.geneData, gcConfigs.B.geneData, passSetA, passSetB, nameA, nameB, cutsActiveA, cutsActiveB);
             else if (gcCurrentView==='venn') plotGenomeVenn(passSetA.size, passSetB.size, common.length, nameA, nameB, cutsActiveA, cutsActiveB);
             else if (gcCurrentView==='unique') renderGenomeUnique(onlyA, gcConfigs.A.geneData, nameA, onlyB, gcConfigs.B.geneData, nameB);
             else if (gcCurrentView==='common') renderGenomeCommon(common, gcConfigs.A.geneData, gcConfigs.B.geneData, nameA, nameB);
             document.getElementById('gcCommonHeader').textContent = 'Common Hits (' + common.length + ')';
+        }
+
+        // Build the union gene-name list for the comparison search box,
+        // using gcConfigs.A.geneData ∪ gcConfigs.B.geneData. Also caches a
+        // case-insensitive resolution map for quick canonical-name lookup
+        // when the user types in any case.
+        function refreshGenomeComparisonPinDatalist() {
+            const dl = document.getElementById('gcPinGeneList');
+            if (!dl) return;
+            const setA = (gcConfigs && gcConfigs.A && gcConfigs.A.geneData) || [];
+            const setB = (gcConfigs && gcConfigs.B && gcConfigs.B.geneData) || [];
+            const seen = new Set();
+            const names = [];
+            const resolve = {};
+            const push = (g) => {
+                if (!g) return;
+                const upper = String(g).toUpperCase();
+                if (seen.has(upper)) return;
+                seen.add(upper);
+                resolve[upper] = g;
+                if (names.length < 5000) names.push(g);
+            };
+            for (let i = 0; i < setA.length; i++) push(setA[i].gene);
+            for (let i = 0; i < setB.length; i++) push(setB[i].gene);
+            dl.innerHTML = names.map(n => '<option value="' + String(n).replace(/"/g,'&quot;') + '">').join('');
+            window._gcGeneResolve = resolve;
+        }
+
+        // Add a pin label by typed gene name (CRISPR Comparison). The
+        // "Screen" select decides which screen(s) the pin is attached to —
+        // matches the per-screen pin keys used by the click-to-pin handler.
+        function addGenomeComparisonPinFromSearch() {
+            const inp = document.getElementById('gcPinSearch');
+            const sel = document.getElementById('gcPinScreen');
+            if (!inp) return;
+            const raw = (inp.value || '').trim();
+            if (!raw) return;
+            const which = (sel && sel.value) || 'both';
+            const upper = raw.toUpperCase();
+            const resolve = window._gcGeneResolve || {};
+            // Verify the gene actually exists in the relevant screen(s)
+            // before pinning, otherwise the pin would render nothing.
+            const setA = (gcConfigs && gcConfigs.A && gcConfigs.A.geneData) || [];
+            const setB = (gcConfigs && gcConfigs.B && gcConfigs.B.geneData) || [];
+            const inA = setA.some(g => g.gene && String(g.gene).toUpperCase() === upper);
+            const inB = setB.some(g => g.gene && String(g.gene).toUpperCase() === upper);
+            const canonical = resolve[upper] || (inA ? setA.find(g => String(g.gene).toUpperCase() === upper).gene
+                                                    : (inB ? setB.find(g => String(g.gene).toUpperCase() === upper).gene : null));
+            if (!canonical) {
+                inp.style.borderColor = '#dc2626';
+                inp.title = 'Gene "' + raw + '" not found in either screen.';
+                setTimeout(() => { inp.style.borderColor = '#d1d5db'; inp.title = ''; }, 1800);
+                return;
+            }
+            window._gcPinnedLabels = window._gcPinnedLabels || new Set();
+            // Per-screen scoping: pin keys use "A::GENE" / "B::GENE" so the
+            // overlay knows exactly which point to label.
+            const wantA = (which === 'A' || which === 'both');
+            const wantB = (which === 'B' || which === 'both');
+            // Soft-warn (don't block) if the user picked a screen that doesn't
+            // contain the gene — they probably typed it for the other screen.
+            if (wantA && !inA && !wantB) {
+                inp.style.borderColor = '#f59e0b';
+                inp.title = '"' + canonical + '" is not in ' + ((gcConfigs.A && gcConfigs.A.name) || 'Screen A') + '.';
+                setTimeout(() => { inp.style.borderColor = '#d1d5db'; inp.title = ''; }, 2200);
+                return;
+            }
+            if (wantB && !inB && !wantA) {
+                inp.style.borderColor = '#f59e0b';
+                inp.title = '"' + canonical + '" is not in ' + ((gcConfigs.B && gcConfigs.B.name) || 'Screen B') + '.';
+                setTimeout(() => { inp.style.borderColor = '#d1d5db'; inp.title = ''; }, 2200);
+                return;
+            }
+            if (wantA && inA) window._gcPinnedLabels.add('A::' + canonical);
+            if (wantB && inB) window._gcPinnedLabels.add('B::' + canonical);
+            inp.value = '';
+            updateGenomeComparisonView();
         }
 
         function switchGenomeCompView(view, evt) {
@@ -8572,13 +8841,21 @@
                 [ 48,   0], [-48,   0], [  0, -42], [  0,  42]
             ];
             let _pinIdx = 0;
-            window._gcPinnedLabels.forEach(g => {
-                const xy = groupsByGene.get(g);
+            // Correlation has one point per gene (X = Screen A value, Y =
+            // Screen B value), so per-screen pin keys collapse to the same
+            // gene. Strip any "A::"/"B::" prefix and dedupe.
+            const _corrSeen = new Set();
+            window._gcPinnedLabels.forEach(key => {
+                const gene = (typeof key === 'string' && key.indexOf('::') !== -1)
+                    ? key.split('::').slice(1).join('::') : key;
+                if (_corrSeen.has(gene)) return;
+                _corrSeen.add(gene);
+                const xy = groupsByGene.get(gene);
                 if (!xy) return;
                 const [_pinAx, _pinAy] = _pinDirs[_pinIdx++ % _pinDirs.length];
                 pinnedAnnotationsCorr.push({
                     x: xy.x, y: xy.y, xref:'x', yref:'y',
-                    text: '<b>' + g + '</b>',
+                    text: '<b>' + gene + '</b>',
                     showarrow: true, arrowhead: 2, arrowsize: 0.8, arrowwidth: 1.2, arrowcolor:'#0f766e',
                     ax: _pinAx, ay: _pinAy,
                     font: { size: Math.max(11, gf.size), family: gf.family, color:'#0f766e' },
@@ -8868,18 +9145,23 @@
                 return t;
             }
 
-            // Partition Screen A points into 3 buckets (after the overlay filter)
+            // Partition Screen A points into 3 buckets (after the overlay filter).
+            // We *clone* each gene with a __screen tag so per-screen pins can
+            // resolve which point the user actually clicked, instead of
+            // collapsing the same gene name across both screens.
             const aBoth = [], aOwn = [], aBg = [];
-            genesA.forEach(function(g) {
-                if (!passesOverlayFilter(g)) return;
+            genesA.forEach(function(_g) {
+                if (!passesOverlayFilter(_g)) return;
+                const g = Object.assign({}, _g, { __screen: 'A' });
                 if (isCommonHit(g))      aBoth.push(g);
                 else if (passesOwnA(g))  aOwn.push(g);
                 else                     aBg.push(g);
             });
             // Partition Screen B points into 3 buckets (after the overlay filter)
             const bBoth = [], bOwn = [], bBg = [];
-            genesB.forEach(function(g) {
-                if (!passesOverlayFilter(g)) return;
+            genesB.forEach(function(_g) {
+                if (!passesOverlayFilter(_g)) return;
+                const g = Object.assign({}, _g, { __screen: 'B' });
                 if (isCommonHit(g))      bBoth.push(g);
                 else if (passesOwnB(g))  bOwn.push(g);
                 else                     bBg.push(g);
@@ -8896,8 +9178,10 @@
                         line:{ color: genes.map(g => isCeil(g) ? '#000' : '#333'), width: genes.map(g => isCeil(g) ? 2 : 0.4) }
                     },
                     text: genes.map(g=>makeHover(g, screen)), hovertemplate:'%{text}<extra></extra>',
-                    // F8: per-point gene name so the click handler can pin/unpin.
-                    customdata: genes.map(g => g.gene)
+                    // F8: per-point [gene, screen] so the click handler pins
+                    // the point the user actually clicked (not whichever screen
+                    // shares the same gene name).
+                    customdata: genes.map(g => [g.gene, g.__screen || null])
                 };
             }
 
@@ -8925,7 +9209,7 @@
                         line:{ color: combined.map(g => isCeil(g) ? '#000' : '#333'), width: combined.map(g => isCeil(g) ? 2 : 0.4) }
                     },
                     text: combined.map((g,i)=>makeHover(g, screens[i])), hovertemplate:'%{text}<extra></extra>',
-                    customdata: combined.map(g => g.gene)
+                    customdata: combined.map(g => [g.gene, g.__screen || null])
                 });
             }
 
@@ -9000,30 +9284,56 @@
                 });
             }
 
-            // F8: pinned gene labels on the overlay. Build (x, y) per gene
-            // by preferring the bucket where the gene actually has a higher
-            // y-value, so the label sits on the more visually important point.
+            // F8: pinned gene labels on the overlay. Each pin is keyed by
+            // SCREEN as well as gene name (key = `${screen}::${gene}`), so
+            // clicking the same gene in Screen A vs Screen B drops two
+            // independent labels on the two distinct points instead of
+            // collapsing onto whichever the previous "best y" heuristic
+            // picked. Backwards-compat: bare gene strings (legacy entries)
+            // are treated as "any screen" and resolved to the higher-y
+            // point as before.
             window._gcPinnedLabels = window._gcPinnedLabels || new Set();
-            const overlayBuckets = aBoth.concat(bBoth, aOwn, bOwn, aBg, bBg);
-            const overlayBest = new Map();
-            overlayBuckets.forEach(function(g) {
+            // Build per-screen lookup maps.
+            const overlayBestA = new Map(), overlayBestB = new Map();
+            const overlayBestAny = new Map();
+            function _pickScreen(g) {
+                // Each genome row is associated with one screen via the
+                // arrays it came from. We tag downstream by checking source.
+                return g.__screen || null;
+            }
+            const _allOverlayPts = aBoth.concat(bBoth, aOwn, bOwn, aBg, bBg);
+            _allOverlayPts.forEach(function(g) {
                 const xv = g[xMetric], yv = g[yMetric];
                 if (xv == null || yv == null || isNaN(xv) || isNaN(yv)) return;
-                const prev = overlayBest.get(g.gene);
-                if (!prev || yv > prev.y) overlayBest.set(g.gene, { x: xv, y: yv });
+                const s = _pickScreen(g);
+                const target = s === 'A' ? overlayBestA : (s === 'B' ? overlayBestB : null);
+                if (target) {
+                    const prev = target.get(g.gene);
+                    if (!prev || yv > prev.y) target.set(g.gene, { x: xv, y: yv });
+                }
+                const prevAny = overlayBestAny.get(g.gene);
+                if (!prevAny || yv > prevAny.y) overlayBestAny.set(g.gene, { x: xv, y: yv });
             });
             const _pinDirsOL = [
                 [ 36, -32], [-36, -32], [ 36,  32], [-36,  32],
                 [ 48,   0], [-48,   0], [  0, -42], [  0,  42]
             ];
             let _pinIdxOL = 0;
-            window._gcPinnedLabels.forEach(function(gene) {
-                const xy = overlayBest.get(gene);
+            window._gcPinnedLabels.forEach(function(key) {
+                let screen = null, gene = key;
+                if (typeof key === 'string' && key.indexOf('::') !== -1) {
+                    const parts = key.split('::');
+                    screen = parts[0]; gene = parts.slice(1).join('::');
+                }
+                const xy = (screen === 'A') ? overlayBestA.get(gene)
+                         : (screen === 'B') ? overlayBestB.get(gene)
+                         : overlayBestAny.get(gene);
                 if (!xy) return;
                 const [_pinAx, _pinAy] = _pinDirsOL[_pinIdxOL++ % _pinDirsOL.length];
+                const labelTxt = screen ? ('<b>' + gene + '</b> <span style="font-size:10px;">[' + screen + ']</span>') : ('<b>' + gene + '</b>');
                 annotations.push({
                     x: xy.x, y: xy.y, xref:'x', yref:'y',
-                    text: '<b>' + gene + '</b>',
+                    text: labelTxt,
                     showarrow: true, arrowhead: 2, arrowsize: 0.8, arrowwidth: 1.2, arrowcolor:'#0f766e',
                     ax: _pinAx, ay: _pinAy,
                     font: { size: Math.max(11, gf.size), family: gf.family, color:'#0f766e' },
@@ -9047,10 +9357,16 @@
                     if (!ev || !ev.points || !ev.points.length) return;
                     const pt = ev.points[0];
                     const cd = pt.customdata;
-                    const gene = Array.isArray(cd) ? cd[0] : cd;
+                    // customdata is [gene, screen] for overlay traces. Pin
+                    // key includes the screen so clicking the same gene in
+                    // Screen A vs Screen B drops two independent labels.
+                    let gene = null, screen = null;
+                    if (Array.isArray(cd)) { gene = cd[0]; screen = cd[1] || null; }
+                    else                   { gene = cd; }
                     if (!gene) return;
-                    if (window._gcPinnedLabels.has(gene)) window._gcPinnedLabels.delete(gene);
-                    else window._gcPinnedLabels.add(gene);
+                    const key = screen ? (screen + '::' + gene) : gene;
+                    if (window._gcPinnedLabels.has(key)) window._gcPinnedLabels.delete(key);
+                    else window._gcPinnedLabels.add(key);
                     updateGenomeComparisonView();
                 });
             });

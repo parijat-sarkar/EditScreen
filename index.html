@@ -1262,7 +1262,13 @@
             <select id="gColGuideID" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"></select>
           </div>
           <div class="mapping-group">
-            <div class="mapping-label">IGTIOB score (optional — e.g. Z-score, enrichment score)</div>
+            <div class="mapping-label" style="display:flex; align-items:center; gap:10px;">
+              <span data-genome-score-label="{label} (optional — e.g. enrichment score, IGTIOB)">Score (optional — e.g. enrichment score, IGTIOB)</span>
+              <span style="display:inline-flex; border:1px solid #10b981; border-radius:999px; overflow:hidden; font-size:11px; margin-left:auto;">
+                <button id="gScoreLabelBtnScore" type="button" onclick="setGenomeScoreLabel('Score')" style="padding:3px 10px; font-weight:600; border:none; background:#10b981; color:white; cursor:pointer;">Score</button>
+                <button id="gScoreLabelBtnIGTIOB" type="button" onclick="setGenomeScoreLabel('IGTIOB')" style="padding:3px 10px; font-weight:600; border:none; background:white; color:#065f46; cursor:pointer;">IGTIOB</button>
+              </span>
+            </div>
             <select id="gColZscore" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"></select>
           </div>
           <div class="mapping-group">
@@ -1865,6 +1871,62 @@
         // only controls strings shown to the user and exported in headers.
         let SCORE_LABEL = 'Z-score';
         function getScoreLabel() { return SCORE_LABEL; }
+
+        // ── CRISPR-mode score label (Score / IGTIOB) ───────────────────────────
+        // Independent toggle for genome (CRISPR) single mode and CRISPR comparison
+        // mode. Labels only — internal keys stay 'zscore'.
+        let GENOME_SCORE_LABEL = 'Score';
+        function getGenomeScoreLabel() { return GENOME_SCORE_LABEL; }
+        function setGenomeScoreLabel(label) {
+            if (label !== 'Score' && label !== 'IGTIOB') return;
+            GENOME_SCORE_LABEL = label;
+            const z = document.getElementById('gScoreLabelBtnScore');
+            const s = document.getElementById('gScoreLabelBtnIGTIOB');
+            const isScore = label === 'Score';
+            if (z) { z.style.background = isScore ? '#10b981' : 'white'; z.style.color = isScore ? 'white' : '#065f46'; }
+            if (s) { s.style.background = isScore ? 'white' : '#10b981'; s.style.color = isScore ? '#065f46' : 'white'; }
+            // Update label tags in DOM that reference the genome score label
+            document.querySelectorAll('[data-genome-score-label]').forEach(el => {
+                const tmpl = el.getAttribute('data-genome-score-label');
+                el.textContent = tmpl.replace('{label}', label);
+            });
+            // Refresh dropdown <option> texts that need to display the score label
+            document.querySelectorAll('[data-genome-score-option]').forEach(el => {
+                const tmpl = el.getAttribute('data-genome-score-option');
+                el.textContent = tmpl.replace('{label}', label);
+            });
+            try { if (typeof updateGenomeView === 'function') updateGenomeView(); } catch(e){}
+            try { if (typeof updateGenomeComparisonView === 'function') updateGenomeComparisonView(); } catch(e){}
+        }
+
+        // Returns ordered list of stat keys the user actually uploaded for a given
+        // CRISPR-comparison screen (gcConfigs.A or .B). Each entry has:
+        //   { key: 'zscore'|'foldchange'|'logpvalue'|'logfdr',
+        //     label: human-readable column header,
+        //     dataKey: field on a gene object holding the displayable value }
+        // Returns [] if the screen isn't loaded yet.
+        function getActiveStatsForGenomeScreen(screen /* 'A' | 'B' */) {
+            const cfg = (typeof gcConfigs !== 'undefined') ? gcConfigs[screen] : null;
+            if (!cfg || !cfg.colMap) return [];
+            const cm = cfg.colMap;
+            const out = [];
+            if (cm.zscore) out.push({ key:'zscore',     label:getGenomeScoreLabel(),    dataKey:'zscore'     });
+            if (cm.fc)     out.push({ key:'foldchange', label:'Fold Change',            dataKey:'foldchange' });
+            if (cm.pvalue) out.push({ key:'logpvalue',  label:'−log10(P-value)',        dataKey:'logpvalue'  });
+            if (cm.fdr)    out.push({ key:'logfdr',     label:'−log10(FDR)',            dataKey:'logfdr'     });
+            return out;
+        }
+        // Single-screen variant — uses genomeColMap.
+        function getActiveStatsForGenomeSingle() {
+            const cm = (typeof genomeColMap !== 'undefined') ? genomeColMap : {};
+            if (!cm) return [];
+            const out = [];
+            if (cm.zscore) out.push({ key:'zscore',     label:getGenomeScoreLabel(),    dataKey:'zscore'     });
+            if (cm.fc)     out.push({ key:'foldchange', label:'Fold Change',            dataKey:'foldchange' });
+            if (cm.pvalue) out.push({ key:'logpvalue',  label:'−log10(P-value)',        dataKey:'logpvalue'  });
+            if (cm.fdr)    out.push({ key:'logfdr',     label:'−log10(FDR)',            dataKey:'logfdr'     });
+            return out;
+        }
         function setScoreLabel(label) {
             if (label !== 'Score' && label !== 'Z-score') return;
             SCORE_LABEL = label;
@@ -8209,7 +8271,7 @@
         }
 
         function getGenomeMetricLabel(m) {
-            return { zscore: getScoreLabel(), foldchange:'Fold Change', logpvalue:'−log10(P-value)', logfdr:'−log10(FDR)' }[m] || m;
+            return { zscore: getGenomeScoreLabel(), foldchange:'Fold Change', logpvalue:'−log10(P-value)', logfdr:'−log10(FDR)' }[m] || m;
         }
 
         function updateGenomeView() {
@@ -8306,6 +8368,26 @@
             const hitNormal  = hitGenesArr.filter(g => !isCeil(g));
             const hitCeiling = hitGenesArr.filter(g =>  isCeil(g));
 
+            // Build dynamic hover from ONLY the statistics the user uploaded
+            // (genomeColMap.zscore / fc / pvalue / fdr). Skip duplicates of the
+            // current X/Y axis metrics so values aren't shown twice.
+            const _gActiveStats = getActiveStatsForGenomeSingle();
+            function makeGenomeHover(g) {
+                const seen = new Set();
+                let t = '<b>' + g.gene + '</b><br>';
+                t += getGenomeMetricLabel(xMetric) + ': ' + (isNaN(g[xMetric])?'N/A':(+g[xMetric]).toFixed(3)) + '<br>';
+                seen.add(xMetric);
+                t += getGenomeMetricLabel(yMetric) + ': ' + (isNaN(g[yMetric])?'N/A':(+g[yMetric]).toFixed(3)) + '<br>';
+                seen.add(yMetric);
+                _gActiveStats.forEach(function(s) {
+                    if (seen.has(s.key)) return;
+                    const v = g[s.dataKey];
+                    t += s.label + ': ' + (isNaN(v)||v==null?'N/A':(+v).toFixed(3)) + '<br>';
+                    seen.add(s.key);
+                });
+                if (isCeil(g)) t += '<b style="color:#b91c1c">⚑ at floor (raw '+(yMetric==='logpvalue'?'p':'FDR')+' = 0)</b>';
+                return t;
+            }
             function makeTrace(data, name, color, size, opacity, showLabels, symbol, lineColor, lineWidth) {
                 return {
                     x: data.map(g => g[xMetric]),
@@ -8317,21 +8399,8 @@
                     text: showLabels ? data.map(g => labelSet.has(g.gene) ? g.gene : '') : undefined,
                     textposition: 'top center',
                     textfont: { size: 10, family: gf.family },
-                    customdata: data.map(g => [g.gene, g.numGuides, g.hitGuides,
-                        isNaN(g.zscore)?'N/A':g.zscore.toFixed(3),
-                        isNaN(g.foldchange)?'N/A':g.foldchange.toFixed(3),
-                        isNaN(g.logpvalue)?'N/A':g.logpvalue.toFixed(3),
-                        isNaN(g.logfdr)?'N/A':g.logfdr.toFixed(3),
-                        isCeil(g) ? '⚑ at floor (raw '+(yMetric==='logpvalue'?'p':'FDR')+' = 0)' : '']),
-                    hovertemplate: '<b>%{customdata[0]}</b><br>'
-                        + getGenomeMetricLabel(xMetric) + ': %{x:.3f}<br>'
-                        + getGenomeMetricLabel(yMetric) + ': %{y:.3f}<br>'
-                        + 'Fold Change: %{customdata[4]}<br>'
-                        + '−log10(P): %{customdata[5]}<br>'
-                        + '−log10(FDR): %{customdata[6]}'
-                        + (genomeGeneData.some(g => !isNaN(g.zscore)) ? '<br>IGTIOB: %{customdata[3]}' : '')
-                        + '%{customdata[7]}'
-                        + '<extra></extra>'
+                    customdata: data.map(g => [g.gene, makeGenomeHover(g)]),
+                    hovertemplate: '%{customdata[1]}<extra></extra>'
                 };
             }
 
@@ -8762,6 +8831,25 @@
             // R4: respect the per-screen marker style controls in correlation too.
             const _gcSize = parseInt((document.getElementById('gcSymbolSize') || {}).value || 9);
             const _gcOp   = parseFloat((document.getElementById('gcMarkerOpacity') || {}).value || 0.85);
+
+            // Active stats per screen — every uploaded statistic appears in the
+            // hover, prefixed with the screen name so the user can tell A from B.
+            const _corrStatsA = getActiveStatsForGenomeScreen('A');
+            const _corrStatsB = getActiveStatsForGenomeScreen('B');
+            function makeCorrHover(geneName) {
+                const a = mapA.get(geneName) || {};
+                const b = mapB.get(geneName) || {};
+                let h = '<b>' + geneName + '</b><br>';
+                _corrStatsA.forEach(function(s) {
+                    const v = a[s.dataKey];
+                    h += nameA + ': ' + s.label + ': ' + (isNaN(v)||v==null?'N/A':(+v).toFixed(3)) + '<br>';
+                });
+                _corrStatsB.forEach(function(s) {
+                    const v = b[s.dataKey];
+                    h += nameB + ': ' + s.label + ': ' + (isNaN(v)||v==null?'N/A':(+v).toFixed(3)) + '<br>';
+                });
+                return h;
+            }
             function makeTrace(k) {
                 const d = groups[k];
                 if (!d.x.length) return null;
@@ -8780,8 +8868,8 @@
                     text: d.genes.map(g => labelSet.has(g) ? g : ''),
                     textposition: 'top center',
                     textfont: { size: Math.max(9, gf.size - 2), family: gf.family, color: '#111827' },
-                    customdata: d.genes.map((g, i) => [g, nameA, d.x[i], nameB, d.y[i]]),
-                    hovertemplate: '<b>%{customdata[0]}</b><br>%{customdata[1]}: %{customdata[2]:.3f}<br>%{customdata[3]}: %{customdata[4]:.3f}<extra></extra>'
+                    customdata: d.genes.map((g, i) => [g, makeCorrHover(g)]),
+                    hovertemplate: '%{customdata[1]}<extra></extra>'
                 };
             }
             // Order: none → a → b → common (common drawn last = highest layer)
@@ -8991,47 +9079,96 @@
 
         function renderGenomeUnique(onlyAGenes, allA, nameA, onlyBGenes, allB, nameB) {
             const mapA=new Map(allA.map(g=>[g.gene,g])), mapB=new Map(allB.map(g=>[g.gene,g]));
-            function makeTable(genes, dataMap, color) {
-                if(!genes.length) return '<div style="padding:20px;color:#9ca3af;font-size:13px;">No unique hits</div>';
-                const sorted=genes.map(g=>dataMap.get(g)||{gene:g}).sort((a,b)=>(b.logpvalue||0)-(a.logpvalue||0));
-                return '<table style="border-collapse:collapse;width:100%"><thead><tr>'
-                    +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">Gene</th>'
-                    +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">'+getScoreLabel()+'</th>'
-                    +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">−log10(P)</th>'
-                    +'</tr></thead><tbody>'
-                    +sorted.map((g,i)=>'<tr style="background:'+(i%2===0?'white':'#fafafa')+'">'
-                        +'<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:600;color:'+color+'">'+g.gene+'</td>'
-                        +'<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;">'+(!isNaN(g.zscore)?g.zscore.toFixed(3):'—')+'</td>'
-                        +'<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;">'+(!isNaN(g.logpvalue)?g.logpvalue.toFixed(3):'—')+'</td>'
-                        +'</tr>').join('')
-                    +'</tbody></table>';
+            const statsA = getActiveStatsForGenomeScreen('A');
+            const statsB = getActiveStatsForGenomeScreen('B');
+            // Sort genes by best available "significance" stat. Prefer −log10(P)
+            // when uploaded, then −log10(FDR), then |Score|, else fold change.
+            function bestRankKey(stats) {
+                if (stats.find(s=>s.key==='logpvalue')) return { key:'logpvalue', abs:false };
+                if (stats.find(s=>s.key==='logfdr'))   return { key:'logfdr',    abs:false };
+                if (stats.find(s=>s.key==='zscore'))   return { key:'zscore',    abs:true  };
+                if (stats.find(s=>s.key==='foldchange')) return { key:'foldchange', abs:true };
+                return null;
             }
-            document.getElementById('gcUniqueTableA').innerHTML = makeTable(onlyAGenes, mapA, '#2563eb');
-            document.getElementById('gcUniqueTableB').innerHTML = makeTable(onlyBGenes, mapB, '#e74c3c');
+            function makeTable(genes, dataMap, color, stats) {
+                if(!genes.length) return '<div style="padding:20px;color:#9ca3af;font-size:13px;">No unique hits</div>';
+                if(!stats.length) return '<div style="padding:20px;color:#9ca3af;font-size:13px;">No statistics uploaded for this screen.</div>';
+                const rk = bestRankKey(stats);
+                const sorted = genes.map(g=>dataMap.get(g)||{gene:g}).sort(function(a,b){
+                    if (!rk) return 0;
+                    let va = a[rk.key], vb = b[rk.key];
+                    if (isNaN(va)) va = -Infinity; if (isNaN(vb)) vb = -Infinity;
+                    if (rk.abs) { va = Math.abs(va); vb = Math.abs(vb); }
+                    return vb - va;
+                });
+                let h = '<table style="border-collapse:collapse;width:100%"><thead><tr>'
+                    + '<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">Gene</th>';
+                stats.forEach(function(s){
+                    h += '<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">'+s.label+'</th>';
+                });
+                h += '</tr></thead><tbody>';
+                sorted.forEach(function(g,i){
+                    h += '<tr style="background:'+(i%2===0?'white':'#fafafa')+'">'
+                       + '<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:600;color:'+color+'">'+g.gene+'</td>';
+                    stats.forEach(function(s){
+                        const v = g[s.dataKey];
+                        h += '<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;">'+(!isNaN(v)&&v!=null?(+v).toFixed(3):'—')+'</td>';
+                    });
+                    h += '</tr>';
+                });
+                h += '</tbody></table>';
+                return h;
+            }
+            document.getElementById('gcUniqueTableA').innerHTML = makeTable(onlyAGenes, mapA, '#2563eb', statsA);
+            document.getElementById('gcUniqueTableB').innerHTML = makeTable(onlyBGenes, mapB, '#e74c3c', statsB);
         }
 
         function renderGenomeCommon(commonGenes, allA, allB, nameA, nameB) {
             const mapA=new Map(allA.map(g=>[g.gene,g])), mapB=new Map(allB.map(g=>[g.gene,g]));
-            const sorted=commonGenes.map(g=>({gene:g,a:mapA.get(g)||{},b:mapB.get(g)||{}}))
-                .sort((x,y)=>((y.a.logpvalue||0)+(y.b.logpvalue||0))-((x.a.logpvalue||0)+(x.b.logpvalue||0)));
-            let html='<table style="border-collapse:collapse;width:100%"><thead><tr>'
-                +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">Gene</th>'
-                +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">'+nameA+' Z</th>'
-                +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">'+nameB+' Z</th>'
-                +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">'+nameA+' −log10P</th>'
-                +'<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">'+nameB+' −log10P</th>'
-                +'</tr></thead><tbody>';
-            sorted.forEach(function(r,i){
-                html+='<tr style="background:'+(i%2===0?'white':'#fafafa')+'">'
-                    +'<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:600;color:#7c3aed;">'+r.gene+'</td>'
-                    +'<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;">'+(!isNaN(r.a.zscore)?r.a.zscore.toFixed(3):'—')+'</td>'
-                    +'<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;">'+(!isNaN(r.b.zscore)?r.b.zscore.toFixed(3):'—')+'</td>'
-                    +'<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;">'+(!isNaN(r.a.logpvalue)?r.a.logpvalue.toFixed(3):'—')+'</td>'
-                    +'<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;">'+(!isNaN(r.b.logpvalue)?r.b.logpvalue.toFixed(3):'—')+'</td>'
-                    +'</tr>';
+            const statsA = getActiveStatsForGenomeScreen('A');
+            const statsB = getActiveStatsForGenomeScreen('B');
+            // Combined-significance score for sorting; use −log10P sum if either
+            // side has p-values, then FDR sum, then |Score| sum, else FC sum.
+            function combinedScore(r) {
+                const a = r.a || {}, b = r.b || {};
+                const has = (s,k) => s.some(x=>x.key===k);
+                if (has(statsA,'logpvalue') || has(statsB,'logpvalue')) {
+                    return (isNaN(a.logpvalue)?0:a.logpvalue) + (isNaN(b.logpvalue)?0:b.logpvalue);
+                }
+                if (has(statsA,'logfdr') || has(statsB,'logfdr')) {
+                    return (isNaN(a.logfdr)?0:a.logfdr) + (isNaN(b.logfdr)?0:b.logfdr);
+                }
+                if (has(statsA,'zscore') || has(statsB,'zscore')) {
+                    return (isNaN(a.zscore)?0:Math.abs(a.zscore)) + (isNaN(b.zscore)?0:Math.abs(b.zscore));
+                }
+                return (isNaN(a.foldchange)?0:Math.abs(a.foldchange)) + (isNaN(b.foldchange)?0:Math.abs(b.foldchange));
+            }
+            const sorted = commonGenes.map(g=>({gene:g,a:mapA.get(g)||{},b:mapB.get(g)||{}}))
+                .sort((x,y)=>combinedScore(y)-combinedScore(x));
+            let html = '<table style="border-collapse:collapse;width:100%"><thead><tr>'
+                + '<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">Gene</th>';
+            statsA.forEach(function(s){
+                html += '<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">'+nameA+' '+s.label+'</th>';
             });
-            html+='</tbody></table>';
-            document.getElementById('gcCommonTable').innerHTML=html;
+            statsB.forEach(function(s){
+                html += '<th style="padding:7px 10px;background:#f3f4f6;border-bottom:2px solid #d1d5db;font-size:12px;text-align:left;">'+nameB+' '+s.label+'</th>';
+            });
+            html += '</tr></thead><tbody>';
+            sorted.forEach(function(r,i){
+                html += '<tr style="background:'+(i%2===0?'white':'#fafafa')+'">'
+                      + '<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:600;color:#7c3aed;">'+r.gene+'</td>';
+                statsA.forEach(function(s){
+                    const v = r.a[s.dataKey];
+                    html += '<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;">'+(!isNaN(v)&&v!=null?(+v).toFixed(3):'—')+'</td>';
+                });
+                statsB.forEach(function(s){
+                    const v = r.b[s.dataKey];
+                    html += '<td style="padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;">'+(!isNaN(v)&&v!=null?(+v).toFixed(3):'—')+'</td>';
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            document.getElementById('gcCommonTable').innerHTML = html;
         }
 
         function downloadGenomeComparisonReport() {
@@ -9134,14 +9271,26 @@
                 return true;
             }
 
-            function makeHover(g, screen) {
-                let t = '<b>' + g.gene + '</b> (' + screen + ')<br>'
-                    + xLabel + ': ' + (isNaN(g[xMetric]) ? 'N/A' : (+g[xMetric]).toFixed(3)) + '<br>'
-                    + yLabel + ': ' + (isNaN(g[yMetric]) ? 'N/A' : (+g[yMetric]).toFixed(3)) + '<br>'
-                    + 'FC: ' + (isNaN(g.foldchange)?'N/A':(+g.foldchange).toFixed(3)) + '  '
-                    + '−log10P: ' + (isNaN(g.logpvalue)?'N/A':(+g.logpvalue).toFixed(3)) + '<br>'
-                    + '−log10FDR: ' + (isNaN(g.logfdr)?'N/A':(+g.logfdr).toFixed(3));
-                if (isCeil(g)) t += '<br><b style="color:#b91c1c">⚑ at floor</b>';
+            // Hover: ONLY show statistics the user actually uploaded for the
+            // gene's home screen. Avoid duplicating axis stats (xMetric/yMetric)
+            // by tracking which keys we've already emitted.
+            function makeHover(g, screen, screenKey) {
+                const stats = getActiveStatsForGenomeScreen(screenKey || 'A');
+                const seen = new Set();
+                let t = '<b>' + g.gene + '</b> (' + screen + ')<br>';
+                // Axis values first
+                t += xLabel + ': ' + (isNaN(g[xMetric]) ? 'N/A' : (+g[xMetric]).toFixed(3)) + '<br>';
+                seen.add(xMetric);
+                t += yLabel + ': ' + (isNaN(g[yMetric]) ? 'N/A' : (+g[yMetric]).toFixed(3)) + '<br>';
+                seen.add(yMetric);
+                // Then any remaining uploaded stats (skip duplicates)
+                stats.forEach(function(s) {
+                    if (seen.has(s.key)) return;
+                    const v = g[s.dataKey];
+                    t += s.label + ': ' + (isNaN(v)||v==null?'N/A':(+v).toFixed(3)) + '<br>';
+                    seen.add(s.key);
+                });
+                if (isCeil(g)) t += '<b style="color:#b91c1c">⚑ at floor</b>';
                 return t;
             }
 
@@ -9149,23 +9298,32 @@
             // We *clone* each gene with a __screen tag so per-screen pins can
             // resolve which point the user actually clicked, instead of
             // collapsing the same gene name across both screens.
+            // For unique-A / unique-B sub-filters, suppress the *other* screen's
+            // counterpart points entirely (no gray dots for the same gene from
+            // the screen it doesn't belong to).
             const aBoth = [], aOwn = [], aBg = [];
-            genesA.forEach(function(_g) {
-                if (!passesOverlayFilter(_g)) return;
-                const g = Object.assign({}, _g, { __screen: 'A' });
-                if (isCommonHit(g))      aBoth.push(g);
-                else if (passesOwnA(g))  aOwn.push(g);
-                else                     aBg.push(g);
-            });
+            const skipB = (overlayFilter === 'a');
+            const skipA = (overlayFilter === 'b');
+            if (!skipA) {
+                genesA.forEach(function(_g) {
+                    if (!passesOverlayFilter(_g)) return;
+                    const g = Object.assign({}, _g, { __screen: 'A' });
+                    if (isCommonHit(g))      aBoth.push(g);
+                    else if (passesOwnA(g))  aOwn.push(g);
+                    else                     aBg.push(g);
+                });
+            }
             // Partition Screen B points into 3 buckets (after the overlay filter)
             const bBoth = [], bOwn = [], bBg = [];
-            genesB.forEach(function(_g) {
-                if (!passesOverlayFilter(_g)) return;
-                const g = Object.assign({}, _g, { __screen: 'B' });
-                if (isCommonHit(g))      bBoth.push(g);
-                else if (passesOwnB(g))  bOwn.push(g);
-                else                     bBg.push(g);
-            });
+            if (!skipB) {
+                genesB.forEach(function(_g) {
+                    if (!passesOverlayFilter(_g)) return;
+                    const g = Object.assign({}, _g, { __screen: 'B' });
+                    if (isCommonHit(g))      bBoth.push(g);
+                    else if (passesOwnB(g))  bOwn.push(g);
+                    else                     bBg.push(g);
+                });
+            }
 
             function mkTrace(genes, name, color, symbol, screen, showLegend) {
                 return { x: genes.map(g=>g[xMetric]), y: genes.map(g=>g[yMetric]),
@@ -9177,7 +9335,7 @@
                         opacity: symOpacity,
                         line:{ color: genes.map(g => isCeil(g) ? '#000' : '#333'), width: genes.map(g => isCeil(g) ? 2 : 0.4) }
                     },
-                    text: genes.map(g=>makeHover(g, screen)), hovertemplate:'%{text}<extra></extra>',
+                    text: genes.map(g=>makeHover(g, screen, g.__screen)), hovertemplate:'%{text}<extra></extra>',
                     // F8: per-point [gene, screen] so the click handler pins
                     // the point the user actually clicked (not whichever screen
                     // shares the same gene name).
@@ -9208,7 +9366,7 @@
                         symbol:'square', size:symSize, color:colHit, opacity:symOpacity,
                         line:{ color: combined.map(g => isCeil(g) ? '#000' : '#333'), width: combined.map(g => isCeil(g) ? 2 : 0.4) }
                     },
-                    text: combined.map((g,i)=>makeHover(g, screens[i])), hovertemplate:'%{text}<extra></extra>',
+                    text: combined.map((g,i)=>makeHover(g, screens[i], g.__screen)), hovertemplate:'%{text}<extra></extra>',
                     customdata: combined.map(g => [g.gene, g.__screen || null])
                 });
             }

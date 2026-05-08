@@ -9813,6 +9813,11 @@
             ph.querySelector('div:last-child').textContent = 'Reading file…';
             // Detect format from file extension
             const ext = file.name.split('.').pop().toLowerCase();
+            // 3Dmol.js expects 'cif' (not 'mmcif') as the format token. Passing 'mmcif'
+            // makes addModel fall through to a generic parser that loads atoms but no
+            // secondary structure, which is why cartoon ribbons silently fail to render
+            // and you only see ball-and-stick. Internally we still tag as 'mmcif' so the
+            // downstream CIF-specific parsing branches keep working unchanged.
             const fmt = (ext === 'cif' || ext === 'mmcif') ? 'mmcif' : 'pdb';
             const cleanLabel = file.name.replace(/\.(pdb|ent|cif|mmcif)$/i, '');
             const reader = new FileReader();
@@ -9856,15 +9861,38 @@
 
         function _initPDBFromText(text, label, format) {
             format = format || 'pdb';
-            pdbRawText = text;
             pdbAlignmentMap = null;
+
+            // ── CIF → PDB conversion on load ──
+            // 3Dmol's CIF parser in 2.0.4 only reads _atom_site.auth_atom_id /
+            // auth_comp_id, but AlphaFold CIFs only emit the label_* variants.
+            // Result: atoms load with atom.atom = undefined and atom.resn = undefined,
+            // which breaks both the cartoon ribbon (no backbone trace) AND any
+            // downstream PDB synthesis (ChimeraX shows just dots).
+            // Fix: convert CIF → PDB text ourselves using whichever column set is
+            // present, then feed PDB to 3Dmol so it gets a clean, well-named atom
+            // list. We also store the converted text as pdbRawText so downloads
+            // and chain parsing run on the same canonical PDB.
+            let workingText = text;
+            let workingFormat = format;
+            if (format === 'mmcif') {
+                const converted = convertCIFtoPDB(text);
+                if (converted && converted.length > 0) {
+                    workingText = converted;
+                    workingFormat = 'pdb';
+                }
+            }
+            pdbRawText = workingText;
 
             const container = document.getElementById('pdbViewerContainer');
             const ph = document.getElementById('pdbViewerPlaceholder');
             ph.style.display = 'none';
             if (pdbViewer) { try { pdbViewer.clear(); } catch(e) {} }
             pdbViewer = $3Dmol.createViewer(container, { backgroundColor: 'white', antialias: true });
-            pdbViewer.addModel(text, format);
+            // 3Dmol's accepted CIF token is 'cif' (not 'mmcif'); doesn't matter
+            // here since we converted to PDB above, but kept for native-PDB path.
+            const viewerFormat = (workingFormat === 'mmcif') ? 'cif' : workingFormat;
+            pdbViewer.addModel(workingText, viewerFormat);
             // Default to fully solid cartoon. The "BG opacity" slider can dim background
             // residues later so highlighted hits stand out — but starting transparent
             // makes the structure look invisible on first load.
@@ -9872,16 +9900,13 @@
             pdbViewer.zoomTo();
             pdbViewer.render();
 
-            // Parse chains — use model-based approach for CIF, text-based for PDB
-            if (format === 'mmcif') {
-                pdbParsedChains = parseChainsFromModel(pdbViewer);
-                // Fallback: if model parse gave nothing, try text-based with limited CIF support
-                if (!Object.keys(pdbParsedChains).length) {
-                    // Try extracting from CIF _atom_site lines
-                    pdbParsedChains = parseCIFChains(text);
-                }
-            } else {
-                pdbParsedChains = parsePDBChains(text);
+            // After CIF→PDB conversion, we always have PDB text — parse accordingly.
+            pdbParsedChains = (workingFormat === 'pdb')
+                ? parsePDBChains(workingText)
+                : parseChainsFromModel(pdbViewer);
+            if (!Object.keys(pdbParsedChains).length && format === 'mmcif') {
+                // Last-resort: parse the original CIF text directly for chain map.
+                pdbParsedChains = parseCIFChains(text);
             }
 
             const chainIds = Object.keys(pdbParsedChains);
@@ -9900,6 +9925,157 @@
             document.getElementById('pdbRepPanel').style.display = 'block';
             runAndShowAlignment(chainIds[0]);
             applyStructureColoring();
+        }
+
+        // ── CIF → PDB text converter ──
+        // Reads the _atom_site loop, prefers auth_* columns when present, falls back
+        // to label_*. Emits canonical 80-col PDB ATOM/HETATM records so 3Dmol's PDB
+        // parser sees proper atom names (CA, N, C, O...) and can both render cartoon
+        // ribbons AND let us round-trip the structure into a downloadable PDB.
+        function convertCIFtoPDB(text) {
+            const lines = text.split(/\r?\n/);
+            // Phase 1: locate the _atom_site loop and capture column order
+            let inHeader = false, inLoop = false;
+            const colMap = {};       // name → column index
+            let colIdx = 0;
+            const dataLines = [];
+            for (let i = 0; i < lines.length; i++) {
+                const raw = lines[i];
+                const stripped = raw.trim();
+                if (stripped === 'loop_') {
+                    // start of a new loop — reset
+                    inHeader = false; inLoop = false; colIdx = 0;
+                    continue;
+                }
+                if (stripped.startsWith('_atom_site.')) {
+                    inHeader = true;
+                    const key = stripped.replace('_atom_site.', '');
+                    colMap[key] = colIdx++;
+                    continue;
+                }
+                if (inHeader && !stripped.startsWith('_atom_site.')) {
+                    // header just ended — data lines start here
+                    inHeader = false;
+                    inLoop = true;
+                }
+                if (!inLoop) continue;
+                if (stripped === '' || stripped.startsWith('#')) continue;
+                if (stripped.startsWith('loop_') || stripped.startsWith('_') || stripped.startsWith('data_')) {
+                    inLoop = false; continue;
+                }
+                dataLines.push(stripped);
+            }
+            if (!Object.keys(colMap).length || !dataLines.length) return null;
+
+            // Resolve column indices (prefer auth, fall back to label)
+            function pick() {
+                for (let i = 0; i < arguments.length; i++) {
+                    if (arguments[i] in colMap) return colMap[arguments[i]];
+                }
+                return -1;
+            }
+            const idx = {
+                group:  pick('group_PDB'),
+                serial: pick('id'),
+                atom:   pick('auth_atom_id', 'label_atom_id'),
+                altLoc: pick('label_alt_id'),
+                resn:   pick('auth_comp_id', 'label_comp_id'),
+                chain:  pick('auth_asym_id', 'label_asym_id'),
+                resi:   pick('auth_seq_id', 'label_seq_id'),
+                iCode:  pick('pdbx_PDB_ins_code'),
+                x:      pick('Cartn_x'),
+                y:      pick('Cartn_y'),
+                z:      pick('Cartn_z'),
+                occ:    pick('occupancy'),
+                b:      pick('B_iso_or_equiv'),
+                elem:   pick('type_symbol')
+            };
+            if (idx.x < 0 || idx.y < 0 || idx.z < 0 || idx.atom < 0) return null;
+
+            // Helpers for fixed-width numeric formatting
+            function f(width, value, decimals) {
+                let s = (decimals != null) ? Number(value).toFixed(decimals) : String(value);
+                if (s.length > width) s = s.substring(s.length - width);
+                return s.padStart(width, ' ');
+            }
+            function fl(width, value) {
+                let s = String(value == null ? '' : value);
+                if (s.length > width) s = s.substring(0, width);
+                return s.padEnd(width, ' ');
+            }
+            function unquote(s) { return s.replace(/^["']/, '').replace(/["']$/, ''); }
+
+            const out = [];
+            let serial = 1;
+            for (let r = 0; r < dataLines.length; r++) {
+                const parts = dataLines[r].split(/\s+/);
+                if (parts.length <= Math.max(idx.x, idx.y, idx.z, idx.atom)) continue;
+                const group = idx.group >= 0 ? parts[idx.group] : 'ATOM';
+                const isHet = (group === 'HETATM' || group === 'HETA');
+                const rec = isHet ? 'HETATM' : 'ATOM  ';
+
+                let aname = unquote(parts[idx.atom]);
+                let nameField;
+                if (aname.length >= 4) nameField = aname.substring(0, 4);
+                else if (aname.length === 3) nameField = ' ' + aname;
+                else if (aname.length === 2) nameField = ' ' + aname + ' ';
+                else if (aname.length === 1) nameField = ' ' + aname + '  ';
+                else nameField = '    ';
+
+                let altLoc = idx.altLoc >= 0 ? parts[idx.altLoc] : '.';
+                if (altLoc === '.' || altLoc === '?' || !altLoc) altLoc = ' ';
+                altLoc = altLoc.substring(0, 1);
+
+                let resName = idx.resn >= 0 ? unquote(parts[idx.resn]) : 'UNK';
+                if (!resName || resName === '.' || resName === '?') resName = 'UNK';
+                resName = fl(3, resName.substring(0, 3));
+
+                let chain = idx.chain >= 0 ? parts[idx.chain] : 'A';
+                if (!chain || chain === '.' || chain === '?') chain = 'A';
+                chain = chain.substring(0, 1) || 'A';
+
+                let resiStr = idx.resi >= 0 ? parts[idx.resi] : '0';
+                if (resiStr === '.' || resiStr === '?') resiStr = '0';
+                const resi = parseInt(resiStr);
+                if (isNaN(resi)) continue;
+
+                let iCode = idx.iCode >= 0 ? parts[idx.iCode] : ' ';
+                if (iCode === '.' || iCode === '?' || !iCode) iCode = ' ';
+                iCode = iCode.substring(0, 1);
+
+                const x = parseFloat(parts[idx.x]);
+                const y = parseFloat(parts[idx.y]);
+                const z = parseFloat(parts[idx.z]);
+                if (!isFinite(x) || !isFinite(y) || !isFinite(z)) continue;
+                const occ = idx.occ >= 0 ? parseFloat(parts[idx.occ]) : 1.00;
+                const bf  = idx.b   >= 0 ? parseFloat(parts[idx.b])   : 0.00;
+                let elem  = idx.elem >= 0 ? parts[idx.elem] : aname.replace(/[^A-Za-z]/g, '').substring(0, 2);
+                elem = (elem || ' ').toString().toUpperCase();
+
+                const line =
+                    rec +                                  // 1-6
+                    f(5, serial++) +                       // 7-11
+                    ' ' +                                  // 12
+                    nameField +                            // 13-16
+                    altLoc +                               // 17
+                    resName +                              // 18-20
+                    ' ' +                                  // 21
+                    chain +                                // 22
+                    f(4, resi) +                           // 23-26
+                    iCode +                                // 27
+                    '   ' +                                // 28-30
+                    f(8, isFinite(x) ? x : 0, 3) +         // 31-38
+                    f(8, isFinite(y) ? y : 0, 3) +         // 39-46
+                    f(8, isFinite(z) ? z : 0, 3) +         // 47-54
+                    f(6, isFinite(occ) ? occ : 1.0, 2) +   // 55-60
+                    f(6, isFinite(bf)  ? bf  : 0.0, 2) +   // 61-66
+                    '          ' +                         // 67-76
+                    elem.padStart(2, ' ').substring(0, 2); // 77-78
+                out.push(line);
+            }
+            if (!out.length) return null;
+            out.push('END');
+            return out.join('\n') + '\n';
         }
 
         // Fallback: parse chain info directly from mmCIF text
@@ -10336,49 +10512,55 @@
             }
             headerLines.push('REMARK 999 Generated: ' + new Date().toISOString());
 
-            // Detect input format. mmCIF cannot share the PDB column layout, so we
-            // fall back to a thin warning + raw passthrough in that case.
-            const looksLikeCIF = /^data_/m.test(pdbRawText) || /^_atom_site\./m.test(pdbRawText);
+            // pdbRawText is always canonical PDB at this point — CIFs were converted
+            // to PDB on load. So we simply rewrite cols 61-66 in place.
+            //
+            // Critical: residues that do NOT have a coloring value also need their
+            // B-factor reset (to 0.00). Otherwise the original AlphaFold pLDDT (or
+            // crystallographic B-factor) leaks through, contaminates the color
+            // spectrum in PyMOL/ChimeraX, and makes "color by B-factor" look like
+            // it's painting unrelated residues. We rewrite ALL ATOM/HETATM B-factor
+            // columns — only residues in pdbResiValueMap get their actual value;
+            // everything else gets 0.00 (or another chain's atoms, which we also
+            // zero so the target chain's coloring isn't drowned out by neighbors).
             let outputText;
-            let suggestedExt = 'pdb';
-            if (looksLikeCIF) {
-                // For CIF, just prepend a header explaining the mapping; users can
-                // recolor by importing the residue→value map from the sidecar JSON.
-                outputText = headerLines.map(l => '# ' + l).join('\n') + '\n' + pdbRawText;
-                suggestedExt = 'cif';
-            } else {
-                const lines = pdbRawText.split(/\r?\n/);
-                const out = [];
-                let modified = 0;
-                for (let i = 0; i < lines.length; i++) {
-                    const ln = lines[i];
-                    const rec = ln.substring(0, 6);
-                    if (rec === 'ATOM  ' || rec === 'HETATM') {
-                        const chain = ln.substring(21, 22);
-                        const resi = parseInt(ln.substring(22, 26).trim());
-                        if (chain === targetChain && pdbResiValueMap.hasOwnProperty(resi)) {
-                            const v = pdbResiValueMap[resi];
-                            const num = (v == null || isNaN(v)) ? 0 : v;
-                            // Format to fit cols 61-66 (6 chars, right-aligned, 2 decimals)
-                            // Cap range so we never exceed 6 chars: -99.99 .. 999.99 covers all real cases.
-                            const clipped = Math.max(-99.99, Math.min(999.99, num));
-                            const bstr = clipped.toFixed(2).padStart(6, ' ');
-                            // Pad/extend the line if it's short (some PDBs are truncated).
-                            const padded = (ln + '                                                                                ').substring(0, 80);
-                            out.push(padded.substring(0, 60) + bstr + padded.substring(66));
-                            modified++;
-                        } else {
-                            out.push(ln);
-                        }
+            const suggestedExt = 'pdb';
+            let modified = 0;
+            let zeroed = 0;
+            const lines = pdbRawText.split(/\r?\n/);
+            const out = [];
+            const ZERO_BSTR = '  0.00';   // 6-char, right-aligned
+            for (let i = 0; i < lines.length; i++) {
+                const ln = lines[i];
+                const rec = ln.substring(0, 6);
+                if (rec === 'ATOM  ' || rec === 'HETATM') {
+                    const chain = ln.substring(21, 22);
+                    const resi = parseInt(ln.substring(22, 26).trim());
+                    // Pad short lines so col operations stay valid.
+                    const padded = (ln + '                                                                                ').substring(0, 80);
+                    let bstr;
+                    if (chain === targetChain && pdbResiValueMap.hasOwnProperty(resi)) {
+                        const v = pdbResiValueMap[resi];
+                        const num = (v == null || isNaN(v)) ? 0 : v;
+                        // Cols 61-66, 6 chars right-aligned, 2 decimals.
+                        const clipped = Math.max(-99.99, Math.min(999.99, num));
+                        bstr = clipped.toFixed(2).padStart(6, ' ');
+                        modified++;
                     } else {
-                        out.push(ln);
+                        // No coloring data → wipe original B-factor so it can't
+                        // pollute downstream "color by B-factor" rendering.
+                        bstr = ZERO_BSTR;
+                        zeroed++;
                     }
-                }
-                outputText = headerLines.map(l => l).join('\n') + '\n' + out.join('\n');
-                if (modified === 0) {
-                    if (!confirm('No ATOM lines on chain ' + targetChain + ' matched the coloring. Download anyway?')) return;
+                    out.push(padded.substring(0, 60) + bstr + padded.substring(66));
+                } else {
+                    out.push(ln);
                 }
             }
+            // Reflect the actual behavior in the header.
+            headerLines.push('REMARK 999 Atoms with coloring values written: ' + modified);
+            headerLines.push('REMARK 999 Atoms zeroed (no coloring data):     ' + zeroed);
+            outputText = headerLines.join('\n') + '\n' + out.join('\n');
 
             // Sidecar JSON with the exact residue→{color, value} map for tools that
             // can't read PDB B-factors easily (or for re-import elsewhere).

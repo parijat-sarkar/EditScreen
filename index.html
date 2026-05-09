@@ -1261,12 +1261,12 @@
             <div class="mapping-label">Guide ID (optional)</div>
             <select id="gColGuideID" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"></select>
           </div>
-          <div class="mapping-group">
-            <div class="mapping-label" style="display:flex; align-items:center; gap:10px;">
-              <span data-genome-score-label="{label} (optional — e.g. enrichment score, IGTIOB)">Score (optional — e.g. enrichment score, IGTIOB)</span>
-              <span style="display:inline-flex; border:1px solid #10b981; border-radius:999px; overflow:hidden; font-size:11px; margin-left:auto;">
-                <button id="gScoreLabelBtnScore" type="button" onclick="setGenomeScoreLabel('Score')" style="padding:3px 10px; font-weight:600; border:none; background:#10b981; color:white; cursor:pointer;">Score</button>
-                <button id="gScoreLabelBtnIGTIOB" type="button" onclick="setGenomeScoreLabel('IGTIOB')" style="padding:3px 10px; font-weight:600; border:none; background:white; color:#065f46; cursor:pointer;">IGTIOB</button>
+          <div class="mapping-group" style="grid-column: 1 / -1;">
+            <div class="mapping-label" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <span data-genome-score-label="{label} (optional — e.g. enrichment score, IGTIOB)" style="flex:1 1 auto; min-width:0;">Score (optional — e.g. enrichment score, IGTIOB)</span>
+              <span style="display:inline-flex; flex:0 0 auto; border:1px solid #10b981; border-radius:999px; overflow:hidden; font-size:11px; margin-left:auto; white-space:nowrap;">
+                <button id="gScoreLabelBtnScore" type="button" onclick="setGenomeScoreLabel('Score')" style="padding:3px 10px; font-weight:600; border:none; background:#10b981; color:white; cursor:pointer; white-space:nowrap;">Score</button>
+                <button id="gScoreLabelBtnIGTIOB" type="button" onclick="setGenomeScoreLabel('IGTIOB')" style="padding:3px 10px; font-weight:600; border:none; background:white; color:#065f46; cursor:pointer; white-space:nowrap;">IGTIOB</button>
               </span>
             </div>
             <select id="gColZscore" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"></select>
@@ -1341,7 +1341,7 @@
                 <label>X Axis</label>
                 <select id="gXMetric" onchange="updateGenomeView()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:100%;">
                     <option value="foldchange">Fold Change</option>
-                    <option value="zscore" data-score-label="{label}">Z-score</option>
+                    <option value="zscore" data-genome-score-option="{label}">Score</option>
                     <option value="logpvalue">−log10(P-value)</option>
                     <option value="logfdr">−log10(FDR)</option>
                 </select>
@@ -1351,12 +1351,12 @@
                 <select id="gYMetric" onchange="updateGenomeView()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:100%;">
                     <option value="logpvalue">−log10(P-value)</option>
                     <option value="logfdr">−log10(FDR)</option>
-                    <option value="zscore" data-score-label="{label}">Z-score</option>
+                    <option value="zscore" data-genome-score-option="{label}">Score</option>
                     <option value="foldchange">Fold Change</option>
                 </select>
             </div>
             <div class="control-group">
-                <label data-score-label="{label}">Z-score</label>
+                <label data-genome-score-label="{label}">Score</label>
                 <select id="gZDir" onchange="updateGenomeView()" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;width:100%;margin-bottom:4px;">
                     <option value=">=">≥ (enriched)</option>
                     <option value="<=">≤ (depleted)</option>
@@ -1520,7 +1520,7 @@
             <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">X Axis</div>
                 <select id="gcXMetric" onchange="updateGenomeComparisonView()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
                     <option value="foldchange">Fold Change</option>
-                    <option value="zscore">IGTIOB</option>
+                    <option value="zscore" data-genome-score-option="{label}">Score</option>
                     <option value="logpvalue">−log10(P-value)</option>
                     <option value="logfdr">−log10(FDR)</option>
                 </select>
@@ -1530,7 +1530,7 @@
                     <option value="logpvalue">−log10(P-value)</option>
                     <option value="logfdr">−log10(FDR)</option>
                     <option value="foldchange">Fold Change</option>
-                    <option value="zscore">IGTIOB</option>
+                    <option value="zscore" data-genome-score-option="{label}">Score</option>
                 </select>
             </div>
             <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Graph Font</div>
@@ -8569,7 +8569,7 @@
                 {key:'logpvalue',label:'−log10(P-value)',w:115,num:true},
                 {key:'logfdr',label:'−log10(FDR)',w:105,num:true}
             ];
-            if (hasIGTIOB) baseCols.splice(1, 0, {key:'zscore',label:'IGTIOB',w:100,num:true});
+            if (hasIGTIOB) baseCols.splice(1, 0, {key:'zscore',label:getGenomeScoreLabel(),w:100,num:true});
             const cols = baseCols;
             let sorted = data.slice().sort(function(a,b){
                 let va=a[_sort.col], vb=b[_sort.col];
@@ -8607,7 +8607,7 @@
             const hasIGTIOB = genomeColMap && genomeColMap.zscore;
             const rows = dataToDownload.map(function(g) {
                 const row = { 'Gene': g.gene };
-                if (hasIGTIOB && g.zscore != null && !isNaN(g.zscore)) row['IGTIOB'] = g.zscore;
+                if (hasIGTIOB && g.zscore != null && !isNaN(g.zscore)) row[getGenomeScoreLabel()] = g.zscore;
                 if (g.foldchange != null && !isNaN(g.foldchange)) row['Fold Change'] = g.foldchange;
                 if (g.logpvalue != null && !isNaN(g.logpvalue)) row['−log10(P-value)'] = g.logpvalue;
                 if (g.logfdr != null && !isNaN(g.logfdr)) row['−log10(FDR)'] = g.logfdr;

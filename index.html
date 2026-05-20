@@ -615,6 +615,26 @@
         }
         .svg-dl-btn:hover { background: #ea580c; }
         .svg-dl-btn:active { transform: translateY(1px); }
+
+        /* CRISPR mode: enlarge UI text (boxes stay fixed). Plot containers
+           are excluded so Plotly internals are untouched. */
+        #genomeSection select, #genomeSection input, #genomeSection button,
+        #genomeSection label, #genomeSection span, #genomeSection div,
+        #genomeSection .mapping-label, #genomeSection option,
+        #genomeComparisonSection select, #genomeComparisonSection input,
+        #genomeComparisonSection button, #genomeComparisonSection label,
+        #genomeComparisonSection span, #genomeComparisonSection div,
+        #genomeComparisonSection .mapping-label, #genomeComparisonSection option {
+            font-size: 17px !important;
+        }
+        #genomeSection h2, #genomeComparisonSection h2 { font-size: 26px !important; }
+        #genomeSection h3, #genomeComparisonSection h3 { font-size: 19px !important; }
+        /* keep result tables and plots at native size */
+        #genomeSection [id$="TableContainer"], #genomeSection [id$="TableContainer"] *,
+        #genomeComparisonSection [id$="TableContainer"], #genomeComparisonSection [id$="TableContainer"] *,
+        #genomeSection .js-plotly-plot div, #genomeComparisonSection .js-plotly-plot div {
+            font-size: revert !important;
+        }
     </style>
 </head>
 <body>
@@ -679,18 +699,18 @@
             </div>
 
             <div id="screenAUploadSection" class="upload-section">
-                <p style="margin-bottom: 12px; color: #666;">📊 Drag and drop Excel file or click to upload</p>
+                <p style="margin-bottom: 12px; color: #666;">📊 Drag and drop file or click to upload</p>
                 <p style="margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #2563eb;" id="screenUploadLabel"></p>
                 <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose File</button>
-                <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" onchange="handleFileUpload(event)">
-                <p style="margin-top: 12px; font-size: 12px; color: #999;">Supports .xlsx, .xls, .csv</p>
+                <input id="fileInput" type="file" accept=".xlsx,.xls,.csv,.txt,.tsv" onchange="handleFileUpload(event)">
+                <p style="margin-top: 12px; font-size: 12px; color: #999;">Supports .xlsx, .xls, .csv, .txt, .tsv</p>
             </div>
             <div id="screenBUploadSection" class="upload-section hidden" style="margin-top: 20px; border-color: #f39c12;">
-                <p style="margin-bottom: 12px; color: #666;">📊 Drag and drop Excel file or click to upload</p>
+                <p style="margin-bottom: 12px; color: #666;">📊 Drag and drop file or click to upload</p>
                 <p style="margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #e67e22;" id="screenBLabel">Screen B</p>
                 <button class="upload-btn" style="background: #e67e22;" onclick="document.getElementById('fileInputB').click()">Choose File</button>
-                <input id="fileInputB" type="file" accept=".xlsx,.xls,.csv" onchange="handleFileUploadB(event)">
-                <p style="margin-top: 12px; font-size: 12px; color: #999;">Supports .xlsx, .xls, .csv</p>
+                <input id="fileInputB" type="file" accept=".xlsx,.xls,.csv,.txt,.tsv" onchange="handleFileUploadB(event)">
+                <p style="margin-top: 12px; font-size: 12px; color: #999;">Supports .xlsx, .xls, .csv, .txt, .tsv</p>
             </div>
         </div>
 
@@ -719,9 +739,9 @@
                     <label>Y-axis Metric</label>
                     <select id="metricSelect" onchange="updatePlotAndHeatmap()">
                         <option value="zscore" data-score-label="{label}">Z-score</option>
-                        <option value="foldchange">Fold Change (log2)</option>
-                        <option value="logpvalue">-log10(P-value)</option>
-                        <option value="logfdr">-log10(FDR)</option>
+                        <option value="foldchange">Log₂(Fold change)</option>
+                        <option value="logpvalue">−log₁₀(P-value)</option>
+                        <option value="logfdr">−log₁₀(FDR)</option>
                     </select>
                 </div>
                 <div class="control-group">
@@ -746,7 +766,7 @@
                         oninput="updatePlotAndHeatmap()">
                 </div>
                 <div class="control-group">
-                    <label>Fold Change</label>
+                    <label>Log₂(Fold change)</label>
                     <select id="fccutoffDir" onchange="updatePlotAndHeatmap()" style="padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:12px; width:100%; margin-bottom:4px;">
                         <option value=">=">≥ (enriched)</option>
                         <option value="<=">≤ (depleted)</option>
@@ -817,19 +837,19 @@
                     <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
                         <label style="font-size:11px; font-weight:600; color:#6b7280;">X Axis</label>
                         <select id="volcanoXMetric" onchange="updatePlotAndHeatmap()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;">
-                            <option value="foldchange">Fold Change (log2)</option>
+                            <option value="foldchange">Log₂(Fold change)</option>
                             <option value="zscore" data-score-label="{label}">Z-score</option>
-                            <option value="logpvalue">-log10(P-value)</option>
-                            <option value="logfdr">-log10(FDR)</option>
+                            <option value="logpvalue">−log₁₀(P-value)</option>
+                            <option value="logfdr">−log₁₀(FDR)</option>
                         </select>
                     </div>
                     <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
                         <label style="font-size:11px; font-weight:600; color:#6b7280;">Y Axis</label>
                         <select id="volcanoYMetric" onchange="updatePlotAndHeatmap()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;">
-                            <option value="logpvalue">-log10(P-value)</option>
-                            <option value="logfdr">-log10(FDR)</option>
+                            <option value="logpvalue">−log₁₀(P-value)</option>
+                            <option value="logfdr">−log₁₀(FDR)</option>
                             <option value="zscore" data-score-label="{label}">Z-score</option>
-                            <option value="foldchange">Fold Change (log2)</option>
+                            <option value="foldchange">Log₂(Fold change)</option>
                         </select>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px; padding-bottom:6px;">
@@ -857,7 +877,7 @@
                      and is explicitly labeled so readers know the y-axis
                      is non-linear above the break point. -->
                 <div id="axisRangeRow" class="control-group" style="display:none; grid-column: 1 / -1; flex-direction:row; gap:14px; align-items:flex-end; flex-wrap:wrap; padding:8px 12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; margin-top:6px;">
-                    <span style="font-size:11px; font-weight:700; color:#374151;">Axis range:</span>
+                    <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280; visibility:hidden;">.</label><span style="font-size:11px; font-weight:700; color:#374151;">Axis range:</span></div>
                     <div style="display:flex; flex-direction:column; gap:2px;">
                         <label style="font-size:10px; color:#6b7280;">X min</label>
                         <input type="number" id="axisXMin" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updatePlotAndHeatmap()">
@@ -874,7 +894,10 @@
                         <label style="font-size:10px; color:#6b7280;">Y max</label>
                         <input type="number" id="axisYMax" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updatePlotAndHeatmap()">
                     </div>
-                    <button onclick="document.querySelectorAll('#axisXMin,#axisXMax,#axisYMin,#axisYMax').forEach(e=>{e.value='';}); updatePlotAndHeatmap();" class="btn-secondary" style="padding:4px 10px; font-size:11px;">Reset</button>
+                    <div style="display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:10px; color:#6b7280; visibility:hidden;">.</label>
+                        <button onclick="document.querySelectorAll('#axisXMin,#axisXMax,#axisYMin,#axisYMax').forEach(e=>{e.value='';}); updatePlotAndHeatmap();" class="btn-secondary" style="padding:4px 10px; font-size:11px;">Reset</button>
+                    </div>
                 </div>
             </div>
 
@@ -894,9 +917,12 @@
             </div>
 
             <div id="plotContainer"></div>
-            <div id="plotDownloadRow" style="text-align:right; margin-top:4px; margin-bottom:2px;">
+            <div id="plotDownloadRow" style="display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:4px; margin-bottom:2px;">
+                <label style="margin-right:auto; display:flex; align-items:center; gap:5px; font-size:12px; color:#6b7280; cursor:pointer;">
+                    <input type="checkbox" id="gridToggle" checked onchange="toggleAllGrids(this.checked)" style="width:14px; height:14px; cursor:pointer;"> Gridlines
+                </label>
                 <button onclick="downloadSVG('plotContainer','editscreen_plot')" class="svg-dl-btn">⬇ Download SVG</button>
-                <button onclick="downloadPlotData()" class="svg-dl-btn" style="margin-left:6px;" title="Download the data behind the current plot. Lollipop exports as .xlsx with two sheets (per-residue + per-edit). Other views export as .csv.">⬇ Download data</button>
+                <button onclick="downloadPlotData()" class="svg-dl-btn" title="Download the data behind the current plot. Lollipop exports as .xlsx with two sheets (per-residue + per-edit). Other views export as .csv.">⬇ Download data</button>
             </div>
             <div id="domainLegend" style="display:none; margin:6px 0 10px 0; padding:8px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; flex-wrap:wrap; gap:8px; font-size:12px;"></div>
             <!-- Heatmap scale controls (hidden until heatmap is shown) -->
@@ -953,16 +979,28 @@
             <!-- Distribution summary stats table (rendered under the plot) -->
             <div id="distributionStats" style="display:none; margin-top:10px;"></div>
             <div id="heatmapScaleBar" style="display:none; align-items:center; gap:16px; padding:10px 16px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:10px; flex-wrap:wrap;">
-              <span style="font-size:12px; font-weight:600; color:#374151;">Color scale:</span>
               <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:12px; font-weight:600; color:#374151;">Mode:</span>
+                <select id="heatmapModeSelect" onchange="onHeatmapModeChange()" style="padding:4px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:12px;">
+                  <option value="strip">Summary</option>
+                  <option value="aagrid">Variant Effect Map</option>
+                  <option value="coverage">Guide coverage</option>
+                </select>
+              </div>
+              <div id="heatmapSheetWrap" style="display:none; align-items:center; gap:8px;">
+                <span style="font-size:12px; font-weight:600; color:#374151;">Screens:</span>
+                <div id="heatmapSheetChecks" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"></div>
+              </div>
+              <span id="heatmapScaleLabel" style="font-size:12px; font-weight:600; color:#374151;">Color scale:</span>
+              <div id="heatmapScaleMinWrap" style="display:flex; align-items:center; gap:6px;">
                 <label style="font-size:12px; color:#6b7280;">Min</label>
                 <input type="number" id="heatmapScaleMin" step="0.1" style="width:70px; padding:4px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:12px;" oninput="updateHeatmapColors()">
               </div>
-              <div style="display:flex; align-items:center; gap:6px;">
+              <div id="heatmapScaleMaxWrap" style="display:flex; align-items:center; gap:6px;">
                 <label style="font-size:12px; color:#6b7280;">Max</label>
                 <input type="number" id="heatmapScaleMax" step="0.1" style="width:70px; padding:4px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:12px;" oninput="updateHeatmapColors()">
               </div>
-              <button onclick="resetHeatmapScale()" style="padding:4px 12px; font-size:12px; border:1px solid #d1d5db; border-radius:5px; background:white; cursor:pointer; color:#374151;">Auto-scale</button>
+              <button id="heatmapAutoScaleBtn" onclick="resetHeatmapScale()" style="padding:4px 12px; font-size:12px; border:1px solid #d1d5db; border-radius:5px; background:white; cursor:pointer; color:#374151;">Auto-scale</button>
               <button onclick="downloadHeatmapSVG()" class="svg-dl-btn" style="margin-left:auto;">⬇ Download SVG</button>
               <button onclick="downloadPlotData()" class="svg-dl-btn" title="Download per-residue heatmap values as CSV.">⬇ Download data</button>
             </div>
@@ -1272,7 +1310,7 @@
             <select id="gColZscore" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"></select>
           </div>
           <div class="mapping-group">
-            <div class="mapping-label">Fold Change</div>
+            <div class="mapping-label">Log₂(Fold change)</div>
             <select id="gColFC" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"></select>
             <div style="font-size:11px; color:#9ca3af; margin-top:3px;">
               Transform: <select id="gColFCTransform" style="font-size:11px; border:1px solid #d1d5db; border-radius:4px; padding:2px;">
@@ -1305,6 +1343,10 @@
           <div class="mapping-group">
             <div class="mapping-label">High in Treatment (optional)</div>
             <select id="gColHighInTx" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"></select>
+          </div>
+          <div class="mapping-group">
+            <div class="mapping-label">Total Insertions (optional)</div>
+            <select id="gColInsertions" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"></select>
           </div>
         </div>
         <div class="modal-buttons">
@@ -1340,19 +1382,19 @@
             <div class="control-group">
                 <label>X Axis</label>
                 <select id="gXMetric" onchange="updateGenomeView()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:100%;">
-                    <option value="foldchange">Fold Change</option>
+                    <option value="foldchange">Log₂(Fold change)</option>
                     <option value="zscore" data-genome-score-option="{label}">Score</option>
-                    <option value="logpvalue">−log10(P-value)</option>
-                    <option value="logfdr">−log10(FDR)</option>
+                    <option value="logpvalue">−log₁₀(P-value)</option>
+                    <option value="logfdr">−log₁₀(FDR)</option>
                 </select>
             </div>
             <div class="control-group">
                 <label>Y Axis</label>
                 <select id="gYMetric" onchange="updateGenomeView()" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:100%;">
-                    <option value="logpvalue">−log10(P-value)</option>
-                    <option value="logfdr">−log10(FDR)</option>
+                    <option value="logpvalue">−log₁₀(P-value)</option>
+                    <option value="logfdr">−log₁₀(FDR)</option>
                     <option value="zscore" data-genome-score-option="{label}">Score</option>
-                    <option value="foldchange">Fold Change</option>
+                    <option value="foldchange">Log₂(Fold change)</option>
                 </select>
             </div>
             <div class="control-group">
@@ -1365,7 +1407,7 @@
                 <input type="number" id="gZcutoff" value="0" step="0.5" placeholder="0 = off" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:100%;" oninput="updateGenomeView()">
             </div>
             <div class="control-group">
-                <label>Fold Change</label>
+                <label>Log₂(Fold change)</label>
                 <select id="gFCDir" onchange="updateGenomeView()" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;width:100%;margin-bottom:4px;">
                     <option value=">=">≥ (enriched)</option>
                     <option value="<=">≤ (depleted)</option>
@@ -1389,12 +1431,8 @@
                 </select>
                 <input type="number" id="gFDRcutoff" value="1" step="0.01" min="0" max="1" placeholder="1 = off" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:100%;" oninput="updateGenomeView()">
             </div>
-            <div class="control-group">
-                <label>Label top N (above cutoff)</label>
-                <!-- #17: default to 0 (no labels) so a fresh chart opens
-                     uncluttered. User can opt-in by typing a number. -->
-                <input type="number" id="gLabelTop" value="0" min="0" max="50" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:100%;" oninput="updateGenomeView()">
-            </div>
+<!-- Label top N removed — users pin genes manually via click or search. -->
+            <input type="hidden" id="gLabelTop" value="0">
             <div class="control-group">
                 <label>Graph Font</label>
                 <select id="gFontFamily" onchange="updateGenomeView()" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;width:100%;margin-bottom:4px;">
@@ -1433,13 +1471,28 @@
                 <input type="range" id="gMarkerSize" min="4" max="20" step="1" value="9" oninput="document.getElementById('gMarkerSizeVal').textContent=this.value; updateGenomeView();" style="width:90px;">
                 <span id="gMarkerSizeVal" style="font-size:11px; color:#6b7280; min-width:18px;">9</span>
             </div>
+            <div style="display:flex; align-items:center; gap:6px;" title="Scale point diameter by a statistic. Smallest value → min size; largest → max size. Choose Fixed to use a single diameter.">
+                <span style="font-size:11px; color:#6b7280;">Size by</span>
+                <select id="gSizeBy" onchange="updateGenomeView()" style="padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">
+                    <option value="fixed">Fixed</option>
+                    <option value="logpvalue">−log₁₀(P)</option>
+                    <option value="logfdr">−log₁₀(FDR)</option>
+                    <option value="foldchange">|Log₂FC|</option>
+                    <option value="zscore">|Score|</option>
+                    <option value="insertions" id="gSizeByInsertions" style="display:none;">Total Insertions</option>
+                </select>
+                <span style="font-size:11px; color:#6b7280;">min</span>
+                <input type="number" id="gSizeMin" value="5" min="2" max="40" step="1" style="width:42px; padding:2px 4px; border:1px solid #d1d5db; border-radius:3px; font-size:11px;" oninput="updateGenomeView()">
+                <span style="font-size:11px; color:#6b7280;">max</span>
+                <input type="number" id="gSizeMax" value="18" min="2" max="60" step="1" style="width:42px; padding:2px 4px; border:1px solid #d1d5db; border-radius:3px; font-size:11px;" oninput="updateGenomeView()">
+            </div>
             <div style="display:flex; align-items:center; gap:6px;">
                 <span style="font-size:11px; color:#6b7280;">Opacity</span>
                 <input type="range" id="gMarkerOpacity" min="0.2" max="1" step="0.05" value="0.85" oninput="document.getElementById('gMarkerOpacityVal').textContent=parseFloat(this.value).toFixed(2); updateGenomeView();" style="width:80px;">
                 <span id="gMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.85</span>
             </div>
             <span style="font-size:11px; color:#6b7280; font-style:italic;" title="Click any point to pin/unpin its gene name on the plot.">Tip: click points to pin gene names</span>
-            <button type="button" onclick="window._gPinnedLabels = new Set(); updateGenomeView();" class="btn-secondary" style="padding:3px 9px; font-size:11px;" title="Remove all pinned gene labels.">Clear pins</button>
+            <button type="button" onclick="window._gPinnedLabels = new Set(); window._gPinnedAngles = new Map(); updateGenomeView();" class="btn-secondary" style="padding:3px 9px; font-size:11px;" title="Remove all pinned gene labels.">Clear pins</button>
             <!-- Gene-name search → add pin label -->
             <span style="display:flex; align-items:center; gap:6px; margin-left:8px; padding-left:10px; border-left:1px dashed #d1d5db;" title="Type a gene name and click Add to pin its label on the plot.">
                 <span style="font-size:11px; color:#6b7280;">Find gene</span>
@@ -1450,9 +1503,14 @@
                 <button type="button" onclick="addGenomePinFromSearch()" class="btn-secondary" style="padding:3px 9px; font-size:11px;">+ Add pin</button>
             </span>
         </div>
+        <!-- Pin rotation controller — appears only when there are pinned genes -->
+        <div id="gPinController" style="display:none; padding:8px 12px; background:#f0fdfa; border:1px solid #ccfbf1; border-radius:6px; margin-bottom:10px;"></div>
         <!-- Custom axis range bar (mirror of BE single's axisRangeRow) -->
         <div id="gAxisRangeRow" style="display:flex; flex-direction:row; gap:14px; align-items:flex-end; flex-wrap:wrap; padding:8px 12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; margin-bottom:10px;">
-            <span style="font-size:11px; font-weight:700; color:#374151;">Axis range:</span>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+                <label style="font-size:10px; color:#6b7280; visibility:hidden;">.</label>
+                <span style="font-size:11px; font-weight:700; color:#374151;">Axis range:</span>
+            </div>
             <div style="display:flex; flex-direction:column; gap:2px;">
                 <label style="font-size:10px; color:#6b7280;">X min</label>
                 <input type="number" id="gAxisXMin" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateGenomeView()">
@@ -1469,10 +1527,18 @@
                 <label style="font-size:10px; color:#6b7280;">Y max</label>
                 <input type="number" id="gAxisYMax" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateGenomeView()">
             </div>
-            <button onclick="document.querySelectorAll('#gAxisXMin,#gAxisXMax,#gAxisYMin,#gAxisYMax').forEach(e=>{e.value='';}); updateGenomeView();" class="btn-secondary" style="padding:4px 10px; font-size:11px;">Reset</button>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+                <label style="font-size:10px; color:#6b7280; visibility:hidden;">.</label>
+                <button onclick="document.querySelectorAll('#gAxisXMin,#gAxisXMax,#gAxisYMin,#gAxisYMax').forEach(e=>{e.value='';}); updateGenomeView();" class="btn-secondary" style="padding:4px 10px; font-size:11px;">Reset</button>
+            </div>
         </div>
         <div id="genomeVolcanoPlot" style="width:100%; height:600px;"></div>
-            <div style="text-align:right; margin-top:4px;"><button onclick="downloadSVG('genomeVolcanoPlot','crispr_volcano')" class="svg-dl-btn">⬇ Download SVG</button></div>
+            <div style="display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:4px;">
+                <label style="margin-right:auto; display:flex; align-items:center; gap:5px; font-size:12px; color:#6b7280; cursor:pointer;">
+                    <input type="checkbox" id="gridToggleG" checked onchange="toggleAllGrids(this.checked)" style="width:14px; height:14px; cursor:pointer;"> Gridlines
+                </label>
+                <button onclick="downloadSVG('genomeVolcanoPlot','crispr_volcano')" class="svg-dl-btn">⬇ Download SVG</button>
+            </div>
         <div id="genomeTableContainer" style="display:none; margin-top:10px;"></div>
         <div class="download-section" style="margin-top:20px;">
             <button class="download-btn" onclick="downloadGenomeData()">⬇️ Download Gene-Level Data</button>
@@ -1495,125 +1561,143 @@
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
                 <div style="font-weight:700; color:#2563eb; margin-bottom:10px;" id="gcNameA">Screen A Cutoffs</div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;" data-score-label="{label}">Z-score</div><div style="display:flex;gap:3px;"><select id="gcZDirA" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcZcutoffA" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
-                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">Fold Change</div><div style="display:flex;gap:3px;"><select id="gcFCDirA" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcFCcutoffA" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
-                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">P-value</div><select id="gcPDirA" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcPcutoffA" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
-                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">FDR</div><select id="gcFDRDirA" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcFDRcutoffA" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
+                    <div id="gcZcellA"><div style="font-size:11px;color:#6b7280;margin-bottom:2px;" data-genome-score-label="{label}">Score</div><div style="display:flex;gap:3px;"><select id="gcZDirA" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcZcutoffA" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
+                    <div id="gcFCcellA"><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">Log₂(Fold change)</div><div style="display:flex;gap:3px;"><select id="gcFCDirA" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcFCcutoffA" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
+                    <div id="gcPcellA"><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">P-value</div><select id="gcPDirA" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcPcutoffA" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
+                    <div id="gcFDRcellA"><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">FDR</div><select id="gcFDRDirA" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcFDRcutoffA" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
                 </div>
             </div>
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
                 <div style="font-weight:700; color:#e74c3c; margin-bottom:10px;" id="gcNameB">Screen B Cutoffs</div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;" data-score-label="{label}">Z-score</div><div style="display:flex;gap:3px;"><select id="gcZDirB" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcZcutoffB" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
-                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">Fold Change</div><div style="display:flex;gap:3px;"><select id="gcFCDirB" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcFCcutoffB" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
-                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">P-value</div><select id="gcPDirB" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcPcutoffB" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
-                    <div><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">FDR</div><select id="gcFDRDirB" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcFDRcutoffB" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
+                    <div id="gcZcellB"><div style="font-size:11px;color:#6b7280;margin-bottom:2px;" data-genome-score-label="{label}">Score</div><div style="display:flex;gap:3px;"><select id="gcZDirB" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcZcutoffB" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
+                    <div id="gcFCcellB"><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">Log₂(Fold change)</div><div style="display:flex;gap:3px;"><select id="gcFCDirB" onchange="updateGenomeComparisonView()" style="padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="gcFCcutoffB" step="0.1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div></div>
+                    <div id="gcPcellB"><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">P-value</div><select id="gcPDirB" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcPcutoffB" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
+                    <div id="gcFDRcellB"><div style="font-size:11px;color:#6b7280;margin-bottom:2px;">FDR</div><select id="gcFDRDirB" onchange="updateGenomeComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; sig</option><option value=">">&gt; not sig</option></select><input type="number" id="gcFDRcutoffB" step="0.01" min="0" max="1" placeholder="none" style="width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;" oninput="updateGenomeComparisonView()"></div>
                 </div>
             </div>
         </div>
-        <!-- #22: Axis/font + per-screen marker style live side-by-side now,
-             not stacked. Each child gets ~50% width on wide screens; both
-             collapse below each other naturally on narrow screens. -->
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:14px; margin-bottom:14px;">
-        <!-- Axis + font controls -->
-        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; padding:12px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
-            <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">X Axis</div>
-                <select id="gcXMetric" onchange="updateGenomeComparisonView()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
-                    <option value="foldchange">Fold Change</option>
-                    <option value="zscore" data-genome-score-option="{label}">Score</option>
-                    <option value="logpvalue">−log10(P-value)</option>
-                    <option value="logfdr">−log10(FDR)</option>
-                </select>
-            </div>
-            <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Y Axis</div>
-                <select id="gcYMetric" onchange="updateGenomeComparisonView()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
-                    <option value="logpvalue">−log10(P-value)</option>
-                    <option value="logfdr">−log10(FDR)</option>
-                    <option value="foldchange">Fold Change</option>
-                    <option value="zscore" data-genome-score-option="{label}">Score</option>
-                </select>
-            </div>
-            <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Graph Font</div>
-                <select id="gcFontFamily" onchange="updateGenomeComparisonView()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
-                    <option value="Arial">Arial</option><option value="Helvetica">Helvetica</option>
-                    <option value="Times New Roman">Times New Roman</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option>
-                </select>
-            </div>
-            <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Font Size</div>
-                <input type="number" id="gcFontSize" value="13" min="8" max="24" step="1"
-                    style="padding:7px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;width:65px;" oninput="updateGenomeComparisonView()">
-            </div>
-        </div>
-
-        <!-- Per-screen marker style for the CRISPR comparison overlay -->
-        <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
-            <div style="display:flex; align-items:center; gap:6px;">
-                <span style="font-size:12px; font-weight:600; color:#374151;">Symbol size:</span>
-                <input type="range" id="gcSymbolSize" min="4" max="24" step="1" value="9" oninput="document.getElementById('gcSymbolSizeVal').textContent=this.value; updateGenomeComparisonView()" style="width:100px;">
-                <span id="gcSymbolSizeVal" style="font-size:11px; color:#6b7280; min-width:18px;">9</span>
-            </div>
-            <div style="display:flex; align-items:center; gap:6px;">
-                <span style="font-size:12px; font-weight:600; color:#374151;">Opacity:</span>
-                <input type="range" id="gcMarkerOpacity" min="0.2" max="1" step="0.05" value="0.85" oninput="document.getElementById('gcMarkerOpacityVal').textContent=parseFloat(this.value).toFixed(2); updateGenomeComparisonView()" style="width:80px;">
-                <span id="gcMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.85</span>
-            </div>
-            <div style="display:flex; align-items:center; gap:6px;" title="Label this many top-ranked above-cutoff genes (ranked by −log10 P) on the overlay and correlation plots. 0 = no labels.">
-                <span style="font-size:12px; font-weight:600; color:#374151;">Label top N (above cutoff):</span>
-                <!-- #20: default to 0 (no labels) so the chart opens uncluttered. -->
-                <input type="number" id="gcLabelTop" value="0" min="0" max="50" step="1" oninput="updateGenomeComparisonView()" style="width:60px; padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;">
-            </div>
-            <!-- F8: Click any point on the overlay or correlation plot to
-                 pin its gene name as an on-plot label. Click again to remove.
-                 Works alongside Label top N, so users can manually highlight
-                 a few genes without clicking through every label. -->
-            <span style="font-size:11px; color:#6b7280; font-style:italic;" title="Click any point to pin/unpin its gene name on the plot.">
-                Tip: click points to pin gene names
-            </span>
-            <button type="button" onclick="window._gcPinnedLabels = new Set(); updateGenomeComparisonView();" class="btn-secondary" style="padding:3px 9px; font-size:11px;" title="Remove all pinned gene labels.">Clear pins</button>
-            <!-- Gene-name search → add pin label. The Screen toggle controls
-                 which screen(s) the pin is added to (so the same gene can
-                 sit on Screen A only, Screen B only, or both). -->
-            <span style="display:flex; align-items:center; gap:6px; margin-left:8px; padding-left:10px; border-left:1px dashed #d1d5db;" title="Type a gene name, choose a screen, and click Add to pin its label.">
-                <span style="font-size:11px; color:#6b7280;">Find gene</span>
-                <input type="text" id="gcPinSearch" list="gcPinGeneList" placeholder="e.g. TP53"
-                    onkeydown="if(event.key==='Enter'){addGenomeComparisonPinFromSearch();event.preventDefault();}"
-                    style="padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; width:130px;">
-                <datalist id="gcPinGeneList"></datalist>
-                <select id="gcPinScreen" style="padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" title="Which screen to attach the pin to.">
-                    <option value="both" selected>Both</option>
-                    <option value="A">Screen A only</option>
-                    <option value="B">Screen B only</option>
-                </select>
-                <button type="button" onclick="addGenomeComparisonPinFromSearch()" class="btn-secondary" style="padding:3px 9px; font-size:11px;">+ Add pin</button>
-            </span>
-            <div style="display:flex; flex-basis:100%; gap:24px; flex-wrap:wrap; padding-top:6px; border-top:1px dashed #e5e7eb;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span id="gcStyleLabelA" style="font-size:12px; font-weight:700; color:#1d4ed8;">Screen A:</span>
-                    <span style="font-size:11px; color:#6b7280;">Shape</span>
-                    <select id="gcShapeA" onchange="updateGenomeComparisonView()" style="padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">
-                        <option value="circle">● Circle</option><option value="square">■ Square</option>
-                        <option value="diamond">◆ Diamond</option><option value="triangle-up">▲ Triangle</option>
-                        <option value="cross">✚ Cross</option><option value="x">✕ X</option>
+        <!-- Reorganized: two columns (Axis+Font on left, Size+Pin tools on right), then one continuous strip below with all shape/color controls. -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:14px; margin-bottom:10px;">
+            <!-- LEFT — Axis + font -->
+            <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; padding:12px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+                <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">X Axis</div>
+                    <select id="gcXMetric" onchange="updateGenomeComparisonView()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+                        <option value="foldchange">Log₂(Fold change)</option>
+                        <option value="zscore" data-genome-score-option="{label}">Score</option>
+                        <option value="logpvalue">−log₁₀(P-value)</option>
+                        <option value="logfdr">−log₁₀(FDR)</option>
                     </select>
-                    <span style="font-size:11px; color:#6b7280;">Color</span>
-                    <input type="color" id="gcColorA" value="#2563eb" onchange="document.getElementById('gcColorAHex').value=this.value; updateGenomeComparisonView()" style="width:30px; height:24px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;">
-                    <input type="text" id="gcColorAHex" value="#2563eb" maxlength="7" onchange="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){document.getElementById('gcColorA').value=this.value; updateGenomeComparisonView();}" style="width:74px; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;" title="Hex color">
                 </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span id="gcStyleLabelB" style="font-size:12px; font-weight:700; color:#b91c1c;">Screen B:</span>
-                    <span style="font-size:11px; color:#6b7280;">Shape</span>
-                    <select id="gcShapeB" onchange="updateGenomeComparisonView()" style="padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">
-                        <option value="triangle-up">▲ Triangle</option><option value="circle">● Circle</option>
-                        <option value="square">■ Square</option><option value="diamond">◆ Diamond</option>
-                        <option value="cross">✚ Cross</option><option value="x">✕ X</option>
+                <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Y Axis</div>
+                    <select id="gcYMetric" onchange="updateGenomeComparisonView()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+                        <option value="logpvalue">−log₁₀(P-value)</option>
+                        <option value="logfdr">−log₁₀(FDR)</option>
+                        <option value="foldchange">Log₂(Fold change)</option>
+                        <option value="zscore" data-genome-score-option="{label}">Score</option>
                     </select>
-                    <span style="font-size:11px; color:#6b7280;">Color</span>
-                    <input type="color" id="gcColorB" value="#e74c3c" onchange="document.getElementById('gcColorBHex').value=this.value; updateGenomeComparisonView()" style="width:30px; height:24px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;">
-                    <input type="text" id="gcColorBHex" value="#e74c3c" maxlength="7" onchange="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){document.getElementById('gcColorB').value=this.value; updateGenomeComparisonView();}" style="width:74px; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;" title="Hex color">
+                </div>
+                <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Graph Font</div>
+                    <select id="gcFontFamily" onchange="updateGenomeComparisonView()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
+                        <option value="Arial">Arial</option><option value="Helvetica">Helvetica</option>
+                        <option value="Times New Roman">Times New Roman</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option>
+                    </select>
+                </div>
+                <div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Font Size</div>
+                    <input type="number" id="gcFontSize" value="13" min="8" max="24" step="1"
+                        style="padding:7px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;width:65px;" oninput="updateGenomeComparisonView()">
+                </div>
+            </div>
+            <!-- RIGHT — Symbol size/opacity + pin tools -->
+            <div style="display:flex; flex-direction:column; gap:8px; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
+                <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:12px; font-weight:600; color:#374151;">Symbol size:</span>
+                        <input type="range" id="gcSymbolSize" min="4" max="24" step="1" value="9" oninput="document.getElementById('gcSymbolSizeVal').textContent=this.value; updateGenomeComparisonView()" style="width:100px;">
+                        <span id="gcSymbolSizeVal" style="font-size:11px; color:#6b7280; min-width:18px;">9</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:12px; font-weight:600; color:#374151;">Opacity:</span>
+                        <input type="range" id="gcMarkerOpacity" min="0.2" max="1" step="0.05" value="0.85" oninput="document.getElementById('gcMarkerOpacityVal').textContent=parseFloat(this.value).toFixed(2); updateGenomeComparisonView()" style="width:80px;">
+                        <span id="gcMarkerOpacityVal" style="font-size:11px; color:#6b7280; min-width:30px;">0.85</span>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;" title="Scale point diameter by a statistic. Smallest value → min size; largest → max size.">
+                    <span style="font-size:11px; color:#6b7280;">Size by</span>
+                    <select id="gcSizeBy" onchange="updateGenomeComparisonView()" style="padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">
+                        <option value="fixed">Fixed</option>
+                        <option value="logpvalue">−log₁₀(P)</option>
+                        <option value="logfdr">−log₁₀(FDR)</option>
+                        <option value="foldchange">|Log₂FC|</option>
+                        <option value="zscore">|Score|</option>
+                        <option value="insertions" id="gcSizeByInsertions" style="display:none;">Total Insertions</option>
+                    </select>
+                    <span style="font-size:11px; color:#6b7280;">min</span>
+                    <input type="number" id="gcSizeMin" value="5" min="2" max="40" step="1" style="width:42px; padding:2px 4px; border:1px solid #d1d5db; border-radius:3px; font-size:11px;" oninput="updateGenomeComparisonView()">
+                    <span style="font-size:11px; color:#6b7280;">max</span>
+                    <input type="number" id="gcSizeMax" value="18" min="2" max="60" step="1" style="width:42px; padding:2px 4px; border:1px solid #d1d5db; border-radius:3px; font-size:11px;" oninput="updateGenomeComparisonView()">
+                </div>
+                <input type="hidden" id="gcLabelTop" value="0">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="font-size:11px; color:#6b7280; font-style:italic;" title="Click any point to pin/unpin its gene name on the plot.">Tip: click points to pin gene names</span>
+                    <button type="button" onclick="window._gcPinnedLabels = new Set(); window._gcPinnedAngles = new Map(); updateGenomeComparisonView();" class="btn-secondary" style="padding:3px 9px; font-size:11px;" title="Remove all pinned gene labels.">Clear pins</button>
+                    <span style="display:flex; align-items:center; gap:6px; padding-left:10px; border-left:1px dashed #d1d5db;" title="Type a gene name, choose a screen, and click Add to pin its label.">
+                        <span style="font-size:11px; color:#6b7280;">Find gene</span>
+                        <input type="text" id="gcPinSearch" list="gcPinGeneList" placeholder="e.g. TP53"
+                            onkeydown="if(event.key==='Enter'){addGenomeComparisonPinFromSearch();event.preventDefault();}"
+                            style="padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; width:130px;">
+                        <datalist id="gcPinGeneList"></datalist>
+                        <select id="gcPinScreen" style="padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" title="Which screen to attach the pin to.">
+                            <option value="both" selected>Both</option>
+                            <option value="A">Screen A only</option>
+                            <option value="B">Screen B only</option>
+                        </select>
+                        <button type="button" onclick="addGenomeComparisonPinFromSearch()" class="btn-secondary" style="padding:3px 9px; font-size:11px;">+ Add pin</button>
+                    </span>
                 </div>
             </div>
         </div>
-        </div><!-- /#22 side-by-side wrapper -->
+        <!-- Continuous strip — all shape & color controls together -->
+        <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span id="gcStyleLabelA" style="font-size:12px; font-weight:700; color:#1d4ed8;">Screen A:</span>
+                <span style="font-size:11px; color:#6b7280;">Shape</span>
+                <select id="gcShapeA" onchange="updateGenomeComparisonView()" style="padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">
+                    <option value="circle">● Circle</option><option value="square">■ Square</option>
+                    <option value="diamond">◆ Diamond</option><option value="triangle-up">▲ Triangle</option>
+                    <option value="cross">✚ Cross</option><option value="x">✕ X</option>
+                </select>
+                <span style="font-size:11px; color:#6b7280;">Color</span>
+                <input type="color" id="gcColorA" value="#2563eb" onchange="document.getElementById('gcColorAHex').value=this.value; updateGenomeComparisonView()" style="width:30px; height:24px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;">
+                <input type="text" id="gcColorAHex" value="#2563eb" maxlength="7" onchange="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){document.getElementById('gcColorA').value=this.value; updateGenomeComparisonView();}" style="width:74px; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;" title="Hex color">
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span id="gcStyleLabelB" style="font-size:12px; font-weight:700; color:#b91c1c;">Screen B:</span>
+                <span style="font-size:11px; color:#6b7280;">Shape</span>
+                <select id="gcShapeB" onchange="updateGenomeComparisonView()" style="padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">
+                    <option value="triangle-up">▲ Triangle</option><option value="circle">● Circle</option>
+                    <option value="square">■ Square</option><option value="diamond">◆ Diamond</option>
+                    <option value="cross">✚ Cross</option><option value="x">✕ X</option>
+                </select>
+                <span style="font-size:11px; color:#6b7280;">Color</span>
+                <input type="color" id="gcColorB" value="#e74c3c" onchange="document.getElementById('gcColorBHex').value=this.value; updateGenomeComparisonView()" style="width:30px; height:24px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;">
+                <input type="text" id="gcColorBHex" value="#e74c3c" maxlength="7" onchange="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){document.getElementById('gcColorB').value=this.value; updateGenomeComparisonView();}" style="width:74px; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;" title="Hex color">
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:12px; font-weight:700; color:#7c3aed;">Common:</span>
+                <span style="font-size:11px; color:#6b7280;">Shape</span>
+                <select id="gcShapeCommon" onchange="updateGenomeComparisonView()" style="padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;">
+                    <option value="square">■ Square</option><option value="circle">● Circle</option>
+                    <option value="diamond">◆ Diamond</option><option value="triangle-up">▲ Triangle</option>
+                    <option value="cross">✚ Cross</option><option value="x">✕ X</option>
+                </select>
+                <span style="font-size:11px; color:#6b7280;">Color</span>
+                <input type="color" id="gcColorCommon" value="#7c3aed" onchange="document.getElementById('gcColorCommonHex').value=this.value; updateGenomeComparisonView()" style="width:30px; height:24px; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; padding:1px;">
+                <input type="text" id="gcColorCommonHex" value="#7c3aed" maxlength="7" onchange="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){document.getElementById('gcColorCommon').value=this.value; updateGenomeComparisonView();}" style="width:74px; padding:3px 5px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; font-family:monospace;" title="Hex color">
+            </div>
+        </div>
+        <!-- Pin rotation controller (comparison) -->
+        <div id="gcPinController" style="display:none; padding:8px 12px; background:#f0fdfa; border:1px solid #ccfbf1; border-radius:6px; margin-bottom:10px;"></div>
 
         <!-- View toggle -->
         <div style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;">
@@ -1632,7 +1716,12 @@
             <button id="gcOfBtn_b"      class="overlay-filter-btn"        onclick="setGcOverlayFilter('b')" title="Unique to B"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><defs><mask id="uniqBFltMaskGc"><rect width="16" height="12" fill="white"/><circle cx="6" cy="6" r="4" fill="black"/></mask></defs><circle cx="6" cy="6" r="4" fill="none" class="vb-stroke" stroke-width="1" stroke-dasharray="1.2,1"/><circle cx="10" cy="6" r="4" class="vb-fill" mask="url(#uniqBFltMaskGc)"/></svg>Unique to <span id="gcOfLabelB">Screen B</span></button>
         </div>
         <div id="gcOverlayPlot" style="width:100%; height:580px;"></div>
-        <div style="text-align:right; margin-top:4px;"><button onclick="downloadSVG('gcOverlayPlot','crispr_overlay')" class="svg-dl-btn">⬇ Download SVG</button></div>
+        <div style="display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:4px;">
+            <label style="margin-right:auto; display:flex; align-items:center; gap:5px; font-size:12px; color:#6b7280; cursor:pointer;">
+                <input type="checkbox" id="gridToggleGC" checked onchange="toggleAllGrids(this.checked)" style="width:14px; height:14px; cursor:pointer;"> Gridlines
+            </label>
+            <button onclick="downloadSVG('gcOverlayPlot','crispr_overlay')" class="svg-dl-btn">⬇ Download SVG</button>
+        </div>
         <!-- Correlation axis controls — selectable metric + per-axis range / autoscale.
              Hidden until the user clicks the Correlation tab. -->
         <div id="gcCorrelationControls" style="display:none; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:10px;">
@@ -1643,9 +1732,9 @@
                         <label>Metric</label>
                         <select id="gcCorrXMetric" onchange="updateGenomeComparisonView()" style="padding:4px 8px; border:1px solid #d1d5db; border-radius:5px;">
                             <option value="zscore" data-score-label="{label}">Z-score</option>
-                            <option value="foldchange">Fold Change (log2)</option>
-                            <option value="logpvalue">−log10(P-value)</option>
-                            <option value="logfdr">−log10(FDR)</option>
+                            <option value="foldchange">Log₂(Fold change)</option>
+                            <option value="logpvalue">−log₁₀(P-value)</option>
+                            <option value="logfdr">−log₁₀(FDR)</option>
                         </select>
                         <label style="margin-left:8px;"><input type="checkbox" id="gcCorrXAuto" checked onchange="updateGenomeComparisonView()"> Auto</label>
                         <label>Min</label>
@@ -1660,9 +1749,9 @@
                         <label>Metric</label>
                         <select id="gcCorrYMetric" onchange="updateGenomeComparisonView()" style="padding:4px 8px; border:1px solid #d1d5db; border-radius:5px;">
                             <option value="zscore" data-score-label="{label}">Z-score</option>
-                            <option value="foldchange">Fold Change (log2)</option>
-                            <option value="logpvalue">−log10(P-value)</option>
-                            <option value="logfdr">−log10(FDR)</option>
+                            <option value="foldchange">Log₂(Fold change)</option>
+                            <option value="logpvalue">−log₁₀(P-value)</option>
+                            <option value="logfdr">−log₁₀(FDR)</option>
                         </select>
                         <label style="margin-left:8px;"><input type="checkbox" id="gcCorrYAuto" checked onchange="updateGenomeComparisonView()"> Auto</label>
                         <label>Min</label>
@@ -1688,8 +1777,10 @@
         </div>
         <div class="download-section" style="margin-top:20px;">
             <button class="download-btn" onclick="downloadGenomeComparisonReport()">⬇️ Download Comparison Report</button>
+            <button class="download-btn" onclick="downloadGenomeOverlayData()" style="margin-left:6px;">⬇️ Download Overlay Data</button>
+            <button class="download-btn" onclick="downloadGenomeCorrelationData()" style="margin-left:6px;">⬇️ Download Correlation Data</button>
             <button class="download-btn" onclick="openGOAnalysisComparison()" style="background:#059669; margin-top:6px;">🔬 GO / Pathway Analysis</button>
-            <p style="margin-top:8px; font-size:12px; color:#666;">Submit hit genes from both screens to enrichment tools</p>
+            <p style="margin-top:8px; font-size:12px; color:#666;">Overlay/Correlation downloads include per-screen values split into categories (Common / A only / B only / Below cutoff) ready for Prism.</p>
         </div>
     </div>
 
@@ -1754,9 +1845,9 @@
                     <label>Y-axis Metric</label>
                     <select id="comparisonMetricSelect" onchange="updateComparisonView()">
                         <option value="zscore" data-score-label="{label}">Z-score</option>
-                        <option value="foldchange">Fold Change (log2)</option>
-                        <option value="logpvalue">-log10(P-value)</option>
-                        <option value="logfdr">-log10(FDR)</option>
+                        <option value="foldchange">Log₂(Fold change)</option>
+                        <option value="logpvalue">−log₁₀(P-value)</option>
+                        <option value="logfdr">−log₁₀(FDR)</option>
                     </select>
                 </div>
                 <div class="control-group">
@@ -1783,7 +1874,7 @@
                         <div id="cutoffLabelA" style="font-size:12px; font-weight:600; color:#2563eb; margin-bottom:8px;">Screen A</div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;" data-score-label="{label}">Z-score</div><div style="display:flex;gap:3px;"><select id="cmpZcutoffDirA" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpZcutoffA" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
-                            <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">Fold Change</div><div style="display:flex;gap:3px;"><select id="cmpFccutoffDirA" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpFccutoffA" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
+                            <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">Log₂(Fold change)</div><div style="display:flex;gap:3px;"><select id="cmpFccutoffDirA" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpFccutoffA" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">P-value</div><select id="cmpPcutoffDirA" onchange="updateComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; significant</option><option value=">">&gt; not significant</option></select><input type="number" id="cmpPcutoffA" step="0.01" min="0" max="1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div>
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">FDR</div><select id="cmpFdrcutoffDirA" onchange="updateComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; significant</option><option value=">">&gt; not significant</option></select><input type="number" id="cmpFdrcutoffA" step="0.01" min="0" max="1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div>
                             <div style="grid-column:span 2;"><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">High in Treatment</div><select id="cmpHitFilterA" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" onchange="updateComparisonView()"><option value="">All</option><option value="true">True only</option><option value="false">False only</option></select></div>
@@ -1795,7 +1886,7 @@
                         <div id="cutoffLabelB" style="font-size:12px; font-weight:600; color:#e74c3c; margin-bottom:8px;">Screen B</div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;" data-score-label="{label}">Z-score</div><div style="display:flex;gap:3px;"><select id="cmpZcutoffDirB" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpZcutoffB" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
-                            <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">Fold Change</div><div style="display:flex;gap:3px;"><select id="cmpFccutoffDirB" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpFccutoffB" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
+                            <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">Log₂(Fold change)</div><div style="display:flex;gap:3px;"><select id="cmpFccutoffDirB" onchange="updateComparisonView()" style="padding:4px 3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;"><option value=">=">≥</option><option value="<=">≤</option><option value="abs">|≥|</option></select><input type="number" id="cmpFccutoffB" step="0.1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div></div>
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">P-value</div><select id="cmpPcutoffDirB" onchange="updateComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; significant</option><option value=">">&gt; not significant</option></select><input type="number" id="cmpPcutoffB" step="0.01" min="0" max="1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div>
                             <div><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">FDR</div><select id="cmpFdrcutoffDirB" onchange="updateComparisonView()" style="width:100%;padding:3px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;margin-bottom:3px;"><option value="<">&lt; significant</option><option value=">">&gt; not significant</option></select><input type="number" id="cmpFdrcutoffB" step="0.01" min="0" max="1" placeholder="none" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" oninput="updateComparisonView()"></div>
                             <div style="grid-column:span 2;"><div style="font-size:11px; color:#6b7280; margin-bottom:2px;">High in Treatment</div><select id="cmpHitFilterB" style="width:100%; padding:5px 7px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" onchange="updateComparisonView()"><option value="">All</option><option value="true">True only</option><option value="false">False only</option></select></div>
@@ -1825,12 +1916,12 @@
             </div>
             <!-- Custom axis range bar for BE Comparison overlay + correlation -->
             <div id="cmpAxisRangeRow" style="display:flex; flex-direction:row; gap:14px; align-items:flex-end; flex-wrap:wrap; padding:8px 12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; margin-bottom:10px;">
-                <span style="font-size:11px; font-weight:700; color:#374151;">Axis range:</span>
+                <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280; visibility:hidden;">.</label><span style="font-size:11px; font-weight:700; color:#374151;">Axis range:</span></div>
                 <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280;">X min</label><input type="number" id="cmpAxisXMin" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateComparisonView()"></div>
                 <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280;">X max</label><input type="number" id="cmpAxisXMax" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateComparisonView()"></div>
                 <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280;">Y min</label><input type="number" id="cmpAxisYMin" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateComparisonView()"></div>
                 <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280;">Y max</label><input type="number" id="cmpAxisYMax" step="any" placeholder="auto" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;" oninput="updateComparisonView()"></div>
-                <button onclick="document.querySelectorAll('#cmpAxisXMin,#cmpAxisXMax,#cmpAxisYMin,#cmpAxisYMax').forEach(e=>{e.value='';}); updateComparisonView();" class="btn-secondary" style="padding:4px 10px; font-size:11px;">Reset</button>
+                <div style="display:flex; flex-direction:column; gap:2px;"><label style="font-size:10px; color:#6b7280; visibility:hidden;">.</label><button onclick="document.querySelectorAll('#cmpAxisXMin,#cmpAxisXMax,#cmpAxisYMin,#cmpAxisYMax').forEach(e=>{e.value='';}); updateComparisonView();" class="btn-secondary" style="padding:4px 10px; font-size:11px;">Reset</button></div>
             </div>
             <div id="overlayPlot" style="width: 100%; height: 600px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 4px;"></div>
             <div style="text-align:right; margin-bottom:10px;"><button onclick="downloadSVG('overlayPlot','be_overlay')" class="svg-dl-btn">⬇ Download SVG</button> <button onclick="downloadBEComparisonData('overlay')" class="svg-dl-btn" title="Download per-guide data for the overlay plot.">⬇ Download data</button></div>
@@ -1865,6 +1956,46 @@
         </div>
 
     <script>
+        // ── Global gridline toggle ──────────────────────────────────────────────
+        // Wrap Plotly.newPlot / Plotly.react so every plot honours one flag.
+        // When grid is off, showgrid:false is injected into every axis.
+        window._showGrid = true;
+        (function () {
+            if (!window.Plotly || window._plotlyGridWrapped) return;
+            window._plotlyGridWrapped = true;
+            const applyGrid = (layout) => {
+                if (!layout || typeof layout !== 'object') return layout;
+                Object.keys(layout).forEach(k => {
+                    if (/^[xy]axis\d*$/.test(k) && layout[k] && typeof layout[k] === 'object') {
+                        layout[k].showgrid = !!window._showGrid;
+                    }
+                });
+                return layout;
+            };
+            ['newPlot', 'react'].forEach(fn => {
+                const orig = Plotly[fn];
+                Plotly[fn] = function (div, data, layout, config) {
+                    applyGrid(layout);
+                    return orig.call(Plotly, div, data, layout, config);
+                };
+            });
+        })();
+        function toggleAllGrids(on) {
+            window._showGrid = !!on;
+            ['gridToggle','gridToggleG','gridToggleGC'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.checked = !!on;
+            });
+            // Re-layout every existing Plotly plot in place.
+            document.querySelectorAll('.js-plotly-plot').forEach(gd => {
+                const upd = {};
+                Object.keys(gd.layout || {}).forEach(k => {
+                    if (/^[xy]axis\d*$/.test(k)) upd[k + '.showgrid'] = !!on;
+                });
+                if (Object.keys(upd).length) { try { Plotly.relayout(gd, upd); } catch (_) {} }
+            });
+        }
+
         // ── Score / Z-score label preference ────────────────────────────────────
         // User can pick whether the first stat is labeled "Z-score" or "Score".
         // Internally we still key everything off `zscore_*` (no math change); this
@@ -1911,9 +2042,9 @@
             const cm = cfg.colMap;
             const out = [];
             if (cm.zscore) out.push({ key:'zscore',     label:getGenomeScoreLabel(),    dataKey:'zscore'     });
-            if (cm.fc)     out.push({ key:'foldchange', label:'Fold Change',            dataKey:'foldchange' });
-            if (cm.pvalue) out.push({ key:'logpvalue',  label:'−log10(P-value)',        dataKey:'logpvalue'  });
-            if (cm.fdr)    out.push({ key:'logfdr',     label:'−log10(FDR)',            dataKey:'logfdr'     });
+            if (cm.fc)     out.push({ key:'foldchange', label:'Log₂(Fold change)',      dataKey:'foldchange' });
+            if (cm.pvalue) out.push({ key:'logpvalue',  label:'−log₁₀(P-value)',        dataKey:'logpvalue'  });
+            if (cm.fdr)    out.push({ key:'logfdr',     label:'−log₁₀(FDR)',            dataKey:'logfdr'     });
             return out;
         }
         // Single-screen variant — uses genomeColMap.
@@ -1922,9 +2053,9 @@
             if (!cm) return [];
             const out = [];
             if (cm.zscore) out.push({ key:'zscore',     label:getGenomeScoreLabel(),    dataKey:'zscore'     });
-            if (cm.fc)     out.push({ key:'foldchange', label:'Fold Change',            dataKey:'foldchange' });
-            if (cm.pvalue) out.push({ key:'logpvalue',  label:'−log10(P-value)',        dataKey:'logpvalue'  });
-            if (cm.fdr)    out.push({ key:'logfdr',     label:'−log10(FDR)',            dataKey:'logfdr'     });
+            if (cm.fc)     out.push({ key:'foldchange', label:'Log₂(Fold change)',      dataKey:'foldchange' });
+            if (cm.pvalue) out.push({ key:'logpvalue',  label:'−log₁₀(P-value)',        dataKey:'logpvalue'  });
+            if (cm.fdr)    out.push({ key:'logfdr',     label:'−log₁₀(FDR)',            dataKey:'logfdr'     });
             return out;
         }
         function setScoreLabel(label) {
@@ -2254,6 +2385,29 @@
             });
         }
 
+        // Parse an uploaded file into a SheetJS workbook. Handles .xlsx/.xls
+        // (binary) plus delimited text (.csv/.tsv/.txt) — for text we sniff
+        // the delimiter (tab vs comma vs semicolon) so plain .txt exports work.
+        function parseUploadToWorkbook(arrayBuffer, fileName) {
+            const lower = (fileName || '').toLowerCase();
+            const isText = /\.(csv|tsv|txt)$/.test(lower);
+            if (isText) {
+                let text;
+                try { text = new TextDecoder('utf-8').decode(new Uint8Array(arrayBuffer)); }
+                catch (_) { text = String.fromCharCode.apply(null, new Uint8Array(arrayBuffer)); }
+                // Sniff delimiter from the first non-empty line.
+                const firstLine = (text.split(/\r?\n/).find(l => l.trim().length) || '');
+                const counts = { '\t': (firstLine.match(/\t/g)||[]).length,
+                                 ';':  (firstLine.match(/;/g)||[]).length,
+                                 ',':  (firstLine.match(/,/g)||[]).length };
+                let delim = ',';
+                if (counts['\t'] >= counts[';'] && counts['\t'] >= counts[',']) delim = '\t';
+                else if (counts[';'] >= counts[',']) delim = ';';
+                return XLSX.read(text, { type: 'string', FS: delim });
+            }
+            return XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+        }
+
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -2264,8 +2418,7 @@
                 // Yield one frame so the overlay paints, then do the synchronous parse.
                 setTimeout(function() {
                     try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
+                        const workbook = parseUploadToWorkbook(e.target.result, file.name);
                         if (analysisMode === 'comparison') {
                             const nameInput = document.getElementById('screenANameInput');
                             if (nameInput && nameInput.value.trim()) {
@@ -2634,7 +2787,7 @@
                     </div>
 
                     <div class="stat-field">
-                        <div class="mapping-label">Fold Change column (optional)</div>
+                        <div class="mapping-label">Log₂(Fold change) column (optional)</div>
                         <select onchange="updateStatistic(${idx}, 'foldchange', this.value)">
                             <option value="">-- Select column --</option>
                             ${currentColumns.map(col => `<option value="${col}" ${stat.foldchange === col ? 'selected' : ''}>${col}</option>`).join('')}
@@ -2740,9 +2893,12 @@
         }
 
         function goToProteinConfig() {
-            const hasValidStats = statistics.some(s => s.zscore);
-            if (!hasValidStats) {
-                showError('Add at least one statistic with Z-score/Score');
+            // Every statistic field is optional — proceed as long as at least
+            // one statistic has ANY metric column mapped (z-score, fold change,
+            // p-value or FDR).
+            const hasAnyMetric = statistics.some(s => s.zscore || s.foldchange || s.pvalue || s.fdr);
+            if (!hasAnyMetric) {
+                showError('Map at least one metric column (Z-score, fold change, p-value or FDR) in a statistic.');
                 return;
             }
 
@@ -3318,7 +3474,9 @@
                 renderHitTable(filteredData);
             }
 
-            if (filteredControls.length > 0 && currentView !== 'heatmap' && currentView !== 'distribution') {
+            // Control-guide (NTC) panel only under the scatter / overlay plot —
+            // not lollipop or volcano.
+            if (filteredControls.length > 0 && currentView === 'scatter') {
                 plotControlGuides(filteredControls, statIdx, metric, false /* compact */);
                 document.getElementById('controlsPlot').classList.remove('hidden');
             } else {
@@ -3383,9 +3541,9 @@
                     // NaN/undefined means the column wasn't mapped, so skip it.
                     const _stats = [
                         { key: 'zscore',     label: getScoreLabel() },
-                        { key: 'foldchange', label: 'Fold Change (log2)' },
-                        { key: 'logpvalue',  label: '-log10(P-value)' },
-                        { key: 'logfdr',     label: '-log10(FDR)' }
+                        { key: 'foldchange', label: 'Log₂(Fold change)' },
+                        { key: 'logpvalue',  label: '−log₁₀(P-value)' },
+                        { key: 'logfdr',     label: '−log₁₀(FDR)' }
                     ];
                     _stats.forEach(s => {
                         const v = d[`${s.key}_${statIdx}`];
@@ -5018,6 +5176,44 @@
             _renderAllMarkerBars();
         }
 
+        // ── Drag-and-drop file upload ───────────────────────────────────────
+        // The upload panels advertised "drag and drop" but had no handlers, so
+        // the browser just opened the dropped file. Wire each panel to route a
+        // dropped file into its existing upload handler.
+        function _wireDropZone(panelId, handlerFn) {
+            const zone = document.getElementById(panelId);
+            if (!zone) return;
+            ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => {
+                e.preventDefault(); e.stopPropagation();
+                zone.style.borderColor = '#2563eb';
+                zone.style.background = '#f0f7ff';
+            }));
+            ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => {
+                e.preventDefault(); e.stopPropagation();
+                zone.style.borderColor = '';
+                zone.style.background = '';
+            }));
+            zone.addEventListener('drop', e => {
+                const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                if (!file) return;
+                handlerFn({ target: { files: [file] } });
+            });
+        }
+        function _setupDropZones() {
+            _wireDropZone('screenAUploadSection', handleFileUpload);
+            _wireDropZone('screenBUploadSection', handleFileUploadB);
+            // Stop the browser opening a file dropped anywhere else on the page.
+            ['dragover', 'drop'].forEach(ev => window.addEventListener(ev, e => {
+                if (e.target.closest && e.target.closest('.upload-section')) return;
+                e.preventDefault();
+            }));
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _setupDropZones);
+        } else {
+            _setupDropZones();
+        }
+
         // ─── SVG Download helper ─────────────────────────────────────────────────
         function downloadSVG(divId, filename) {
             const el = document.getElementById(divId);
@@ -5453,6 +5649,10 @@
                     });
                 }
             });
+            // Hit table font follows the same control — re-render it live.
+            if (currentView === 'table' && typeof renderHitTable === 'function') {
+                renderHitTable(filteredData);
+            }
         }
 
         // ─── Volcano plot ───────────────────────────────────────────────────────
@@ -5685,7 +5885,7 @@
             cols.forEach(function(c) { colgroup += '<col id="col_' + c.key + '" style="width:' + c.w + 'px; min-width:50px;">'; });
             colgroup += '</colgroup>';
 
-            const thBase = 'padding:8px 10px; text-align:left; background:#f3f4f6; border-bottom:2px solid #d1d5db; border-right:1px solid #e5e7eb; user-select:none; font-size:' + gf.size + 'px; font-family:' + gf.family + '; position:relative; white-space:nowrap; overflow:hidden;';
+            const thBase = 'padding:8px 10px; text-align:left; background:#f3f4f6; border-bottom:2px solid #d1d5db; border-right:1px solid #e5e7eb; user-select:none; font-size:' + gf.size + 'px; font-family:' + gf.family + '; position:sticky; top:0; z-index:2; white-space:nowrap; overflow:hidden;';
             const tdStyle = 'padding:7px 10px; border-bottom:1px solid #f0f0f0; border-right:1px solid #f5f5f5; font-size:' + (gf.size - 1) + 'px; font-family:' + gf.family + '; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
             const handleStyle = 'position:absolute; right:0; top:0; bottom:0; width:6px; cursor:col-resize; background:transparent; z-index:3;';
 
@@ -5769,9 +5969,9 @@
         function getMetricLabel(metric) {
             const labels = {
                 'zscore': getScoreLabel(),
-                'foldchange': 'Fold Change (log2)',
-                'logpvalue': '-log10(P-value)',
-                'logfdr': '-log10(FDR)'
+                'foldchange': 'Log<sub>2</sub>(Fold change)',
+                'logpvalue': '−log<sub>10</sub>(P-value)',
+                'logfdr': '−log<sub>10</sub>(FDR)'
             };
             return labels[metric];
         }
@@ -5883,7 +6083,7 @@
                     return;
                 }
                 document.getElementById('heatmapContainer').classList.remove('hidden');
-                plotHeatmap();
+                onHeatmapModeChange();   // syncs scale/sheet-picker visibility, then plots
             } else if (view === 'table') {
                 if (tableContainer) tableContainer.style.display = 'block';
                 renderHitTable(filteredData);
@@ -6002,7 +6202,172 @@
             updateHeatmapColors();
         }
 
+        // ─── Heatmap mode dispatcher ─────────────────────────────────────────
+        // The heatmap view supports three modes via #heatmapModeSelect:
+        //   strip    — original 1-row-per-residue strip
+        //   aagrid   — 21-row residue×mutated-AA grid
+        //   coverage — guides-per-residue sequence map
+        function getHeatmapMode() {
+            return (document.getElementById('heatmapModeSelect') || {}).value || 'strip';
+        }
+
+        function onHeatmapModeChange() {
+            // Color-scale inputs only apply to value-based modes (strip / aagrid).
+            const mode = getHeatmapMode();
+            const showScale = (mode !== 'coverage');
+            ['heatmapScaleLabel','heatmapScaleMinWrap','heatmapScaleMaxWrap','heatmapAutoScaleBtn']
+              .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = showScale ? '' : 'none'; });
+            // Multi-sheet picker applies to the pooled views (aagrid / coverage).
+            const sheetWrap = document.getElementById('heatmapSheetWrap');
+            const multiSheet = (mode === 'aagrid' || mode === 'coverage');
+            const nSheets = window.allProcessedData ? Object.keys(window.allProcessedData).length : 0;
+            if (sheetWrap) {
+                if (multiSheet && nSheets > 1) {
+                    buildHeatmapSheetChecks();
+                    sheetWrap.style.display = 'flex';
+                } else {
+                    sheetWrap.style.display = 'none';
+                }
+            }
+            // Reset user-set scale flags so the new mode auto-scales fresh.
+            const minEl = document.getElementById('heatmapScaleMin');
+            const maxEl = document.getElementById('heatmapScaleMax');
+            if (minEl) delete minEl.dataset.userSet;
+            if (maxEl) delete maxEl.dataset.userSet;
+            plotHeatmap();
+        }
+
         function plotHeatmap() {
+            const mode = getHeatmapMode();
+            if (mode === 'aagrid')   return plotHeatmapAAGrid();
+            if (mode === 'coverage') return plotCoverageMap();
+            return plotHeatmapStrip();
+        }
+
+        // ─── Multi-sheet (screen) selection for heatmap views ───────────────
+        // window.allProcessedData is keyed by sheet name (e.g. an ABE sheet,
+        // a CBE sheet). The Variant Effect Map and Coverage map can pool guides
+        // across any combination of sheets the user checks.
+        window._heatmapSheets = null;   // null = not yet initialised
+
+        function buildHeatmapSheetChecks() {
+            const wrap = document.getElementById('heatmapSheetChecks');
+            if (!wrap) return;
+            const sheets = window.allProcessedData ? Object.keys(window.allProcessedData) : [];
+            wrap.innerHTML = '';
+            // Default: all sheets checked (user uploaded both → both shown).
+            if (window._heatmapSheets === null) window._heatmapSheets = new Set(sheets);
+            sheets.forEach(name => {
+                const lab = document.createElement('label');
+                lab.style.cssText = 'display:flex; align-items:center; gap:4px; font-size:12px; color:#374151; cursor:pointer;';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = name;
+                cb.checked = window._heatmapSheets.has(name);
+                cb.style.cssText = 'width:14px; height:14px; cursor:pointer;';
+                cb.addEventListener('change', () => {
+                    if (cb.checked) window._heatmapSheets.add(name);
+                    else window._heatmapSheets.delete(name);
+                    plotHeatmap();
+                });
+                lab.appendChild(cb);
+                lab.appendChild(document.createTextNode(name));
+                wrap.appendChild(lab);
+            });
+        }
+
+        // Pool guides across all checked sheets. Each guide gets a _sheet tag.
+        // Single-sheet modes (strip) ignore this and use the active sheet only.
+        function getPooledHeatmapGuides() {
+            const sel = window._heatmapSheets;
+            if (!window.allProcessedData) return rawData;
+            const names = Object.keys(window.allProcessedData)
+                .filter(n => !sel || sel.has(n));
+            if (names.length === 0) return [];
+            const pooled = [];
+            names.forEach(n => {
+                (window.allProcessedData[n].data || []).forEach(g => {
+                    pooled.push(Object.assign({}, g, { _sheet: n }));
+                });
+            });
+            return pooled;
+        }
+
+        // Residues that fit in one row given the heatmap container width.
+        // labelW = px reserved for row labels; stepW = px per residue cell.
+        // Clamped to a sane range so it never gets absurdly wide or narrow.
+        // Black or white text depending on background luminance.
+        function contrastTextColor(hex) {
+            let c = String(hex || '').replace('#', '');
+            if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+            if (c.length !== 6) return '#fff';
+            const r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16);
+            const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+            return lum > 0.6 ? '#000' : '#fff';
+        }
+
+        // Domain color usable as text on a near-white chip background.
+        // If the color is too light to read, darken it until it is.
+        function legibleOnLight(hex) {
+            let c = String(hex || '').replace('#', '');
+            if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+            if (c.length !== 6) return '#374151';
+            let r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16);
+            let lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+            let guard = 0;
+            while (lum > 0.55 && guard++ < 12) {
+                r = Math.round(r*0.8); g = Math.round(g*0.8); b = Math.round(b*0.8);
+                lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+            }
+            return 'rgb(' + r + ',' + g + ',' + b + ')';
+        }
+
+        function fitResiduesPerRow(labelW, stepW) {
+            const c = document.getElementById('heatmapContainer');
+            let w = (c && c.clientWidth) || 0;
+            if (w < 200 && c && c.parentElement) w = c.parentElement.clientWidth || 0;
+            if (w < 200) w = 1480;
+            const n = Math.floor((w - labelW - 4) / stepW);
+            return Math.max(40, Math.min(220, n));
+        }
+
+        // Shared helper: domain bars for a chunk, drawn from the
+        // user-entered proteins[gene].domains (name/start/end/color).
+        function buildDomainBarForChunk(domains, chunkStart, chunkLen) {
+            if (!domains || !domains.length) return null;
+            const overlapping = domains.filter(d =>
+                d && d.start != null && d.end != null &&
+                d.end >= chunkStart + 1 && d.start <= chunkStart + chunkLen);
+            if (!overlapping.length) return null;
+            const row = document.createElement('div');
+            row.className = 'heatmap-row';
+            const label = document.createElement('div');
+            label.className = 'heatmap-label';
+            label.textContent = 'Domains';
+            label.style.cssText += '; font-size:10px; color:#6b7280;';
+            row.appendChild(label);
+            const track = document.createElement('div');
+            track.style.cssText = 'position:relative; height:14px; width:' +
+                (chunkLen * 17) + 'px; background:#eef0f2; border-radius:3px;';
+            overlapping.forEach(d => {
+                const s = Math.max(d.start, chunkStart + 1);
+                const e = Math.min(d.end, chunkStart + chunkLen);
+                const bar = document.createElement('div');
+                bar.style.cssText = 'position:absolute; top:0; height:14px; border-radius:3px;' +
+                    'left:' + ((s - chunkStart - 1) * 17) + 'px;' +
+                    'width:' + ((e - s + 1) * 17 - 1) + 'px;' +
+                    'background:' + (d.color || '#3498db') + ';' +
+                    'font-size:8px; color:' + contrastTextColor(d.color || '#3498db') + '; text-align:center; line-height:14px;' +
+                    'overflow:hidden; white-space:nowrap;';
+                if ((e - s + 1) >= 4) bar.textContent = d.name || '';
+                bar.title = (d.name || 'Domain') + ' (' + d.start + '–' + d.end + ')';
+                track.appendChild(bar);
+            });
+            row.appendChild(track);
+            return row;
+        }
+
+        function plotHeatmapStrip() {
             const selectedProtein = document.getElementById('proteinSelect').value;
             const statIdx = 0;
             const metric = document.getElementById('metricSelect').value;
@@ -6143,7 +6508,9 @@
             const scaleMin = (!isNaN(userMin)) ? userMin : globalMin;
             const scaleMax = (!isNaN(userMax)) ? userMax : globalMax;
 
-            const chunkSize = 50;
+            // Residues per row fits the container width (cell 16px + 1px gap,
+            // 110px label column) so we don't waste horizontal space.
+            const chunkSize = 80;
             const numChunks = Math.ceil(sequence.length / chunkSize);
 
             for (let chunkIdx = 0; chunkIdx < numChunks; chunkIdx++) {
@@ -6204,7 +6571,7 @@
 
                     const label = document.createElement('div');
                     label.className = 'heatmap-label';
-                    label.textContent = metricLabel;
+                    label.innerHTML = metricLabel;   // metricLabel may contain <sub> markup
                     rowDiv.appendChild(label);
 
                     const cellGrid = document.createElement('div');
@@ -6360,6 +6727,429 @@
             container.appendChild(legend);
         }
 
+        // ─── Shared: gene + stat filtered, multi-sheet pooled guides ────────
+        // Pools guides across the sheets checked in #heatmapSheetChecks, then
+        // applies the same gene + z/fc/p/fdr/highInTreatment filters as the
+        // strip heatmap. The per-guide category filter is intentionally NOT
+        // applied — category is enforced per mutation downstream so mixed
+        // guides aren't lost.
+        function getHeatmapFilteredGuides(selectedProtein, statIdx) {
+            const pooled = getPooledHeatmapGuides();
+            const zcutoff   = parseFloat(document.getElementById('zcutoffSelect').value);
+            const fccutoff  = parseFloat(document.getElementById('fccutoffSelect').value);
+            const pcutoff   = parseFloat(document.getElementById('pcutoffSelect').value);
+            const fdrcutoff = parseFloat(document.getElementById('fdrcutoffSelect').value);
+            const highInTreatmentFilter = document.getElementById('highInTreatmentSelect').value;
+            return pooled.filter(d => {
+                if (columnMapping.geneName && d.gene !== selectedProtein) return false;
+                if (zcutoff > 0) {
+                    const z = d[`zscore_${statIdx}`];
+                    if (!applyDirectionalCutoff(z, zcutoff, document.getElementById('zcutoffDir')?.value || '>=')) return false;
+                }
+                if (fccutoff > 0) {
+                    const fc = d[`foldchange_${statIdx}`];
+                    if (!applyDirectionalCutoff(fc, fccutoff, document.getElementById('fccutoffDir')?.value || '>=')) return false;
+                }
+                if (pcutoff > 0 && pcutoff < 1) {
+                    const pv = Math.pow(10, -d[`logpvalue_${statIdx}`]);
+                    const pDir = document.getElementById('pcutoffDir')?.value || '<';
+                    if (pDir === '<') { if (isNaN(pv) || pv > pcutoff) return false; }
+                    else { if (isNaN(pv) || pv < pcutoff) return false; }
+                }
+                if (fdrcutoff > 0 && fdrcutoff < 1) {
+                    const fv = Math.pow(10, -d[`logfdr_${statIdx}`]);
+                    const fDir = document.getElementById('fdrcutoffDir')?.value || '<';
+                    if (fDir === '<') { if (isNaN(fv) || fv > fdrcutoff) return false; }
+                    else { if (isNaN(fv) || fv < fdrcutoff) return false; }
+                }
+                if (highInTreatmentFilter && columnMapping.highInTreatment) {
+                    const hit = String(d.highInTreatment).toLowerCase();
+                    if (highInTreatmentFilter === 'true' && hit !== 'true') return false;
+                    if (highInTreatmentFilter === 'false' && hit !== 'false') return false;
+                }
+                return true;
+            });
+        }
+
+        // ─── Mode 2: Variant Effect Map (residue × mutated AA) ──────────────
+        // MaveDB-style layout: amino acids grouped by physicochemical property,
+        // group bracket labels on the left, AA letters tight against the grid,
+        // rounded cells, position ticks every 2 residues.
+        const HM_AA_GROUPS = [
+            { label: '(+)',           aas: ['H','K','R'] },
+            { label: '(−)',      aas: ['D','E'] },
+            { label: 'polar-neutral', aas: ['C','M','T','S','Q','N'] },
+            { label: 'non-polar',     aas: ['I','V','L','A'] },
+            { label: 'aromatic',      aas: ['F','W','Y'] },
+            { label: 'unique',        aas: ['G','P'] },
+            { label: 'stop',          aas: ['*'] },
+        ];
+        // Flat order, top-to-bottom, matching the grouped layout.
+        const HM_AA_ORDER = HM_AA_GROUPS.reduce((a, g) => a.concat(g.aas), []);
+
+        function plotHeatmapAAGrid() {
+            const selectedProtein = document.getElementById('proteinSelect').value;
+            const statIdx = 0;
+            const metric = document.getElementById('metricSelect').value;
+            const protein = proteins[selectedProtein];
+            const sequence = protein.sequence;
+            const scheme = window.gradientScheme || 'redblue';
+            const metricLabel = getMetricLabel(metric);
+            const metricKey = `${metric}_${statIdx}`;
+            const mutationType = document.getElementById('mutationSelect')?.value || 'all';
+
+            if (!sequence || sequence.length === 0) { showError('Protein sequence required for heatmap'); return; }
+            const container = document.getElementById('heatmapContainer');
+            container.innerHTML = '';
+
+            const heatmapGuides = getHeatmapFilteredGuides(selectedProtein, statIdx);
+
+            // grid[pos][toAA] = { value (max-abs across sheets), guides:Set, muts:Set, sheets:Set }
+            const grid = {};
+            const accumulate = (mut, guide) => {
+                if (mut.residue == null || mut.toAA == null) return;
+                if (mutationType !== 'all' && mut.type !== mutationType) return;
+                const pos = Math.floor(mut.residue);
+                if (pos <= 0 || pos > sequence.length) return;
+                if (HM_AA_ORDER.indexOf(mut.toAA) < 0) return;
+                const v = guide[metricKey];
+                if (v === undefined || v === null || isNaN(v)) return;
+                if (!grid[pos]) grid[pos] = {};
+                if (!grid[pos][mut.toAA]) grid[pos][mut.toAA] = { value: v, guides: new Set(), muts: new Set(), sheets: new Set() };
+                else if (Math.abs(v) > Math.abs(grid[pos][mut.toAA].value)) grid[pos][mut.toAA].value = v; // max-abs
+                grid[pos][mut.toAA].guides.add(guide.guide || guide.guideID || '_');
+                grid[pos][mut.toAA].muts.add(mut.raw);
+                if (guide._sheet) grid[pos][mut.toAA].sheets.add(guide._sheet);
+            };
+            heatmapGuides.forEach(d => {
+                const muts = Array.isArray(d.mutations) ? d.mutations : parseAllMutations(d.rawMutations);
+                muts.forEach(mut => accumulate(mut, d));
+            });
+
+            // Global scale
+            let gMin = Infinity, gMax = -Infinity;
+            Object.values(grid).forEach(row => Object.values(row).forEach(c => {
+                if (c.value < gMin) gMin = c.value;
+                if (c.value > gMax) gMax = c.value;
+            }));
+            if (!isFinite(gMin)) { gMin = -5; gMax = 10; }
+
+            const scaleBar = document.getElementById('heatmapScaleBar');
+            if (scaleBar) {
+                scaleBar.style.display = 'flex';
+                const minEl = document.getElementById('heatmapScaleMin');
+                const maxEl = document.getElementById('heatmapScaleMax');
+                if (minEl && !minEl.dataset.userSet) minEl.value = gMin.toFixed(2);
+                if (maxEl && !maxEl.dataset.userSet) maxEl.value = gMax.toFixed(2);
+                window._heatmapAutoMin = gMin;
+                window._heatmapAutoMax = gMax;
+            }
+            const uMin = parseFloat(document.getElementById('heatmapScaleMin')?.value);
+            const uMax = parseFloat(document.getElementById('heatmapScaleMax')?.value);
+            const scaleMin = !isNaN(uMin) ? uMin : gMin;
+            const scaleMax = !isNaN(uMax) ? uMax : gMax;
+
+            // Layout constants (MaveDB-like): tight letter column, rounded cells.
+            const CELL = 15, GAP = 2, STEP = CELL + GAP;
+            const GROUP_LBL_W = 24;   // MaveDB-style grey group box (vertical text)
+            const AA_LBL_W    = 14;   // single AA letter, tight to grid
+            // Responsive row width — fill the container, not a fixed 50.
+            const chunkSize = 86;
+            const numChunks = Math.ceil(sequence.length / chunkSize);
+
+            for (let ci = 0; ci < numChunks; ci++) {
+                const start = ci * chunkSize;
+                const end = Math.min(start + chunkSize, sequence.length);
+                const chunk = sequence.substring(start, end);
+                const gridW = chunk.length * STEP;
+
+                const chunkDiv = document.createElement('div');
+                chunkDiv.className = 'heatmap-container';
+                chunkDiv.style.cssText = 'margin-bottom:26px;';
+
+                // Position ruler — numbers every 2 residues, centered on cell
+                const ruler = document.createElement('div');
+                ruler.style.cssText = 'display:flex; align-items:flex-end; height:18px;';
+                const rulerPad = document.createElement('div');
+                rulerPad.style.cssText = 'width:' + (GROUP_LBL_W + AA_LBL_W) + 'px; flex:none;';
+                ruler.appendChild(rulerPad);
+                const rulerTrack = document.createElement('div');
+                rulerTrack.style.cssText = 'position:relative; width:' + gridW + 'px; height:18px;';
+                for (let i = 0; i < chunk.length; i++) {
+                    const pos = start + i + 1;
+                    if (pos % 2 === 0) {
+                        const cx = i * STEP + CELL / 2;
+                        const tick = document.createElement('div');
+                        tick.style.cssText = 'position:absolute; bottom:0; left:' + cx +
+                            'px; width:1px; height:3px; background:#9ca3af;';
+                        rulerTrack.appendChild(tick);
+                        const num = document.createElement('div');
+                        num.textContent = pos;
+                        num.style.cssText = 'position:absolute; bottom:4px; left:' + cx +
+                            'px; transform:translateX(-50%); font-size:8px; color:#6b7280;' +
+                            'font-family:monospace; white-space:nowrap;';
+                        rulerTrack.appendChild(num);
+                    }
+                }
+                ruler.appendChild(rulerTrack);
+                chunkDiv.appendChild(ruler);
+
+                // AA rows wrapper — relative, so the group-label column can be
+                // one absolute overlay spanning exact group boundaries.
+                const rowsWrap = document.createElement('div');
+                rowsWrap.style.cssText = 'position:relative;';
+                let rowTop = 0;
+                HM_AA_GROUPS.forEach(group => {
+                    // One grey box per group, positioned to span its rows exactly.
+                    const box = document.createElement('div');
+                    box.style.cssText = 'position:absolute; left:1px; top:' + (rowTop + 1) +
+                        'px; width:' + (GROUP_LBL_W - 3) + 'px; height:' +
+                        (group.aas.length * STEP - 2) + 'px; background:#e5e7eb;' +
+                        'border-radius:3px; display:flex; align-items:center;' +
+                        'justify-content:center; overflow:hidden;';
+                    const txt = document.createElement('div');
+                    txt.textContent = group.label;
+                    txt.style.cssText = 'transform:rotate(-90deg); white-space:nowrap;' +
+                        'font-size:8px; color:#4b5563; font-weight:600;';
+                    box.appendChild(txt);
+                    rowsWrap.appendChild(box);
+                    rowTop += group.aas.length * STEP;
+                });
+                HM_AA_GROUPS.forEach(group => {
+                    group.aas.forEach((aaTo, gi) => {
+                        const row = document.createElement('div');
+                        row.style.cssText = 'display:flex; align-items:center; height:' + STEP + 'px;';
+
+                        const grpCell = document.createElement('div');
+                        grpCell.style.cssText = 'width:' + GROUP_LBL_W + 'px; flex:none;';
+                        row.appendChild(grpCell);
+
+                        // AA letter — tight against the grid
+                        const aaLbl = document.createElement('div');
+                        aaLbl.textContent = aaTo;
+                        aaLbl.style.cssText = 'width:' + AA_LBL_W + 'px; flex:none; text-align:center;' +
+                            'font-family:monospace; font-weight:700; font-size:8px; color:#374151;';
+                        row.appendChild(aaLbl);
+
+                        // Cells
+                        for (let i = 0; i < chunk.length; i++) {
+                            const pos = start + i + 1;
+                            const wt = chunk[i];
+                            const cellData = grid[pos] && grid[pos][aaTo];
+                            const isWT = (wt === aaTo);
+                            const cell = document.createElement('div');
+                            cell.className = 'heatmap-cell';
+                            cell.style.cssText = 'width:' + CELL + 'px; height:' + CELL +
+                                'px; margin-right:' + GAP + 'px; border-radius:3px; position:relative;';
+                            if (cellData) {
+                                cell.dataset.rawValue = cellData.value;
+                                cell.style.background = getGradientColorForMetric(cellData.value, scaleMin, scaleMax, scheme);
+                                cell.style.cursor = 'pointer';
+                            } else {
+                                cell.dataset.rawValue = '';
+                                cell.style.background = '#eceef0';
+                                cell.style.cursor = 'default';
+                            }
+                            if (isWT) {
+                                const dot = document.createElement('div');
+                                dot.style.cssText = 'position:absolute; top:50%; left:50%; width:4px; height:4px;' +
+                                    'margin:-2px 0 0 -2px; border-radius:50%; background:#000;' +
+                                    'border:0.5px solid #fff; pointer-events:none;';
+                                cell.appendChild(dot);
+                            }
+                            if (cellData) {
+                                const sheets = [...cellData.sheets];
+                                const hover = `<strong>${wt}${pos}${aaTo}</strong><br>` +
+                                    `${metricLabel}: ${cellData.value.toFixed(2)}<br>` +
+                                    `Guides: ${cellData.guides.size}` +
+                                    (sheets.length ? `<br>Screens: ${sheets.join(', ')}` : '') +
+                                    (isWT ? '<br><em>wild-type residue</em>' : '');
+                                cell.addEventListener('mouseenter', e => showTooltip(e, hover));
+                                cell.addEventListener('mouseleave', hideTooltip);
+                            }
+                            row.appendChild(cell);
+                        }
+                        rowsWrap.appendChild(row);
+                    });
+                });
+                chunkDiv.appendChild(rowsWrap);
+
+                // Domain bar — offset to align with the grid (skip label cols)
+                const domBar = buildDomainBarForChunk(protein.domains, start, chunk.length);
+                if (domBar) {
+                    const wrap = document.createElement('div');
+                    wrap.style.cssText = 'display:flex; align-items:center; margin-top:3px;';
+                    const pad = document.createElement('div');
+                    pad.style.cssText = 'width:' + (GROUP_LBL_W + AA_LBL_W) + 'px; flex:none;';
+                    const track = document.createElement('div');
+                    track.style.cssText = 'position:relative; height:12px; width:' + gridW +
+                        'px; background:#eef0f2; border-radius:3px;';
+                    (protein.domains || []).filter(d =>
+                        d && d.start != null && d.end != null &&
+                        d.end >= start + 1 && d.start <= start + chunk.length).forEach(d => {
+                        const s = Math.max(d.start, start + 1);
+                        const e = Math.min(d.end, start + chunk.length);
+                        const bar = document.createElement('div');
+                        bar.style.cssText = 'position:absolute; top:0; height:12px; border-radius:3px;' +
+                            'left:' + ((s - start - 1) * STEP) + 'px;' +
+                            'width:' + ((e - s + 1) * STEP - GAP) + 'px;' +
+                            'background:' + (d.color || '#3498db') + ';' +
+                            'font-size:7px; color:' + contrastTextColor(d.color || '#3498db') + '; text-align:center; line-height:12px;' +
+                            'overflow:hidden; white-space:nowrap;';
+                        if ((e - s + 1) >= 4) bar.textContent = d.name || '';
+                        bar.title = (d.name || 'Domain') + ' (' + d.start + '–' + d.end + ')';
+                        track.appendChild(bar);
+                    });
+                    wrap.appendChild(pad);
+                    wrap.appendChild(track);
+                    chunkDiv.appendChild(wrap);
+                }
+
+                container.appendChild(chunkDiv);
+            }
+
+            // Legend
+            const sheetNote = (window._heatmapSheets && window.allProcessedData &&
+                Object.keys(window.allProcessedData).length > 1)
+                ? ' Screens: ' + [...window._heatmapSheets].join(' + ') + '.' : '';
+            const legend = document.createElement('div');
+            legend.style.cssText = 'margin-top:1.5rem; padding:1rem; background:#f9f9f9; border-radius:8px;';
+            legend.innerHTML =
+                '<div style="font-size:12px; font-weight:500; margin-bottom:0.8rem;">' +
+                metricLabel + ' — max-abs per (residue, mutated AA).' + sheetNote +
+                ' ● = wild-type AA, grey = no guide.</div>' +
+                '<div style="height:24px; background:linear-gradient(to right, rgb(0,0,255), rgb(255,255,255), rgb(255,100,100)); border:0.5px solid #d0d0d0; border-radius:6px;"></div>' +
+                '<div style="display:flex; justify-content:space-between; font-size:11px; color:#666; margin-top:4px;">' +
+                '<span>' + gMin.toFixed(1) + '</span><span>' + ((gMin+gMax)/2).toFixed(1) + '</span><span>' + gMax.toFixed(1) + '</span></div>';
+            container.appendChild(legend);
+        }
+
+        // ─── Mode 3: guide coverage map (multi-sheet) ───────────────────────
+        function plotCoverageMap() {
+            const selectedProtein = document.getElementById('proteinSelect').value;
+            const statIdx = 0;
+            const protein = proteins[selectedProtein];
+            const sequence = protein.sequence;
+
+            if (!sequence || sequence.length === 0) { showError('Protein sequence required for coverage map'); return; }
+            const container = document.getElementById('heatmapContainer');
+            container.innerHTML = '';
+
+            const guides = getHeatmapFilteredGuides(selectedProtein, statIdx);
+
+            // Count unique guides per residue. A guide is identified by its
+            // sequence (g.guide), so a guide present in both ABE and CBE sheets
+            // counts only once — matching the "combined" coverage logic.
+            const posCounts = {};
+            const seenGuides = new Set();
+            guides.forEach(g => {
+                const key = g.guide || g.guideID || JSON.stringify(g).slice(0,40);
+                if (seenGuides.has(key)) return;
+                seenGuides.add(key);
+                const muts = Array.isArray(g.mutations) ? g.mutations : parseAllMutations(g.rawMutations);
+                const hit = new Set();
+                muts.forEach(m => { if (m.residue != null) hit.add(Math.floor(m.residue)); });
+                hit.forEach(pos => {
+                    if (pos > 0 && pos <= sequence.length) posCounts[pos] = (posCounts[pos] || 0) + 1;
+                });
+            });
+            let maxCount = 0;
+            Object.values(posCounts).forEach(c => { if (c > maxCount) maxCount = c; });
+            if (maxCount === 0) maxCount = 1;
+            const totalGuides = seenGuides.size;
+
+            const covColor = (count) => {
+                if (!count) return '#eceef0';
+                const t = count / maxCount;
+                const stops = [[255,255,204],[255,237,160],[254,178,76],[253,141,60],[240,59,32],[189,0,38]];
+                const seg = Math.min(stops.length - 2, Math.floor(t * (stops.length - 1)));
+                const f = t * (stops.length - 1) - seg;
+                const a = stops[seg], b = stops[seg+1];
+                return 'rgb(' + Math.round(a[0]+(b[0]-a[0])*f) + ',' +
+                    Math.round(a[1]+(b[1]-a[1])*f) + ',' + Math.round(a[2]+(b[2]-a[2])*f) + ')';
+            };
+
+            // Responsive row width — fill the container (cell 16px + 1px gap,
+            // 110px .heatmap-label column).
+            const chunkSize = 80;
+            const numChunks = Math.ceil(sequence.length / chunkSize);
+            for (let ci = 0; ci < numChunks; ci++) {
+                const start = ci * chunkSize;
+                const end = Math.min(start + chunkSize, sequence.length);
+                const chunk = sequence.substring(start, end);
+
+                const chunkDiv = document.createElement('div');
+                chunkDiv.className = 'heatmap-container';
+
+                const posRow = document.createElement('div');
+                posRow.className = 'heatmap-row';
+                posRow.appendChild(Object.assign(document.createElement('div'), { className: 'heatmap-label' }));
+                const posGrid = document.createElement('div');
+                posGrid.style.cssText = 'display:grid; grid-template-columns: repeat(' + chunk.length + ', 16px); gap:1px;';
+                for (let i = 0; i < chunk.length; i++) {
+                    const pos = start + i + 1;
+                    const pd = document.createElement('div');
+                    pd.style.cssText = 'width:16px; text-align:center; font-size:9px; color:#999; height:14px;';
+                    if (pos % 10 === 0) pd.textContent = pos;
+                    posGrid.appendChild(pd);
+                }
+                posRow.appendChild(posGrid);
+                chunkDiv.appendChild(posRow);
+
+                const seqRow = document.createElement('div');
+                seqRow.className = 'heatmap-row';
+                const seqLabel = document.createElement('div');
+                seqLabel.className = 'heatmap-label';
+                seqLabel.textContent = 'Sequence';
+                seqLabel.style.cssText += '; font-weight:600; font-size:11px;';
+                seqRow.appendChild(seqLabel);
+                const seqGrid = document.createElement('div');
+                seqGrid.style.cssText = 'display:grid; grid-template-columns: repeat(' + chunk.length + ', 16px); gap:1px;';
+                for (let i = 0; i < chunk.length; i++) {
+                    const pos = start + i + 1;
+                    const count = posCounts[pos] || 0;
+                    const cell = document.createElement('div');
+                    cell.className = 'heatmap-cell';
+                    cell.style.cssText = 'width:16px; height:16px; display:flex; align-items:center;' +
+                        'justify-content:center; font-size:11px; font-weight:700; border-radius:3px;';
+                    cell.style.background = covColor(count);
+                    if (count) {
+                        cell.style.color = (count / maxCount > 0.55) ? '#fff' : '#000';
+                        cell.style.cursor = 'pointer';
+                        const hover = `<strong>Position ${pos} (${chunk[i]})</strong><br>Guides targeting: ${count}`;
+                        cell.addEventListener('mouseenter', e => showTooltip(e, hover));
+                        cell.addEventListener('mouseleave', hideTooltip);
+                    } else {
+                        cell.style.color = '#aaa';
+                    }
+                    cell.textContent = chunk[i];
+                    cell.dataset.rawValue = '';
+                    seqGrid.appendChild(cell);
+                }
+                seqRow.appendChild(seqGrid);
+                chunkDiv.appendChild(seqRow);
+
+                const domBar = buildDomainBarForChunk(protein.domains, start, chunk.length);
+                if (domBar) chunkDiv.appendChild(domBar);
+
+                container.appendChild(chunkDiv);
+            }
+
+            const sheetNote = (window._heatmapSheets && window.allProcessedData &&
+                Object.keys(window.allProcessedData).length > 1)
+                ? ' (' + [...window._heatmapSheets].join(' + ') + ')' : '';
+            const legend = document.createElement('div');
+            legend.style.cssText = 'margin-top:1.5rem; padding:1rem; background:#f9f9f9; border-radius:8px;';
+            legend.innerHTML =
+                '<div style="font-size:12px; font-weight:500; margin-bottom:0.8rem;">' +
+                'Guide coverage' + sheetNote + ' — ' + totalGuides + ' unique guides. ' +
+                'Color = unique guides per residue, grey = not targeted.</div>' +
+                '<div style="height:24px; background:linear-gradient(to right, rgb(255,255,204), rgb(254,178,76), rgb(240,59,32), rgb(189,0,38)); border:0.5px solid #d0d0d0; border-radius:6px;"></div>' +
+                '<div style="display:flex; justify-content:space-between; font-size:11px; color:#666; margin-top:4px;">' +
+                '<span>0</span><span>' + Math.round(maxCount/2) + '</span><span>' + maxCount + '</span></div>';
+            container.appendChild(legend);
+        }
+
         function getGradientColorForMetric(value, min, max, scheme) {
             const normalized = Math.max(0, Math.min(1, (value - min) / (max - min)));
             const t = normalized;
@@ -6448,7 +7238,7 @@
                     domLeg.style.display = 'flex';
                     domLeg.innerHTML = '<span style="font-weight:600; color:#374151; margin-right:6px;">Domains:</span>'
                         + protein.domains.map(d =>
-                            `<span style="padding:3px 10px; background:${d.color}22; border:1px solid ${d.color}; border-radius:12px; color:${d.color}; font-weight:600;">${d.name} <span style="font-weight:400; color:#6b7280;">${d.start}–${d.end}</span></span>`
+                            `<span style="padding:3px 10px; background:${d.color}22; border:1px solid ${d.color}; border-radius:12px; color:${legibleOnLight(d.color)}; font-weight:600;">${d.name} <span style="font-weight:400; color:#6b7280;">${d.start}–${d.end}</span></span>`
                         ).join('');
                 } else {
                     domLeg.style.display = 'none';
@@ -6596,8 +7386,7 @@
             reader.onload = (e) => {
                 setTimeout(function() {
                     try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
+                        const workbook = parseUploadToWorkbook(e.target.result, file.name);
                         showSheetSelectionForScreen(workbook, 'B');
                     } catch (err) {
                         showError('Error reading file: ' + err.message);
@@ -7462,7 +8251,7 @@
                     overlayDomLeg.style.display = 'flex';
                     overlayDomLeg.innerHTML = '<span style="font-weight:600; color:#374151; margin-right:6px;">Domains:</span>'
                         + prot.domains.map(d =>
-                            `<span style="padding:3px 10px; background:${d.color}22; border:1px solid ${d.color}; border-radius:12px; color:${d.color}; font-weight:600; font-size:12px;">${d.name} <span style="font-weight:400; color:#6b7280;">${d.start}–${d.end}</span></span>`
+                            `<span style="padding:3px 10px; background:${d.color}22; border:1px solid ${d.color}; border-radius:12px; color:${legibleOnLight(d.color)}; font-weight:600; font-size:12px;">${d.name} <span style="font-weight:400; color:#6b7280;">${d.start}–${d.end}</span></span>`
                         ).join('');
                 } else {
                     overlayDomLeg.style.display = 'none';
@@ -7968,7 +8757,8 @@
                 gColFC:      ['foldchange','lfc','log2fc','fc','fold','log2'],
                 gColPvalue:  ['pvalue','p_val','pval','p.value','pval_adj','padj','p-value'],
                 gColFDR:     ['fdr','padj','qvalue','adj','q_val','qval'],
-                gColHighInTx:['treatment','hit','high','enriched']
+                gColHighInTx:['treatment','hit','high','enriched'],
+                gColInsertions:['insertion','insertions','totalinsertions','ninsertions','reads','count']
             };
             Object.entries(hints).forEach(function([selId, hintList]) {
                 const sel = document.getElementById(selId);
@@ -8055,13 +8845,15 @@
                 const pLog  = colMap.pvalue  ? (colMap.pvalueIsLog ? pRaw  : (pRaw > 0 ? -Math.log10(pRaw)  : NaN)) : NaN;
                 const fdrLog= colMap.fdr     ? (colMap.fdrIsLog    ? fdrRaw: (fdrRaw > 0 ? -Math.log10(fdrRaw) : NaN)) : NaN;
 
-                if (!geneMap[gene]) geneMap[gene] = { gene, guides: [], zs: [], fcs: [], ps: [], psCeil: [], fdrs: [], fdrsCeil: [], hitGuides: 0 };
+                const insRaw = colMap.insertions ? parseFloat(row[colMap.insertions]) : NaN;
+                if (!geneMap[gene]) geneMap[gene] = { gene, guides: [], zs: [], fcs: [], ps: [], psCeil: [], fdrs: [], fdrsCeil: [], hitGuides: 0, ins: [] };
                 const g = geneMap[gene];
                 g.guides.push(guideID || gene);
                 if (!isNaN(zRaw))   g.zs.push(zRaw);
                 if (!isNaN(fcRaw))  g.fcs.push(fcRaw);
                 if (!isNaN(pLog))   { g.ps.push(pLog);    g.psCeil.push(pCeil); }
                 if (!isNaN(fdrLog)) { g.fdrs.push(fdrLog); g.fdrsCeil.push(fdrCeil); }
+                if (!isNaN(insRaw)) g.ins.push(insRaw);
                 if (hit === 'true') g.hitGuides++;
             });
             function mean(arr) { return arr.length ? arr.reduce(function(a,b){return a+b;},0)/arr.length : NaN; }
@@ -8084,7 +8876,8 @@
                     logpvalue:  pBest.value,
                     logfdr:     fdrBest.value,
                     logpvalueCeiling: pBest.ceiling,
-                    logfdrCeiling:    fdrBest.ceiling
+                    logfdrCeiling:    fdrBest.ceiling,
+                    insertions: g.ins.length ? g.ins.reduce(function(a,b){return a+b;},0) : NaN
                 };
             });
         }
@@ -8139,6 +8932,7 @@
                 pvalue:     document.getElementById('gColPvalue').value || null,
                 fdr:        document.getElementById('gColFDR').value || null,
                 highInTx:   document.getElementById('gColHighInTx').value || null,
+                insertions: document.getElementById('gColInsertions')?.value || null,
                 pvalueIsLog:(document.getElementById('gColPvalueFormat')?.value === 'log10'),
                 fdrIsLog:   (document.getElementById('gColFDRFormat')?.value === 'log10')
             };
@@ -8271,10 +9065,24 @@
         }
 
         function getGenomeMetricLabel(m) {
-            return { zscore: getGenomeScoreLabel(), foldchange:'Fold Change', logpvalue:'−log10(P-value)', logfdr:'−log10(FDR)' }[m] || m;
+            return { zscore: getGenomeScoreLabel(), foldchange:'Log<sub>2</sub>(Fold change)', logpvalue:'−log<sub>10</sub>(P-value)', logfdr:'−log<sub>10</sub>(FDR)' }[m] || m;
+        }
+
+        // Show the "Total Insertions" size-by option only when the active
+        // dataset actually carries an insertions column.
+        function refreshInsertionsSizeOption(optId, geneArrays) {
+            const opt = document.getElementById(optId);
+            if (!opt) return;
+            const has = geneArrays.some(arr =>
+                Array.isArray(arr) && arr.some(g => g && !isNaN(g.insertions)));
+            opt.style.display = has ? '' : 'none';
+            if (!has && opt.selected) {
+                opt.parentElement.value = 'fixed';
+            }
         }
 
         function updateGenomeView() {
+            refreshInsertionsSizeOption('gSizeByInsertions', [genomeGeneData]);
             const cuts = {
                 z:    parseFloat(document.getElementById('gZcutoff')?.value)||0,
                 fc:   parseFloat(document.getElementById('gFCcutoff')?.value)||0,
@@ -8359,8 +9167,18 @@
             const yCeilKey = (yMetric === 'logpvalue' || yMetric === 'logfdr') ? (yMetric + 'Ceiling') : null;
             const isCeil = g => yCeilKey ? !!g[yCeilKey] : false;
 
-            // Sort hits by y-value descending to get top N labels
-            const hitsSorted = hitGenes.filter(g => !isNaN(g[yMetric])).sort((a,b) => (b[yMetric]||0)-(a[yMetric]||0));
+            // Rank hits by combined significance for stable top-N labeling.
+            // Priority: −log10(P) + −log10(FDR), fall back to |z|, fall back to |FC|.
+            function _rankScoreSingle(g) {
+                const lp = isNaN(g.logpvalue) ? 0 : g.logpvalue;
+                const lf = isNaN(g.logfdr) ? 0 : g.logfdr;
+                if (lp + lf > 0) return lp + lf;
+                const zv = isNaN(g.zscore) ? 0 : Math.abs(g.zscore);
+                if (zv > 0) return zv;
+                const fc = isNaN(g.foldchange) ? 0 : Math.abs(g.foldchange);
+                return fc;
+            }
+            const hitsSorted = hitGenes.filter(g => !isNaN(g[yMetric]) && !isNaN(g[xMetric])).slice().sort((a,b) => _rankScoreSingle(b) - _rankScoreSingle(a));
             const labelSet = new Set(hitsSorted.slice(0, labelTop).map(g => g.gene));
 
             const bgGenes = allGenes.filter(g => !hitSet.has(g.gene));
@@ -8410,11 +9228,41 @@
             const hitSize    = parseInt(document.getElementById('gMarkerSize')?.value || 9);
             const hitOpacity = parseFloat(document.getElementById('gMarkerOpacity')?.value || 0.85);
 
+            // Size-by-metric: normalize each gene's value into [sizeMin, sizeMax]
+            const sizeBy   = document.getElementById('gSizeBy')?.value || 'fixed';
+            const sizeMin  = parseFloat(document.getElementById('gSizeMin')?.value) || 5;
+            const sizeMax  = parseFloat(document.getElementById('gSizeMax')?.value) || 18;
+            function _val(g, key) {
+                let v = g[key];
+                if (v == null || isNaN(v)) return NaN;
+                if (key === 'foldchange' || key === 'zscore') v = Math.abs(v);
+                return v;
+            }
+            let _sizeLo = Infinity, _sizeHi = -Infinity;
+            if (sizeBy !== 'fixed') {
+                allGenes.forEach(g => {
+                    const v = _val(g, sizeBy);
+                    if (!isFinite(v)) return;
+                    if (v < _sizeLo) _sizeLo = v;
+                    if (v > _sizeHi) _sizeHi = v;
+                });
+            }
+            function sizesFor(arr, baseSize) {
+                if (sizeBy === 'fixed' || !isFinite(_sizeLo) || _sizeHi <= _sizeLo) return baseSize;
+                const lo = Math.min(sizeMin, sizeMax), hi = Math.max(sizeMin, sizeMax);
+                return arr.map(function(g) {
+                    const v = _val(g, sizeBy);
+                    if (!isFinite(v)) return lo;
+                    const t = (v - _sizeLo) / (_sizeHi - _sizeLo);
+                    return lo + t * (hi - lo);
+                });
+            }
+
             const traces = [
-                makeTrace(bgGenes,   'Below cutoff', '#d1d5db', Math.max(4, hitSize - 2),  0.6,  false)
+                makeTrace(bgGenes,   'Below cutoff', '#d1d5db', sizesFor(bgGenes, Math.max(4, hitSize - 2)),  0.6,  false, hitShape)
             ];
-            if (hitNormal.length)  traces.push(makeTrace(hitNormal,  'Above cutoff',        hitColor, hitSize,  hitOpacity, true, hitShape));
-            if (hitCeiling.length) traces.push(makeTrace(hitCeiling, 'Above cutoff (⚑ at floor)', hitColor, hitSize, Math.min(1, hitOpacity + 0.1), true, 'triangle-up', '#000', 2));
+            if (hitNormal.length)  traces.push(makeTrace(hitNormal,  'Above cutoff',        hitColor, sizesFor(hitNormal, hitSize),  hitOpacity, true, hitShape));
+            if (hitCeiling.length) traces.push(makeTrace(hitCeiling, 'Above cutoff (⚑ at floor)', hitColor, sizesFor(hitCeiling, hitSize), Math.min(1, hitOpacity + 0.1), true, 'triangle-up', '#000', 2));
 
             // Arrow annotations for top hits
             const annotations = hitsSorted.slice(0, Math.min(labelTop, hitsSorted.length))
@@ -8443,22 +9291,30 @@
             }
 
             // Click-to-pin labels (CRISPR single).
+            // _gPinnedLabels: Set of gene names (kept for back-compat).
+            // _gPinnedAngles: Map of gene -> { angleDeg, dist } for manual rotation.
             window._gPinnedLabels = window._gPinnedLabels || new Set();
+            window._gPinnedAngles = window._gPinnedAngles || new Map();
             const _gByGene = new Map();
             allGenes.forEach(g => {
                 const xv = g[xMetric], yv = g[yMetric];
                 if (xv == null || yv == null || isNaN(xv) || isNaN(yv)) return;
                 _gByGene.set(g.gene, { x: xv, y: yv });
             });
-            const _gPinDirs = [
-                [ 36, -32], [-36, -32], [ 36,  32], [-36,  32],
-                [ 48,   0], [-48,   0], [  0, -42], [  0,  42]
-            ];
+            // Default placement angles around the point (deg, 0 = right)
+            const _gPinDefaultAngles = [ -42, 222, 42, 138, 0, 180, -90, 90 ];
             let _gPinIdx = 0;
             window._gPinnedLabels.forEach(gene => {
                 const xy = _gByGene.get(gene);
                 if (!xy) return;
-                const [_ax, _ay] = _gPinDirs[_gPinIdx++ % _gPinDirs.length];
+                if (!window._gPinnedAngles.has(gene)) {
+                    window._gPinnedAngles.set(gene, { angleDeg: _gPinDefaultAngles[_gPinIdx % _gPinDefaultAngles.length], dist: 48 });
+                    _gPinIdx++;
+                }
+                const cfg = window._gPinnedAngles.get(gene);
+                const rad = cfg.angleDeg * Math.PI / 180;
+                const _ax = Math.cos(rad) * cfg.dist;
+                const _ay = -Math.sin(rad) * cfg.dist; // y axis inverted in pixel space
                 annotations.push({
                     x: xy.x, y: xy.y, xref:'x', yref:'y',
                     text: '<b>' + gene + '</b>',
@@ -8468,6 +9324,8 @@
                     bgcolor:'rgba(236,253,245,0.95)', bordercolor:'#5eead4', borderwidth:1, borderpad:3
                 });
             });
+            // Refresh the pin rotation controller panel
+            try { renderPinController(); } catch (_) {}
 
             // Pull custom axis range overrides (CRISPR-specific inputs).
             const _gNumAxis = (id) => {
@@ -8542,11 +9400,121 @@
                             window._gZoomRestore = null;
                         }
                     } catch (_) { window._gZoomRestore = null; }
-                    if (window._gPinnedLabels.has(gene)) window._gPinnedLabels.delete(gene);
-                    else window._gPinnedLabels.add(gene);
+                    if (window._gPinnedLabels.has(gene)) {
+                        window._gPinnedLabels.delete(gene);
+                        if (window._gPinnedAngles) window._gPinnedAngles.delete(gene);
+                    } else {
+                        window._gPinnedLabels.add(gene);
+                    }
                     updateGenomeView();
                 });
             });
+        }
+
+        // Render a controller listing each pinned gene with a rotation slider + distance input.
+        function renderPinController() {
+            const container = document.getElementById('gPinController');
+            if (!container) return;
+            window._gPinnedLabels = window._gPinnedLabels || new Set();
+            window._gPinnedAngles = window._gPinnedAngles || new Map();
+            const genes = [...window._gPinnedLabels];
+            if (!genes.length) { container.innerHTML = ''; container.style.display = 'none'; return; }
+            container.style.display = '';
+            let html = '<div style="font-size:11px; font-weight:700; color:#374151; margin-bottom:6px;">Pin rotation</div>';
+            html += '<div style="display:flex; flex-wrap:wrap; gap:10px;">';
+            genes.forEach(function(g) {
+                const cfg = window._gPinnedAngles.get(g) || { angleDeg: -42, dist: 48 };
+                if (!window._gPinnedAngles.has(g)) window._gPinnedAngles.set(g, cfg);
+                const safeG = String(g).replace(/'/g, "\\'");
+                html += '<div style="display:flex; align-items:center; gap:6px; padding:4px 8px; background:#fff; border:1px solid #e5e7eb; border-radius:5px;">'
+                  + '<span style="font-size:11px; font-weight:600; color:#0f766e; min-width:70px;">' + g + '</span>'
+                  + '<span style="font-size:10px; color:#6b7280;">∠</span>'
+                  + '<input type="range" min="-180" max="180" step="5" value="' + cfg.angleDeg + '" '
+                  + 'oninput="setPinAngle(\'' + safeG + '\', parseFloat(this.value)); document.getElementById(\'gPinAngVal_' + safeG + '\').textContent=this.value+\'°\';" style="width:90px;">'
+                  + '<span id="gPinAngVal_' + safeG + '" style="font-size:10px; color:#6b7280; min-width:30px;">' + cfg.angleDeg + '°</span>'
+                  + '<span style="font-size:10px; color:#6b7280;">d</span>'
+                  + '<input type="number" min="10" max="200" step="2" value="' + cfg.dist + '" '
+                  + 'onchange="setPinDist(\'' + safeG + '\', parseFloat(this.value))" style="width:48px; font-size:11px; padding:2px 4px; border:1px solid #d1d5db; border-radius:3px;">'
+                  + '<button onclick="removePin(\'' + safeG + '\')" title="Remove pin" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:14px; padding:0 2px;">×</button>'
+                  + '</div>';
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        function setPinAngle(gene, deg) {
+            window._gPinnedAngles = window._gPinnedAngles || new Map();
+            const cfg = window._gPinnedAngles.get(gene) || { angleDeg: -42, dist: 48 };
+            cfg.angleDeg = deg;
+            window._gPinnedAngles.set(gene, cfg);
+            updateGenomeView();
+        }
+        function setPinDist(gene, d) {
+            window._gPinnedAngles = window._gPinnedAngles || new Map();
+            const cfg = window._gPinnedAngles.get(gene) || { angleDeg: -42, dist: 48 };
+            cfg.dist = isFinite(d) ? Math.max(10, Math.min(200, d)) : 48;
+            window._gPinnedAngles.set(gene, cfg);
+            updateGenomeView();
+        }
+        function removePin(gene) {
+            window._gPinnedLabels && window._gPinnedLabels.delete(gene);
+            window._gPinnedAngles && window._gPinnedAngles.delete(gene);
+            updateGenomeView();
+        }
+
+        // ── Pin rotation controller for CRISPR comparison overlay ───────────────
+        function renderGcPinController() {
+            const container = document.getElementById('gcPinController');
+            if (!container) return;
+            window._gcPinnedLabels = window._gcPinnedLabels || new Set();
+            window._gcPinnedAngles = window._gcPinnedAngles || new Map();
+            const keys = [...window._gcPinnedLabels];
+            if (!keys.length) { container.innerHTML = ''; container.style.display = 'none'; return; }
+            container.style.display = '';
+            let html = '<div style="font-size:11px; font-weight:700; color:#374151; margin-bottom:6px;">Pin rotation</div>';
+            html += '<div style="display:flex; flex-wrap:wrap; gap:10px;">';
+            keys.forEach(function(key) {
+                const cfg = window._gcPinnedAngles.get(key) || { angleDeg: -42, dist: 48 };
+                if (!window._gcPinnedAngles.has(key)) window._gcPinnedAngles.set(key, cfg);
+                let screen = null, gene = key;
+                if (typeof key === 'string' && key.indexOf('::') !== -1) {
+                    const parts = key.split('::'); screen = parts[0]; gene = parts.slice(1).join('::');
+                }
+                const display = screen ? (gene + ' [' + screen + ']') : gene;
+                const safeKey = String(key).replace(/'/g, "\\'");
+                const safeId = String(key).replace(/[^A-Za-z0-9_]/g,'_');
+                html += '<div style="display:flex; align-items:center; gap:6px; padding:4px 8px; background:#fff; border:1px solid #e5e7eb; border-radius:5px;">'
+                  + '<span style="font-size:11px; font-weight:600; color:#0f766e; min-width:90px;">' + display + '</span>'
+                  + '<span style="font-size:10px; color:#6b7280;">∠</span>'
+                  + '<input type="range" min="-180" max="180" step="5" value="' + cfg.angleDeg + '" '
+                  + 'oninput="setGcPinAngle(\'' + safeKey + '\', parseFloat(this.value)); document.getElementById(\'gcPinAngVal_' + safeId + '\').textContent=this.value+\'°\';" style="width:90px;">'
+                  + '<span id="gcPinAngVal_' + safeId + '" style="font-size:10px; color:#6b7280; min-width:30px;">' + cfg.angleDeg + '°</span>'
+                  + '<span style="font-size:10px; color:#6b7280;">d</span>'
+                  + '<input type="number" min="10" max="200" step="2" value="' + cfg.dist + '" '
+                  + 'onchange="setGcPinDist(\'' + safeKey + '\', parseFloat(this.value))" style="width:48px; font-size:11px; padding:2px 4px; border:1px solid #d1d5db; border-radius:3px;">'
+                  + '<button onclick="removeGcPin(\'' + safeKey + '\')" title="Remove pin" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:14px; padding:0 2px;">×</button>'
+                  + '</div>';
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        function setGcPinAngle(key, deg) {
+            window._gcPinnedAngles = window._gcPinnedAngles || new Map();
+            const cfg = window._gcPinnedAngles.get(key) || { angleDeg: -42, dist: 48 };
+            cfg.angleDeg = deg;
+            window._gcPinnedAngles.set(key, cfg);
+            updateGenomeComparisonView();
+        }
+        function setGcPinDist(key, d) {
+            window._gcPinnedAngles = window._gcPinnedAngles || new Map();
+            const cfg = window._gcPinnedAngles.get(key) || { angleDeg: -42, dist: 48 };
+            cfg.dist = isFinite(d) ? Math.max(10, Math.min(200, d)) : 48;
+            window._gcPinnedAngles.set(key, cfg);
+            updateGenomeComparisonView();
+        }
+        function removeGcPin(key) {
+            window._gcPinnedLabels && window._gcPinnedLabels.delete(key);
+            window._gcPinnedAngles && window._gcPinnedAngles.delete(key);
+            updateGenomeComparisonView();
         }
 
         function renderGenomeTable(data) {
@@ -8565,9 +9533,9 @@
                 genomeGeneData.some(function(g) { return g.zscore != null && !isNaN(g.zscore); });
             const baseCols = [
                 {key:'gene',label:'Gene',w:130},
-                {key:'foldchange',label:'Fold Change',w:110,num:true},
-                {key:'logpvalue',label:'−log10(P-value)',w:115,num:true},
-                {key:'logfdr',label:'−log10(FDR)',w:105,num:true}
+                {key:'foldchange',label:'Log₂(Fold change)',w:130,num:true},
+                {key:'logpvalue',label:'−log₁₀(P-value)',w:120,num:true},
+                {key:'logfdr',label:'−log₁₀(FDR)',w:110,num:true}
             ];
             if (hasIGTIOB) baseCols.splice(1, 0, {key:'zscore',label:getGenomeScoreLabel(),w:100,num:true});
             const cols = baseCols;
@@ -8602,27 +9570,64 @@
         }
 
         function downloadGenomeData() {
-            const dataToDownload = genomeFilteredGenes && genomeFilteredGenes.length ? genomeFilteredGenes : genomeGeneData;
-            if (!dataToDownload.length) { alert('No data to download'); return; }
+            if (!genomeGeneData || !genomeGeneData.length) { alert('No data to download'); return; }
             const hasIGTIOB = genomeColMap && genomeColMap.zscore;
-            const rows = dataToDownload.map(function(g) {
+            const hitSet = new Set((genomeFilteredGenes || []).map(g => g.gene));
+            function toRow(g) {
                 const row = { 'Gene': g.gene };
                 if (hasIGTIOB && g.zscore != null && !isNaN(g.zscore)) row[getGenomeScoreLabel()] = g.zscore;
-                if (g.foldchange != null && !isNaN(g.foldchange)) row['Fold Change'] = g.foldchange;
-                if (g.logpvalue != null && !isNaN(g.logpvalue)) row['−log10(P-value)'] = g.logpvalue;
-                if (g.logfdr != null && !isNaN(g.logfdr)) row['−log10(FDR)'] = g.logfdr;
+                if (g.foldchange != null && !isNaN(g.foldchange)) row['Log2(Fold change)'] = g.foldchange;
+                if (g.logpvalue != null && !isNaN(g.logpvalue)) row['-log10(P-value)'] = g.logpvalue;
+                if (g.logfdr != null && !isNaN(g.logfdr)) row['-log10(FDR)'] = g.logfdr;
+                row['Category'] = hitSet.has(g.gene) ? 'Above cutoff' : 'Below cutoff';
                 row['Notes'] = (g.logpvalueCeiling || g.logfdrCeiling)
                     ? 'true FDR below numerical precision and this is a floor' : '';
                 return row;
-            });
-            const ws = XLSX.utils.json_to_sheet(rows);
+            }
+            const above = genomeGeneData.filter(g => hitSet.has(g.gene)).map(toRow);
+            const below = genomeGeneData.filter(g => !hitSet.has(g.gene)).map(toRow);
+            const all   = genomeGeneData.map(toRow);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Genes');
-            XLSX.writeFile(wb, 'genome_screen_genes.xlsx');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(all),   'All genes');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(above), 'Above cutoff');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(below), 'Below cutoff');
+            XLSX.writeFile(wb, 'crispr_screen_data.xlsx');
         }
 
         // ─── Genome Comparison ───────────────────────────────────────────────
+        // Hide cutoff inputs and axis dropdown options for stats the user didn't map.
+        // Union of A & B mapping so a metric mapped in either screen stays available.
+        function syncGenomeComparisonControlsToMapping() {
+            const cmA = (gcConfigs && gcConfigs.A && gcConfigs.A.colMap) || {};
+            const cmB = (gcConfigs && gcConfigs.B && gcConfigs.B.colMap) || {};
+            const has = { zscore: !!(cmA.zscore || cmB.zscore), foldchange: !!(cmA.fc || cmB.fc), logpvalue: !!(cmA.pvalue || cmB.pvalue), logfdr: !!(cmA.fdr || cmB.fdr) };
+            const cellMap = {
+                Z: 'zscore', FC: 'foldchange', P: 'logpvalue', FDR: 'logfdr'
+            };
+            ['A','B'].forEach(function(s) {
+                Object.keys(cellMap).forEach(function(k) {
+                    const el = document.getElementById('gc' + k + 'cell' + s);
+                    if (el) el.style.display = has[cellMap[k]] ? '' : 'none';
+                });
+            });
+            // Filter axis selects to only include mapped metrics
+            ['gcXMetric','gcYMetric','gcCorrXMetric','gcCorrYMetric'].forEach(function(id) {
+                const sel = document.getElementById(id);
+                if (!sel) return;
+                let firstVisible = null;
+                Array.from(sel.options).forEach(function(opt) {
+                    const ok = !!has[opt.value];
+                    opt.style.display = ok ? '' : 'none';
+                    opt.disabled = !ok;
+                    if (ok && firstVisible === null) firstVisible = opt.value;
+                });
+                if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled && firstVisible) sel.value = firstVisible;
+            });
+        }
+
         function updateGenomeComparisonView() {
+            try { syncGenomeComparisonControlsToMapping(); } catch (_) {}
+            refreshInsertionsSizeOption('gcSizeByInsertions', [gcConfigs.A.geneData, gcConfigs.B.geneData]);
             const nameA = gcConfigs.A.name||'Screen A', nameB = gcConfigs.B.name||'Screen B';
             const cutsA = { z:parseFloat(document.getElementById('gcZcutoffA')?.value)||0, fc:parseFloat(document.getElementById('gcFCcutoffA')?.value)||0, p:parseFloat(document.getElementById('gcPcutoffA')?.value)||1, fdr:parseFloat(document.getElementById('gcFDRcutoffA')?.value)||1, zDir:document.getElementById('gcZDirA')?.value||'>=', fcDir:document.getElementById('gcFCDirA')?.value||'>=', pDir:document.getElementById('gcPDirA')?.value||'<', fdrDir:document.getElementById('gcFDRDirA')?.value||'<' };
             const cutsB = { z:parseFloat(document.getElementById('gcZcutoffB')?.value)||0, fc:parseFloat(document.getElementById('gcFCcutoffB')?.value)||0, p:parseFloat(document.getElementById('gcPcutoffB')?.value)||1, fdr:parseFloat(document.getElementById('gcFDRcutoffB')?.value)||1, zDir:document.getElementById('gcZDirB')?.value||'>=', fcDir:document.getElementById('gcFCDirB')?.value||'>=', pDir:document.getElementById('gcPDirB')?.value||'<', fdrDir:document.getElementById('gcFDRDirB')?.value||'<' };
@@ -9171,6 +10176,108 @@
             document.getElementById('gcCommonTable').innerHTML = html;
         }
 
+        // Categorize all genes (Common / A only / B only / Below cutoff) given current cutoffs.
+        function _gcCategorizeGenes() {
+            const nameA = gcConfigs.A.name||'Screen A', nameB = gcConfigs.B.name||'Screen B';
+            const mapA = new Map(gcConfigs.A.geneData.map(g=>[g.gene,g]));
+            const mapB = new Map(gcConfigs.B.geneData.map(g=>[g.gene,g]));
+            const allGenes = [...new Set([...mapA.keys(), ...mapB.keys()])];
+            const cutsA={z:parseFloat(document.getElementById('gcZcutoffA')?.value)||0,fc:parseFloat(document.getElementById('gcFCcutoffA')?.value)||0,p:parseFloat(document.getElementById('gcPcutoffA')?.value)||1,fdr:parseFloat(document.getElementById('gcFDRcutoffA')?.value)||1,zDir:document.getElementById('gcZDirA')?.value||'>=',fcDir:document.getElementById('gcFCDirA')?.value||'>=',pDir:document.getElementById('gcPDirA')?.value||'<',fdrDir:document.getElementById('gcFDRDirA')?.value||'<'};
+            const cutsB={z:parseFloat(document.getElementById('gcZcutoffB')?.value)||0,fc:parseFloat(document.getElementById('gcFCcutoffB')?.value)||0,p:parseFloat(document.getElementById('gcPcutoffB')?.value)||1,fdr:parseFloat(document.getElementById('gcFDRcutoffB')?.value)||1,zDir:document.getElementById('gcZDirB')?.value||'>=',fcDir:document.getElementById('gcFCDirB')?.value||'>=',pDir:document.getElementById('gcPDirB')?.value||'<',fdrDir:document.getElementById('gcFDRDirB')?.value||'<'};
+            const cutsActiveA = (cutsA.z > 0) || (cutsA.fc > 0) || (cutsA.p > 0 && cutsA.p < 1) || (cutsA.fdr > 0 && cutsA.fdr < 1);
+            const cutsActiveB = (cutsB.z > 0) || (cutsB.fc > 0) || (cutsB.p > 0 && cutsB.p < 1) || (cutsB.fdr > 0 && cutsB.fdr < 1);
+            const passA = new Set((cutsActiveA ? applyGenomeCutoffs(gcConfigs.A.geneData,cutsA.z,cutsA.zDir,cutsA.fc,cutsA.fcDir,cutsA.p,cutsA.fdr,cutsA.pDir,cutsA.fdrDir) : []).map(g=>g.gene));
+            const passB = new Set((cutsActiveB ? applyGenomeCutoffs(gcConfigs.B.geneData,cutsB.z,cutsB.zDir,cutsB.fc,cutsB.fcDir,cutsB.p,cutsB.fdr,cutsB.pDir,cutsB.fdrDir) : []).map(g=>g.gene));
+            function category(g) {
+                const inA = passA.has(g), inB = passB.has(g);
+                if (cutsActiveA && cutsActiveB) {
+                    if (inA && inB) return 'Common';
+                    if (inA) return nameA + ' only';
+                    if (inB) return nameB + ' only';
+                    return 'Below cutoff';
+                }
+                if (cutsActiveA) return inA ? (nameA + ' hit') : 'Below cutoff';
+                if (cutsActiveB) return inB ? (nameB + ' hit') : 'Below cutoff';
+                return 'All (no cutoff)';
+            }
+            return { nameA, nameB, mapA, mapB, allGenes, category };
+        }
+
+        // Download overlay data — long-format with one row per (gene, screen) point.
+        // Categories split across sheets so users can import directly into Prism.
+        function downloadGenomeOverlayData() {
+            if (!gcConfigs || !gcConfigs.A || !gcConfigs.B) { alert('Load both screens first'); return; }
+            const { nameA, nameB, mapA, mapB, allGenes, category } = _gcCategorizeGenes();
+            function buildRows(screenKey, screenName) {
+                const map = screenKey === 'A' ? mapA : mapB;
+                return allGenes.map(function(g) {
+                    const d = map.get(g);
+                    if (!d) return null;
+                    const cat = category(g);
+                    return {
+                        'Gene': g,
+                        'Screen': screenName,
+                        'Category': cat,
+                        'Log2(Fold change)': d.foldchange ?? '',
+                        '-log10(P-value)': d.logpvalue ?? '',
+                        '-log10(FDR)': d.logfdr ?? '',
+                        'Score': d.zscore ?? '',
+                        'At-floor': (d.logpvalueCeiling || d.logfdrCeiling) ? 'Yes' : ''
+                    };
+                }).filter(Boolean);
+            }
+            const aRows = buildRows('A', nameA);
+            const bRows = buildRows('B', nameB);
+            const all = aRows.concat(bRows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(all), 'All points');
+            const cats = [...new Set(all.map(r => r.Category))];
+            cats.forEach(function(c) {
+                const safe = String(c).replace(/[\\\/\?\*\[\]:]/g,'_').slice(0,30) || 'cat';
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(all.filter(r => r.Category === c)), safe);
+            });
+            XLSX.writeFile(wb, 'crispr_overlay_data.xlsx');
+        }
+
+        // Download correlation data — wide format (X = Screen A metric, Y = Screen B metric)
+        // with one row per gene; categories on separate sheets for easy plotting.
+        function downloadGenomeCorrelationData() {
+            if (!gcConfigs || !gcConfigs.A || !gcConfigs.B) { alert('Load both screens first'); return; }
+            const { nameA, nameB, mapA, mapB, allGenes, category } = _gcCategorizeGenes();
+            const xMetric = document.getElementById('gcCorrXMetric')?.value || document.getElementById('gcXMetric')?.value || 'foldchange';
+            const yMetric = document.getElementById('gcCorrYMetric')?.value || document.getElementById('gcYMetric')?.value || 'foldchange';
+            const lbl = { zscore:'Score', foldchange:'Log2(Fold change)', logpvalue:'-log10(P-value)', logfdr:'-log10(FDR)' };
+            const xLab = lbl[xMetric] || xMetric;
+            const yLab = lbl[yMetric] || yMetric;
+            const rows = allGenes.map(function(g) {
+                const a = mapA.get(g) || {}, b = mapB.get(g) || {};
+                const xv = a[xMetric], yv = b[yMetric];
+                if (xv == null || yv == null || isNaN(xv) || isNaN(yv)) return null;
+                return {
+                    'Gene': g,
+                    'Category': category(g),
+                    [nameA + ' — ' + xLab]: xv,
+                    [nameB + ' — ' + yLab]: yv,
+                    [nameA + ' Log2(FC)']: a.foldchange ?? '',
+                    [nameB + ' Log2(FC)']: b.foldchange ?? '',
+                    [nameA + ' -log10(P)']: a.logpvalue ?? '',
+                    [nameB + ' -log10(P)']: b.logpvalue ?? '',
+                    [nameA + ' -log10(FDR)']: a.logfdr ?? '',
+                    [nameB + ' -log10(FDR)']: b.logfdr ?? '',
+                    [nameA + ' Score']: a.zscore ?? '',
+                    [nameB + ' Score']: b.zscore ?? ''
+                };
+            }).filter(Boolean);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'All genes');
+            const cats = [...new Set(rows.map(r => r.Category))];
+            cats.forEach(function(c) {
+                const safe = String(c).replace(/[\\\/\?\*\[\]:]/g,'_').slice(0,30) || 'cat';
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.filter(r => r.Category === c)), safe);
+            });
+            XLSX.writeFile(wb, 'crispr_correlation_data.xlsx');
+        }
+
         function downloadGenomeComparisonReport() {
             const nameA=gcConfigs.A.name||'Screen A', nameB=gcConfigs.B.name||'Screen B';
             const mapA=new Map(gcConfigs.A.geneData.map(g=>[g.gene,g]));
@@ -9222,10 +10329,13 @@
 
             const symSize    = parseInt(document.getElementById('gcSymbolSize')?.value || 9);
             const symOpacity = parseFloat(document.getElementById('gcMarkerOpacity')?.value || 0.85);
-            const colA   = '#2563eb';   // circle blue — Screen A, above its own cutoff
-            const colB   = '#e74c3c';   // circle red  — Screen B, above its own cutoff
-            const colBg  = '#d1d5db';   // gray         — below cutoff in own screen
-            const colHit = '#7c3aed';   // violet square — gene passes cutoff in BOTH screens
+            const colA   = document.getElementById('gcColorA')?.value || '#2563eb';
+            const colB   = document.getElementById('gcColorB')?.value || '#e74c3c';
+            const colBg  = '#d1d5db';   // gray — below cutoff
+            const colHit = document.getElementById('gcColorCommon')?.value || '#7c3aed';
+            const shapeA = document.getElementById('gcShapeA')?.value || 'circle';
+            const shapeB = document.getElementById('gcShapeB')?.value || 'circle';
+            const shapeHit = document.getElementById('gcShapeCommon')?.value || 'square';
 
             // ─── Classification rules (3-tier) ───────────────────────────────────
             // For each gene's point in screen X (X = A or B):
@@ -9325,12 +10435,42 @@
                 });
             }
 
+            // Size-by-metric mapping for comparison overlay
+            const gcSizeBy  = document.getElementById('gcSizeBy')?.value || 'fixed';
+            const gcSizeMin = parseFloat(document.getElementById('gcSizeMin')?.value) || 5;
+            const gcSizeMax = parseFloat(document.getElementById('gcSizeMax')?.value) || 18;
+            function _gcVal(g, key) {
+                let v = g[key];
+                if (v == null || isNaN(v)) return NaN;
+                if (key === 'foldchange' || key === 'zscore') v = Math.abs(v);
+                return v;
+            }
+            let _gcSzLo = Infinity, _gcSzHi = -Infinity;
+            if (gcSizeBy !== 'fixed') {
+                const allPts = genesA.concat(genesB);
+                allPts.forEach(g => {
+                    const v = _gcVal(g, gcSizeBy);
+                    if (!isFinite(v)) return;
+                    if (v < _gcSzLo) _gcSzLo = v;
+                    if (v > _gcSzHi) _gcSzHi = v;
+                });
+            }
+            function _gcSizes(arr) {
+                if (gcSizeBy === 'fixed' || !isFinite(_gcSzLo) || _gcSzHi <= _gcSzLo) return symSize;
+                const lo = Math.min(gcSizeMin, gcSizeMax), hi = Math.max(gcSizeMin, gcSizeMax);
+                return arr.map(function(g) {
+                    const v = _gcVal(g, gcSizeBy);
+                    if (!isFinite(v)) return lo;
+                    const t = (v - _gcSzLo) / (_gcSzHi - _gcSzLo);
+                    return lo + t * (hi - lo);
+                });
+            }
             function mkTrace(genes, name, color, symbol, screen, showLegend) {
                 return { x: genes.map(g=>g[xMetric]), y: genes.map(g=>g[yMetric]),
                     mode:'markers', type:'scattergl', name:name, showlegend:showLegend,
                     marker:{
                         symbol: symbol,
-                        size: symSize,
+                        size: _gcSizes(genes),
                         color: color,
                         opacity: symOpacity,
                         line:{ color: genes.map(g => isCeil(g) ? '#000' : '#333'), width: genes.map(g => isCeil(g) ? 2 : 0.4) }
@@ -9351,8 +10491,8 @@
             if (aBg.length || bBg.length) {
                 traces.push(mkTrace(aBg.concat(bBg), 'Below cutoff (both screens)', colBg, 'circle', '(below cutoff)', true));
             }
-            if (aOwn.length)  traces.push(mkTrace(aOwn,  nameA, colA, 'circle', nameA, true));
-            if (bOwn.length)  traces.push(mkTrace(bOwn,  nameB, colB, 'circle', nameB, true));
+            if (aOwn.length)  traces.push(mkTrace(aOwn,  nameA, colA, shapeA, nameA, true));
+            if (bOwn.length)  traces.push(mkTrace(bOwn,  nameB, colB, shapeB, nameB, true));
             // Common-hit points across both screens are also identical (violet square) —
             // collapse to one legend entry, but keep the per-screen hover names by tagging
             // each point with its screen name.
@@ -9363,7 +10503,7 @@
                     x: combined.map(g=>g[xMetric]), y: combined.map(g=>g[yMetric]),
                     mode:'markers', type:'scattergl', name:'Common hit (both screens)', showlegend:true,
                     marker:{
-                        symbol:'square', size:symSize, color:colHit, opacity:symOpacity,
+                        symbol:shapeHit, size:_gcSizes(combined), color:colHit, opacity:symOpacity,
                         line:{ color: combined.map(g => isCeil(g) ? '#000' : '#333'), width: combined.map(g => isCeil(g) ? 2 : 0.4) }
                     },
                     text: combined.map((g,i)=>makeHover(g, screens[i], g.__screen)), hovertemplate:'%{text}<extra></extra>',
@@ -9472,10 +10612,8 @@
                 const prevAny = overlayBestAny.get(g.gene);
                 if (!prevAny || yv > prevAny.y) overlayBestAny.set(g.gene, { x: xv, y: yv });
             });
-            const _pinDirsOL = [
-                [ 36, -32], [-36, -32], [ 36,  32], [-36,  32],
-                [ 48,   0], [-48,   0], [  0, -42], [  0,  42]
-            ];
+            window._gcPinnedAngles = window._gcPinnedAngles || new Map();
+            const _gcPinDefaultAngles = [ -42, 222, 42, 138, 0, 180, -90, 90 ];
             let _pinIdxOL = 0;
             window._gcPinnedLabels.forEach(function(key) {
                 let screen = null, gene = key;
@@ -9487,7 +10625,14 @@
                          : (screen === 'B') ? overlayBestB.get(gene)
                          : overlayBestAny.get(gene);
                 if (!xy) return;
-                const [_pinAx, _pinAy] = _pinDirsOL[_pinIdxOL++ % _pinDirsOL.length];
+                if (!window._gcPinnedAngles.has(key)) {
+                    window._gcPinnedAngles.set(key, { angleDeg: _gcPinDefaultAngles[_pinIdxOL % _gcPinDefaultAngles.length], dist: 48 });
+                    _pinIdxOL++;
+                }
+                const cfg = window._gcPinnedAngles.get(key);
+                const rad = cfg.angleDeg * Math.PI / 180;
+                const _pinAx = Math.cos(rad) * cfg.dist;
+                const _pinAy = -Math.sin(rad) * cfg.dist;
                 const labelTxt = screen ? ('<b>' + gene + '</b> <span style="font-size:10px;">[' + screen + ']</span>') : ('<b>' + gene + '</b>');
                 annotations.push({
                     x: xy.x, y: xy.y, xref:'x', yref:'y',
@@ -9498,9 +10643,10 @@
                     bgcolor:'rgba(236,253,245,0.95)', bordercolor:'#5eead4', borderwidth:1, borderpad:3
                 });
             });
+            try { renderGcPinController(); } catch (_) {}
 
             Plotly.newPlot('gcOverlayPlot', traces, {
-                title:{text:'Overlay: '+nameA+' (● blue) vs '+nameB+' (● red) | Below cutoff: ● gray | Common hit: ■ violet',x:0.5,xanchor:'center',font:{size:gf.size+2,family:gf.family}},
+                title:{text:'Overlay: '+nameA+' vs '+nameB,x:0.5,xanchor:'center',font:{size:gf.size+2,family:gf.family}},
                 xaxis:{title:{text:xLabel,font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},
                     showline:true,mirror:true,ticks:'outside',ticklen:5,linewidth:1.5,linecolor:'#333',automargin:true,zeroline:true,zerolinewidth:1,zerolinecolor:'#aaa'},
                 yaxis:{title:{text:yLabel,font:{size:gf.size,family:gf.family}},tickfont:{size:gf.size,family:gf.family},
@@ -9523,8 +10669,12 @@
                     else                   { gene = cd; }
                     if (!gene) return;
                     const key = screen ? (screen + '::' + gene) : gene;
-                    if (window._gcPinnedLabels.has(key)) window._gcPinnedLabels.delete(key);
-                    else window._gcPinnedLabels.add(key);
+                    if (window._gcPinnedLabels.has(key)) {
+                        window._gcPinnedLabels.delete(key);
+                        if (window._gcPinnedAngles) window._gcPinnedAngles.delete(key);
+                    } else {
+                        window._gcPinnedLabels.add(key);
+                    }
                     updateGenomeComparisonView();
                 });
             });
